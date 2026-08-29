@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import './ScoreboardOverview.css'
 import { useScoreboard } from '../../hooks/useScoreboard'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
@@ -12,10 +12,8 @@ import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 export function ScoreboardOverview() {
   const { games, isLoading, isError, refetch } = useScoreboard()
   const { settings } = useSettings()
-  const { selectedDateKey, setSelectedDateKey, highlightedGameId, clearHighlight } = useViewState()
+  const { selectedDateKey, setSelectedDateKey, expandedGameId, toggleExpandedGame } = useViewState()
   const days = useGamesByDay(games, settings.timezoneId)
-  const [expandedGameId, setExpandedGameId] = useState<string | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
 
   const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : days[0]?.dateKey
 
@@ -23,13 +21,13 @@ export function ScoreboardOverview() {
     if (!selectedDateKey && days[0]) setSelectedDateKey(days[0].dateKey)
   }, [days, selectedDateKey, setSelectedDateKey])
 
+  // Scroll the expanded card into view whenever it changes — whether the
+  // expand happened here or arrived from Slate's shared expandedGameId.
   useEffect(() => {
-    if (!highlightedGameId) return
-    setExpandedGameId(highlightedGameId)
-    const el = document.getElementById(`game-card-${highlightedGameId}`)
+    if (!expandedGameId) return
+    const el = document.getElementById(`game-card-${expandedGameId}`)
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    clearHighlight()
-  }, [highlightedGameId, clearHighlight])
+  }, [expandedGameId])
 
   const activeDay = days.find((d) => d.dateKey === activeDateKey)
   const safeGames = useSpoilerSafeGames(activeDay?.games ?? [])
@@ -50,7 +48,7 @@ export function ScoreboardOverview() {
       {!isLoading && !isError && days.length === 0 && <EmptyState />}
 
       {!isLoading && !isError && activeDay && (
-        <div className="scoreboard-overview__grid" ref={containerRef}>
+        <div className="scoreboard-overview__grid">
           {safeGames.map(({ game, rawGame, isProtected }) => (
             <GameCard
               key={game.id}
@@ -58,7 +56,7 @@ export function ScoreboardOverview() {
               rawGame={rawGame}
               isProtected={isProtected}
               isExpanded={expandedGameId === game.id}
-              onToggle={() => setExpandedGameId((cur) => (cur === game.id ? null : game.id))}
+              onToggle={() => toggleExpandedGame(game.id)}
               zoneId={settings.timezoneId}
             />
           ))}

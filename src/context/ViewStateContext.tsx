@@ -7,11 +7,11 @@ interface ViewStateValue {
   setTab: (tab: Tab) => void
   selectedDateKey: string | null
   setSelectedDateKey: (key: string) => void
-  /** Set when the user taps a game in the Schedule Grid; the Scoreboard
-   * Overview reads and clears it to auto-expand + scroll to that card. */
-  highlightedGameId: string | null
-  jumpToGame: (dateKey: string, gameId: string) => void
-  clearHighlight: () => void
+  /** Shared between Slate and Scoreboard — both are views onto the same
+   * data, so the same game shows expanded on either screen. */
+  expandedGameId: string | null
+  setExpandedGameId: (id: string | null) => void
+  toggleExpandedGame: (gameId: string) => void
 }
 
 const ViewStateContext = createContext<ViewStateValue | null>(null)
@@ -19,7 +19,7 @@ const ViewStateContext = createContext<ViewStateValue | null>(null)
 export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>('schedule')
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
-  const [highlightedGameId, setHighlightedGameId] = useState<string | null>(null)
+  const [expandedGameId, setExpandedGameId] = useState<string | null>(null)
 
   const value = useMemo<ViewStateValue>(
     () => ({
@@ -27,15 +27,11 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       setTab,
       selectedDateKey,
       setSelectedDateKey,
-      highlightedGameId,
-      jumpToGame: (dateKey, gameId) => {
-        setSelectedDateKey(dateKey)
-        setHighlightedGameId(gameId)
-        setTab('scoreboard')
-      },
-      clearHighlight: () => setHighlightedGameId(null),
+      expandedGameId,
+      setExpandedGameId,
+      toggleExpandedGame: (gameId) => setExpandedGameId((cur) => (cur === gameId ? null : gameId)),
     }),
-    [tab, selectedDateKey, highlightedGameId],
+    [tab, selectedDateKey, expandedGameId],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>

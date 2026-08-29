@@ -1,7 +1,7 @@
 import './GameChip.css'
 import type { Game } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
-import { ProtectedTag } from '../shared/SpoilerGate'
+import { ProtectedToggle } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
 
@@ -16,9 +16,12 @@ interface GameChipProps {
 }
 
 export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect }: GameChipProps) {
-  const { isFavoriteTeam } = useSettings()
+  const { isFavoriteTeam, toggleProtectedGame } = useSettings()
   const isFavoriteGame = isFavoriteTeam(game.home.id) || isFavoriteTeam(game.away.id)
   const glowColor = isFavoriteTeam(game.home.id) ? game.home.color : game.away.color
+  // `game` is already the spoiler-sanitized view by the time it reaches here,
+  // so a protected game's scores are already stripped — no separate check needed.
+  const showScore = game.state !== 'pre' && game.homeScore !== undefined && game.awayScore !== undefined
 
   const classes = [
     'game-chip',
@@ -46,15 +49,17 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
         <div className="game-chip__team">
           <TeamLogo team={game.away} size={20} rank={game.away.rank} />
           <span className="game-chip__abbr">{game.away.abbreviation}</span>
+          {showScore && <span className="game-chip__score ticker">{game.awayScore}</span>}
         </div>
         <span className="game-chip__at">@</span>
         <div className="game-chip__team">
           <TeamLogo team={game.home} size={20} rank={game.home.rank} />
           <span className="game-chip__abbr">{game.home.abbreviation}</span>
+          {showScore && <span className="game-chip__score ticker">{game.homeScore}</span>}
         </div>
       </div>
       <div className="game-chip__meta">
-        {isProtected && <ProtectedTag />}
+        <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} size={12} />
         <span className={`game-chip__status ticker${game.state === 'in' ? ' game-chip__status--live' : ''}`}>
           {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
           {kickoffOrStatus(game, zoneId)}

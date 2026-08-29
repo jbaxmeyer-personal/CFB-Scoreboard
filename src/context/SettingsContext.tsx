@@ -29,7 +29,6 @@ interface SettingsContextValue {
   setGlobalSpoilers: (enabled: boolean) => void
   toggleProtectedGame: (gameId: string) => void
   toggleProtectedTeam: (teamId: string) => void
-  isGameSpoilerListed: (gameId: string) => boolean
   isTeamSpoilerListed: (teamId: string) => boolean
 }
 
@@ -65,7 +64,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           ...s,
           spoilers: { ...s.spoilers, protectedTeamIds: toggleInList(s.spoilers.protectedTeamIds, teamId) },
         })),
-      isGameSpoilerListed: (gameId) => settings.spoilers.protectedGameIds.includes(gameId),
       isTeamSpoilerListed: (teamId) => settings.spoilers.protectedTeamIds.includes(teamId),
     }),
     [settings],

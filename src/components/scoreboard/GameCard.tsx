@@ -2,7 +2,7 @@ import './GameCard.css'
 import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
-import { ProtectedTag } from '../shared/SpoilerGate'
+import { ProtectedToggle } from '../shared/SpoilerGate'
 import { ExpandedGame } from './ExpandedGame'
 import { useSettings } from '../../context/SettingsContext'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
@@ -29,6 +29,7 @@ interface GameCardProps {
 }
 
 export function GameCard({ game, rawGame, isProtected, isExpanded, onToggle, zoneId }: GameCardProps) {
+  const { toggleProtectedGame } = useSettings()
   // ESPN reports score "0" for competitors even before kickoff, so a pre-game
   // check is required on top of definedness — and definedness is still
   // required because a protected *live* game reports state 'in' (to show the
@@ -37,10 +38,22 @@ export function GameCard({ game, rawGame, isProtected, isExpanded, onToggle, zon
 
   return (
     <div id={`game-card-${game.id}`} className={`game-card${isExpanded ? ' game-card--expanded' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}>
-      <button type="button" className="game-card__trigger" onClick={onToggle} aria-expanded={isExpanded}>
+      <div
+        role="button"
+        tabIndex={0}
+        className="game-card__trigger"
+        onClick={onToggle}
+        aria-expanded={isExpanded}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
+      >
         <div className="game-card__header">
           <NetworkBadgeList networks={game.broadcasts} />
-          {isProtected && <ProtectedTag />}
+          <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} />
         </div>
         <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} />
         <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} />
@@ -48,7 +61,7 @@ export function GameCard({ game, rawGame, isProtected, isExpanded, onToggle, zon
           {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
           {kickoffOrStatus(game, zoneId)}
         </div>
-      </button>
+      </div>
 
       {isExpanded && <ExpandedGame game={rawGame} zoneId={zoneId} isProtected={isProtected} />}
     </div>

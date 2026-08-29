@@ -12,6 +12,8 @@ export interface Team {
   logoLight?: string
   logoDark?: string
   rank?: number
+  /** Overall win-loss record entering/during this game, e.g. "7-1". */
+  record?: string
 }
 
 export type GameState = 'pre' | 'in' | 'post'

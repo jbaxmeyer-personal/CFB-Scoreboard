@@ -30,6 +30,12 @@ export interface EspnCurrentRank {
   current: number
 }
 
+export interface EspnRecord {
+  name?: string
+  type?: string
+  summary: string
+}
+
 export interface EspnCompetitor {
   id: string
   homeAway: 'home' | 'away'
@@ -37,6 +43,7 @@ export interface EspnCompetitor {
   team: EspnTeam
   score?: string
   curatedRank?: EspnCurrentRank
+  records?: EspnRecord[]
 }
 
 export interface EspnStatusType {

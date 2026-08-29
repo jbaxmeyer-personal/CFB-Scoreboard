@@ -73,62 +73,54 @@
   accent-color: var(--accent-amber);
 }
 
-.settings-team-list,
-.settings-game-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.settings-team-row,
-.settings-game-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-panel);
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.settings-team-row--active,
-.settings-game-row--active {
-  border-color: var(--accent-amber);
-  background: rgba(255, 149, 0, 0.08);
-}
-
-.settings-team-row__name {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.settings-game-row__matchup {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.settings-game-row__time {
-  font-size: 11px;
-  color: var(--text-tertiary);
-}
-
-.settings-checkbox-indicator {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  border-radius: 5px;
-  border: 1px solid var(--border-strong);
+.confirm-prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  color: var(--accent-amber);
+  padding: 24px;
+  background: rgba(6, 8, 11, 0.7);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-prompt {
+  width: 100%;
+  max-width: 320px;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+}
+
+.confirm-prompt p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.confirm-prompt__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.confirm-prompt__actions button {
+  flex: 1;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+}
+
+.confirm-prompt__yes {
+  background: var(--accent-amber) !important;
+  border-color: var(--accent-amber) !important;
+  color: #1a0f00 !important;
 }

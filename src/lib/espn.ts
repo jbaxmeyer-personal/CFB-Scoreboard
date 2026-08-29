@@ -44,8 +44,9 @@ function pickLogos(logos: EspnLogo[] | undefined, singleLogo: string | undefined
 }
 
 function toTeam(competitor: EspnCompetitor): Team {
-  const { team, curatedRank } = competitor
+  const { team, curatedRank, records } = competitor
   const rank = curatedRank?.current
+  const overallRecord = records?.find((r) => r.type === 'total' || r.name === 'overall')?.summary ?? records?.[0]?.summary
   return {
     id: team.id,
     name: team.displayName,
@@ -54,6 +55,7 @@ function toTeam(competitor: EspnCompetitor): Team {
     color: team.color ? `#${team.color}` : undefined,
     alternateColor: team.alternateColor ? `#${team.alternateColor}` : undefined,
     rank: rank && rank > 0 && rank <= 25 ? rank : undefined,
+    record: overallRecord,
     ...pickLogos(team.logos, team.logo),
   }
 }

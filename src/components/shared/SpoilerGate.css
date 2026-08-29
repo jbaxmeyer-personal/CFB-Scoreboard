@@ -40,45 +40,25 @@
   letter-spacing: normal;
 }
 
-.spoiler-gate__confirm {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 20px;
-  text-align: center;
-}
-
-.spoiler-gate__confirm p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-primary);
-  max-width: 220px;
-}
-
-.spoiler-gate__confirm-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.spoiler-gate__confirm-actions button {
-  border-radius: var(--radius-sm);
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-panel-raised);
-}
-
-.spoiler-gate__reveal {
-  background: var(--accent-amber) !important;
-  border-color: var(--accent-amber) !important;
-  color: #1a0f00 !important;
-}
-
 .protected-tag {
   display: inline-flex;
   align-items: center;
   color: var(--text-tertiary);
 }
+
+.protected-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.protected-toggle--active {
+  color: var(--accent-amber);
+}
+
