@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './TimeGrid.css'
 import type { SafeGameEntry } from '../../hooks/useSpoilerSafeGames'
 import { GameChip } from './GameChip'
 import { NetworkBadge } from '../shared/NetworkBadge'
 import { EmptyState } from '../shared/StatusStates'
-import { computeGridBounds, groupByNetwork, hourTicks, pxPerMinute, layoutRow, LABEL_WIDTH } from '../../lib/scheduleGrid'
+import { computeGridBounds, groupByNetwork, hourTicks, nowOffsetMinutes, pxPerMinute, layoutRow, LABEL_WIDTH } from '../../lib/scheduleGrid'
 
 const ROW_HEIGHT = 64
 
@@ -21,14 +21,26 @@ export function TimeGrid({ entries, zoneId, onSelectGame }: TimeGridProps) {
   const bounds = useMemo(() => computeGridBounds(games, zoneId), [games, zoneId])
   const rows = useMemo(() => groupByNetwork(games), [games])
 
+  // Ticks every minute so the "now" line keeps advancing while the screen stays open.
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   if (!bounds || games.length === 0) return <EmptyState />
 
   const totalWidth = bounds.totalMinutes * pxPerMinute()
   const ticks = hourTicks(bounds)
+  const nowOffset = nowOffsetMinutes(zoneId, bounds)
+  const showNowLine = nowOffset >= 0 && nowOffset <= bounds.totalMinutes
 
   return (
     <div className="time-grid-scroll scrollbar-hide">
       <div className="time-grid" style={{ width: totalWidth + LABEL_WIDTH }}>
+        {showNowLine && (
+          <div className="time-grid__now-line" style={{ left: LABEL_WIDTH + nowOffset * pxPerMinute() }} />
+        )}
         <div className="time-grid__header">
           <div className="time-grid__corner" />
           <div className="time-grid__ticks" style={{ width: totalWidth }}>

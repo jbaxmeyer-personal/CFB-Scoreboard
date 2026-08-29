@@ -21,6 +21,9 @@
   left: 0;
   background: var(--bg-base);
   z-index: 3;
+  /* Forces its own compositor layer — mitigates iOS Safari's tendency to
+     tear/lag sticky-positioned columns during horizontal scroll. */
+  transform: translateZ(0);
 }
 
 .time-grid__ticks {
@@ -52,14 +55,42 @@
   display: flex;
   align-items: center;
   padding: 0 4px;
+  overflow: hidden;
   position: sticky;
   left: 0;
   background: var(--bg-base);
   z-index: 2;
+  transform: translateZ(0);
+}
+
+.time-grid__now-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dashed var(--accent-amber);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.time-grid__now-line::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-amber);
 }
 
 .time-grid__row-track {
   position: relative;
+  /* Row-track chips are absolutely positioned — without this, an
+     early-kickoff chip can scroll past the sticky label and bleed into the
+     page's outer margin. (Must live here, not on an ancestor of the sticky
+     label, or overflow:hidden becomes its sticky containing block instead
+     of the true scroll container and breaks the stickiness entirely.) */
+  overflow: hidden;
   border-bottom: 1px solid var(--border-subtle);
   background-image: linear-gradient(to right, var(--border-subtle) 1px, transparent 1px);
   background-repeat: repeat-x;
