@@ -80,6 +80,7 @@
 }
 
 .expanded-game__led {
+  position: relative;
   font-family: var(--font-display);
   font-size: 56px;
   font-weight: 600;
@@ -95,12 +96,16 @@
   color: #ffd479;
 }
 
+/* Absolutely positioned so it never adds height to the flex item — that
+   was throwing off the vertical alignment between the two scores. */
 .expanded-game__led--possession::after {
   content: '';
-  display: block;
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  transform: translateX(-50%);
   width: 8px;
   height: 8px;
-  margin: 4px auto 0;
   border-radius: 50%;
   background: var(--accent-amber);
   box-shadow: 0 0 6px var(--accent-amber);
