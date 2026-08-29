@@ -36,6 +36,17 @@ export interface EspnRecord {
   summary: string
 }
 
+export interface EspnLeaderAthlete {
+  displayValue: string
+  athlete?: { displayName: string }
+}
+
+export interface EspnLeaderCategory {
+  name: string
+  displayName?: string
+  leaders?: EspnLeaderAthlete[]
+}
+
 export interface EspnCompetitor {
   id: string
   homeAway: 'home' | 'away'
@@ -44,6 +55,7 @@ export interface EspnCompetitor {
   score?: string
   curatedRank?: EspnCurrentRank
   records?: EspnRecord[]
+  leaders?: EspnLeaderCategory[]
 }
 
 export interface EspnStatusType {
@@ -93,4 +105,44 @@ export interface EspnEvent {
 
 export interface EspnScoreboardResponse {
   events: EspnEvent[]
+}
+
+// Shape of the separate per-game summary endpoint
+// (.../summary?event={id}), fetched only for an expanded live/final game —
+// this is where box score team/player stats for that specific game live.
+export interface EspnBoxscoreStat {
+  name: string
+  displayValue: string
+  label?: string
+}
+
+export interface EspnBoxscoreTeamEntry {
+  team: { id: string }
+  statistics: EspnBoxscoreStat[]
+}
+
+export interface EspnBoxscorePlayerAthlete {
+  athlete: { displayName: string }
+  stats: string[]
+}
+
+export interface EspnBoxscorePlayerCategory {
+  name: string
+  text?: string
+  labels: string[]
+  athletes: EspnBoxscorePlayerAthlete[]
+}
+
+export interface EspnBoxscorePlayerEntry {
+  team: { id: string }
+  statistics: EspnBoxscorePlayerCategory[]
+}
+
+export interface EspnBoxscore {
+  teams?: EspnBoxscoreTeamEntry[]
+  players?: EspnBoxscorePlayerEntry[]
+}
+
+export interface EspnSummaryResponse {
+  boxscore?: EspnBoxscore
 }

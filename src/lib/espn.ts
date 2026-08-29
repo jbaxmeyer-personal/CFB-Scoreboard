@@ -1,10 +1,20 @@
-import type { EspnCompetitor, EspnEvent, EspnLogo, EspnScoreboardResponse } from '../types/espn'
-import type { Game, GameState, Team } from '../types/game'
+import type {
+  EspnBoxscorePlayerEntry,
+  EspnBoxscoreTeamEntry,
+  EspnCompetitor,
+  EspnEvent,
+  EspnLeaderCategory,
+  EspnLogo,
+  EspnScoreboardResponse,
+  EspnSummaryResponse,
+} from '../types/espn'
+import type { Game, GameBoxScore, GameState, StatLeader, Team, TeamStatLine } from '../types/game'
 
 export const FBS_GROUP = 80
 
 const SCOREBOARD_URL =
   'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard'
+const SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary'
 
 export function buildScoreboardUrl(dateParam: string, group = FBS_GROUP): string {
   const params = new URLSearchParams({
@@ -43,8 +53,28 @@ function pickLogos(logos: EspnLogo[] | undefined, singleLogo: string | undefined
   return {}
 }
 
+const LEADER_CATEGORY_MATCHERS: { category: StatLeader['category']; pattern: RegExp }[] = [
+  { category: 'passing', pattern: /passing/i },
+  { category: 'rushing', pattern: /rushing/i },
+  { category: 'receiving', pattern: /receiving/i },
+]
+
+/** Best-effort parse of ESPN's per-team season leaders (passing/rushing/
+ * receiving), shown pre-game only — the category naming isn't something
+ * this session could verify live, so an unmatched shape just yields []. */
+function parseSeasonLeaders(leaders: EspnLeaderCategory[] | undefined): StatLeader[] {
+  if (!leaders) return []
+  const result: StatLeader[] = []
+  for (const { category, pattern } of LEADER_CATEGORY_MATCHERS) {
+    const found = leaders.find((l) => pattern.test(l.name) || (l.displayName && pattern.test(l.displayName)))
+    const leader = found?.leaders?.[0]
+    if (leader) result.push({ category, playerName: leader.athlete?.displayName ?? 'Unknown', displayValue: leader.displayValue })
+  }
+  return result
+}
+
 function toTeam(competitor: EspnCompetitor): Team {
-  const { team, curatedRank, records } = competitor
+  const { team, curatedRank, records, leaders } = competitor
   const rank = curatedRank?.current
   const overallRecord = records?.find((r) => r.type === 'total' || r.name === 'overall')?.summary ?? records?.[0]?.summary
   return {
@@ -56,6 +86,7 @@ function toTeam(competitor: EspnCompetitor): Team {
     alternateColor: team.alternateColor ? `#${team.alternateColor}` : undefined,
     rank: rank && rank > 0 && rank <= 25 ? rank : undefined,
     record: overallRecord,
+    seasonLeaders: parseSeasonLeaders(leaders),
     ...pickLogos(team.logos, team.logo),
   }
 }
@@ -103,4 +134,82 @@ export function normalizeScoreboard(response: EspnScoreboardResponse): Game[] {
     .map(normalizeEvent)
     .filter((g): g is Game => g !== null)
     .sort((a, b) => a.startDate.localeCompare(b.startDate))
+}
+
+// --- Per-game box score (live/final only) ---------------------------------
+// A separate endpoint, fetched only for the one game currently expanded once
+// it's live or final. Field names here are best-effort from general
+// knowledge of ESPN's site API, not verified against a live response in
+// this environment — everything is optional-chained so an unmatched shape
+// just yields empty sections instead of crashing.
+
+export async function fetchGameSummary(eventId: string): Promise<EspnSummaryResponse> {
+  const res = await fetch(`${SUMMARY_URL}?event=${eventId}`)
+  if (!res.ok) {
+    throw new Error(`ESPN summary request failed: ${res.status}`)
+  }
+  return res.json() as Promise<EspnSummaryResponse>
+}
+
+const TEAM_STAT_LABELS: { name: string; label: string }[] = [
+  { name: 'totalYards', label: 'Total Yards' },
+  { name: 'netPassingYards', label: 'Passing Yards' },
+  { name: 'rushingYards', label: 'Rushing Yards' },
+  { name: 'turnovers', label: 'Turnovers' },
+  { name: 'possessionTime', label: 'Time of Possession' },
+]
+
+function statByName(stats: { name: string; displayValue: string }[] | undefined, name: string): string | undefined {
+  return stats?.find((s) => s.name === name)?.displayValue
+}
+
+function statValue(labels: string[], stats: string[], label: string): string | undefined {
+  const idx = labels.findIndex((l) => l.toLowerCase() === label.toLowerCase())
+  return idx >= 0 ? stats[idx] : undefined
+}
+
+function summarizePlayerStat(labels: string[], stats: string[]): string {
+  const yds = statValue(labels, stats, 'YDS')
+  const td = statValue(labels, stats, 'TD')
+  if (yds && td) return `${yds} yds, ${td} TD`
+  if (yds) return `${yds} yds`
+  return stats.join(' / ')
+}
+
+function parseGameLeaders(entry: EspnBoxscorePlayerEntry | undefined): StatLeader[] {
+  if (!entry) return []
+  const result: StatLeader[] = []
+  for (const { category, pattern } of LEADER_CATEGORY_MATCHERS) {
+    const cat = entry.statistics.find((s) => pattern.test(s.name) || (s.text && pattern.test(s.text)))
+    const athlete = cat?.athletes?.[0]
+    if (athlete) {
+      result.push({ category, playerName: athlete.athlete.displayName, displayValue: summarizePlayerStat(cat.labels, athlete.stats) })
+    }
+  }
+  return result
+}
+
+export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: string, awayTeamId: string): GameBoxScore {
+  const teams = response.boxscore?.teams
+  const homeEntry = teams?.find((t: EspnBoxscoreTeamEntry) => t.team.id === homeTeamId)
+  const awayEntry = teams?.find((t: EspnBoxscoreTeamEntry) => t.team.id === awayTeamId)
+
+  const teamStats: TeamStatLine[] = []
+  for (const { name, label } of TEAM_STAT_LABELS) {
+    const homeValue = statByName(homeEntry?.statistics, name)
+    const awayValue = statByName(awayEntry?.statistics, name)
+    if (homeValue !== undefined && awayValue !== undefined) {
+      teamStats.push({ label, homeValue, awayValue })
+    }
+  }
+
+  const players = response.boxscore?.players
+  const homePlayers = players?.find((p) => p.team.id === homeTeamId)
+  const awayPlayers = players?.find((p) => p.team.id === awayTeamId)
+
+  return {
+    teamStats,
+    homeLeaders: parseGameLeaders(homePlayers),
+    awayLeaders: parseGameLeaders(awayPlayers),
+  }
 }

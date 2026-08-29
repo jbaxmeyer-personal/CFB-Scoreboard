@@ -14,6 +14,28 @@ export interface Team {
   rank?: number
   /** Overall win-loss record entering/during this game, e.g. "7-1". */
   record?: string
+  /** Season stat leaders (passing/rushing/receiving), shown pre-game only. */
+  seasonLeaders?: StatLeader[]
+}
+
+export interface StatLeader {
+  category: 'passing' | 'rushing' | 'receiving'
+  playerName: string
+  displayValue: string
+}
+
+export interface TeamStatLine {
+  label: string
+  homeValue: string
+  awayValue: string
+}
+
+/** This-game box score — only ever fetched/shown once a game is live or
+ * final, and only rendered behind the same spoiler gate as the score. */
+export interface GameBoxScore {
+  teamStats: TeamStatLine[]
+  homeLeaders: StatLeader[]
+  awayLeaders: StatLeader[]
 }
 
 export type GameState = 'pre' | 'in' | 'post'
