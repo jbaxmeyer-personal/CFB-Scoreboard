@@ -6,10 +6,13 @@ import { SpoilerGate } from '../shared/SpoilerGate'
 import { SeasonLeaders, GameBoxScoreContainer } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 
+/** Logo above name (not side by side) so a long team name gets the
+ * identity column's full width instead of being squeezed to the right of
+ * the logo, where it was clipping (e.g. "North Caroli…"). */
 function TeamIdentity({ team, showRecord }: { team: Team; showRecord: boolean }) {
   return (
     <div className="expanded-game__identity">
-      <TeamLogo team={team} size={48} rank={team.rank} />
+      <TeamLogo team={team} size={40} rank={team.rank} />
       <div className="expanded-game__name">
         <span>{team.shortName}</span>
         {/* Only shown pre-game: a live/final record can itself reflect this

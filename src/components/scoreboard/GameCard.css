@@ -9,8 +9,7 @@
   border-color: rgba(255, 59, 48, 0.4);
 }
 
-.game-card--expanded {
-  grid-column: 1 / -1;
+.game-card--selected {
   border-color: var(--accent-amber);
   box-shadow: var(--shadow-glow-amber);
 }
