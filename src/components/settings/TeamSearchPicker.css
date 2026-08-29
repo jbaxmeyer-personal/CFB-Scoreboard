@@ -48,7 +48,7 @@
 
 .team-picker__input:focus {
   outline: none;
-  border-color: var(--accent-amber);
+  border-color: var(--accent-primary);
 }
 
 .team-picker__results {
@@ -80,7 +80,7 @@
 }
 
 .team-picker__result--active {
-  border-color: var(--accent-amber);
+  border-color: var(--accent-primary);
   background: rgba(255, 149, 0, 0.08);
 }
 

@@ -70,7 +70,7 @@
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  accent-color: var(--accent-amber);
+  accent-color: var(--accent-primary);
 }
 
 .confirm-prompt-backdrop {
@@ -120,7 +120,7 @@
 }
 
 .confirm-prompt__yes {
-  background: var(--accent-amber) !important;
-  border-color: var(--accent-amber) !important;
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
   color: #1a0f00 !important;
 }

@@ -69,7 +69,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  border-left: 2px dashed var(--accent-amber);
+  border-left: 2px dashed var(--accent-primary);
   z-index: 1;
   pointer-events: none;
 }
@@ -82,7 +82,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent-amber);
+  background: var(--accent-primary);
 }
 
 .time-grid__row-track {

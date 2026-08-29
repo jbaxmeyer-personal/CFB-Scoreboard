@@ -13,8 +13,8 @@
   --text-secondary: #98a2b3;
   --text-tertiary: #667085;
 
-  --accent-amber: #ff9500;
-  --accent-amber-dim: #7a4a10;
+  --accent-primary: #4da6ff;
+  --accent-primary-dim: #1e3a52;
   --accent-live: #ff3b30;
   --accent-favorite: #ffd60a;
   --accent-final: #3a4150;
@@ -24,7 +24,7 @@
   --radius-lg: 20px;
 
   --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.45);
-  --shadow-glow-amber: 0 0 0 1px rgba(255, 149, 0, 0.4), 0 0 18px rgba(255, 149, 0, 0.25);
+  --shadow-glow-primary: 0 0 0 1px rgba(77, 166, 255, 0.4), 0 0 18px rgba(77, 166, 255, 0.25);
   --shadow-glow-live: 0 0 0 1px rgba(255, 59, 48, 0.5), 0 0 20px rgba(255, 59, 48, 0.35);
   --shadow-glow-favorite: 0 0 0 1px rgba(255, 214, 10, 0.45), 0 0 16px rgba(255, 214, 10, 0.25);
 
@@ -77,7 +77,7 @@ a {
 }
 
 ::selection {
-  background: var(--accent-amber-dim);
+  background: var(--accent-primary-dim);
 }
 
 /* Ticker / scoreboard typography, used for kickoff times, live scores, clocks */

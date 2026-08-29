@@ -27,9 +27,9 @@
   margin-top: 6px;
   padding: 8px 18px;
   border-radius: 999px;
-  border: 1px solid var(--accent-amber);
+  border: 1px solid var(--accent-primary);
   background: transparent;
-  color: var(--accent-amber);
+  color: var(--accent-primary);
   font-weight: 600;
   cursor: pointer;
 }
@@ -39,7 +39,7 @@
   height: 28px;
   border-radius: 50%;
   border: 3px solid var(--border-subtle);
-  border-top-color: var(--accent-amber);
+  border-top-color: var(--accent-primary);
   animation: spin 0.8s linear infinite;
 }
 
