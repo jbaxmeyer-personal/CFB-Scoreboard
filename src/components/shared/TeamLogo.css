@@ -1,0 +1,25 @@
+.team-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  /* Subtle backdrop + drop shadow so light/standard logos still read
+     clearly on a dark panel, per the "no dark variant" fallback treatment. */
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+}
+
+.team-logo img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+}
+
+.team-logo--fallback {
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.7em;
+  letter-spacing: 0.02em;
+}
