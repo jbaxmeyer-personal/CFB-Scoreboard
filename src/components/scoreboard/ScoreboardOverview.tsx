@@ -7,12 +7,13 @@ import { useSettings } from '../../context/SettingsContext'
 import { useViewState } from '../../context/ViewStateContext'
 import { DayTabs } from '../shared/DayTabs'
 import { GameCard } from './GameCard'
+import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 
 export function ScoreboardOverview() {
   const { games, isLoading, isError, refetch } = useScoreboard()
   const { settings } = useSettings()
-  const { selectedDateKey, setSelectedDateKey, expandedGameId, toggleExpandedGame } = useViewState()
+  const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame } = useViewState()
   const days = useGamesByDay(games, settings.timezoneId)
 
   const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : days[0]?.dateKey
@@ -20,14 +21,6 @@ export function ScoreboardOverview() {
   useEffect(() => {
     if (!selectedDateKey && days[0]) setSelectedDateKey(days[0].dateKey)
   }, [days, selectedDateKey, setSelectedDateKey])
-
-  // Scroll the expanded card into view whenever it changes — whether the
-  // expand happened here or arrived from Slate's shared expandedGameId.
-  useEffect(() => {
-    if (!expandedGameId) return
-    const el = document.getElementById(`game-card-${expandedGameId}`)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [expandedGameId])
 
   const activeDay = days.find((d) => d.dateKey === activeDateKey)
   const safeGames = useSpoilerSafeGames(activeDay?.games ?? [])
@@ -49,19 +42,25 @@ export function ScoreboardOverview() {
 
       {!isLoading && !isError && activeDay && (
         <div className="scoreboard-overview__grid">
-          {safeGames.map(({ game, rawGame, isProtected }) => (
+          {safeGames.map(({ game, isProtected }) => (
             <GameCard
               key={game.id}
               game={game}
-              rawGame={rawGame}
               isProtected={isProtected}
-              isExpanded={expandedGameId === game.id}
+              isSelected={expandedGameId === game.id}
               onToggle={() => toggleExpandedGame(game.id)}
               zoneId={settings.timezoneId}
             />
           ))}
         </div>
       )}
+
+      <GameDetailPanel
+        entries={safeGames}
+        expandedGameId={expandedGameId}
+        onClose={() => setExpandedGameId(null)}
+        zoneId={settings.timezoneId}
+      />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import './ScheduleGrid.css'
 import { useScoreboard } from '../../hooks/useScoreboard'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
@@ -7,7 +7,7 @@ import { useSettings } from '../../context/SettingsContext'
 import { useViewState } from '../../context/ViewStateContext'
 import { DayTabs } from '../shared/DayTabs'
 import { TimeGrid } from './TimeGrid'
-import { ExpandedGame } from '../scoreboard/ExpandedGame'
+import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { zoneLabel, zoneAbbrNow } from '../../lib/timezone'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 
@@ -25,12 +25,6 @@ export function ScheduleGrid() {
 
   const activeDay = days.find((d) => d.dateKey === activeDateKey)
   const safeGames = useSpoilerSafeGames(activeDay?.games ?? [])
-  const expandedEntry = safeGames.find((e) => e.game.id === expandedGameId)
-
-  const detailRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (expandedGameId) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [expandedGameId])
 
   return (
     <div className="schedule-grid">
@@ -54,14 +48,12 @@ export function ScheduleGrid() {
         <TimeGrid entries={safeGames} zoneId={settings.timezoneId} onSelectGame={toggleExpandedGame} />
       )}
 
-      {expandedEntry && (
-        <div className="schedule-grid__detail" ref={detailRef}>
-          <button type="button" className="schedule-grid__detail-close" onClick={() => setExpandedGameId(null)}>
-            Close ×
-          </button>
-          <ExpandedGame game={expandedEntry.rawGame} zoneId={settings.timezoneId} isProtected={expandedEntry.isProtected} />
-        </div>
-      )}
+      <GameDetailPanel
+        entries={safeGames}
+        expandedGameId={expandedGameId}
+        onClose={() => setExpandedGameId(null)}
+        zoneId={settings.timezoneId}
+      />
     </div>
   )
 }

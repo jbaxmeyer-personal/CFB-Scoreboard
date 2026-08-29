@@ -30,8 +30,9 @@
 
 .expanded-game__identity {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
 }
@@ -39,18 +40,20 @@
 .expanded-game__name {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 2px;
   font-weight: 600;
   font-size: 14px;
   min-width: 0;
-  overflow: hidden;
+  max-width: 100%;
+  text-align: center;
 }
 
 .expanded-game__name span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .expanded-game__record {
