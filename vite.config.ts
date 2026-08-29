@@ -9,6 +9,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // We register the SW ourselves in main.tsx (via virtual:pwa-register)
+      // so we can force frequent update checks — the auto-injected script
+      // only registers once with no update polling at all, which is why a
+      // new deploy could sit undetected behind an already-installed SW.
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/CFB-Scoreboard/',

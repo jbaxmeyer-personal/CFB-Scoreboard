@@ -90,7 +90,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
  * never fires for every game in a list.
  */
 export function GameBoxScoreContainer({ game }: { game: Game }) {
-  const { boxScore, isLoading, isError } = useGameSummary(game.id, game.home.id, game.away.id)
+  const { boxScore, isLoading, isError } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in')
 
   if (isLoading) return <p className="game-stats__hint">Loading stats…</p>
   if (isError || !boxScore) return null
