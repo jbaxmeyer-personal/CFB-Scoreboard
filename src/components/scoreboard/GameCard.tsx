@@ -32,10 +32,11 @@ interface GameCardProps {
 }
 
 export function GameCard({ game, rawGame, isProtected, isExpanded, onToggle, zoneId }: GameCardProps) {
-  // Not just `state !== 'pre'` — a protected live game reports state 'in' (to
-  // show the bare LIVE badge) but with scores stripped, and must not fall
-  // back to rendering "0".
-  const showScore = game.homeScore !== undefined && game.awayScore !== undefined
+  // ESPN reports score "0" for competitors even before kickoff, so a pre-game
+  // check is required on top of definedness — and definedness is still
+  // required because a protected *live* game reports state 'in' (to show the
+  // bare LIVE badge) with scores stripped, and must not fall back to "0".
+  const showScore = game.state !== 'pre' && game.homeScore !== undefined && game.awayScore !== undefined
 
   return (
     <div id={`game-card-${game.id}`} className={`game-card${isExpanded ? ' game-card--expanded' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}>

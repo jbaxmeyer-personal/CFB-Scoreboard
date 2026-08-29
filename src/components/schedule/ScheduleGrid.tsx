@@ -6,7 +6,7 @@ import { useSpoilerSafeGames } from '../../hooks/useSpoilerSafeGames'
 import { useSettings } from '../../context/SettingsContext'
 import { useViewState } from '../../context/ViewStateContext'
 import { DayTabs } from '../shared/DayTabs'
-import { GameRow } from './GameRow'
+import { TimeGrid } from './TimeGrid'
 import { zoneLabel, zoneAbbrNow } from '../../lib/timezone'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 
@@ -44,17 +44,11 @@ export function ScheduleGrid() {
       {!isLoading && !isError && days.length === 0 && <EmptyState />}
 
       {!isLoading && !isError && activeDay && (
-        <div className="schedule-grid__list">
-          {safeGames.map(({ game, isProtected }) => (
-            <GameRow
-              key={game.id}
-              game={game}
-              isProtected={isProtected}
-              zoneId={settings.timezoneId}
-              onSelect={() => jumpToGame(activeDay.dateKey, game.id)}
-            />
-          ))}
-        </div>
+        <TimeGrid
+          entries={safeGames}
+          zoneId={settings.timezoneId}
+          onSelectGame={(gameId) => jumpToGame(activeDay.dateKey, gameId)}
+        />
       )}
     </div>
   )

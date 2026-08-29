@@ -23,11 +23,16 @@ export async function fetchScoreboard(dateParam: string): Promise<EspnScoreboard
   return res.json() as Promise<EspnScoreboardResponse>
 }
 
-function pickLogos(logos: EspnLogo[] | undefined): { logoLight?: string; logoDark?: string } {
-  if (!logos || logos.length === 0) return {}
-  const dark = logos.find((l) => l.rel.includes('dark'))
-  const full = logos.find((l) => l.rel.includes('full')) ?? logos[0]
-  return { logoLight: full?.href, logoDark: dark?.href ?? full?.href }
+function pickLogos(logos: EspnLogo[] | undefined, singleLogo: string | undefined): { logoLight?: string; logoDark?: string } {
+  if (logos && logos.length > 0) {
+    const dark = logos.find((l) => l.rel.includes('dark'))
+    const full = logos.find((l) => l.rel.includes('full')) ?? logos[0]
+    return { logoLight: full?.href, logoDark: dark?.href ?? full?.href }
+  }
+  // The scoreboard endpoint gives just this single URL — no dark variant,
+  // so TeamLogo's backdrop/shadow treatment is what makes it read on dark.
+  if (singleLogo) return { logoLight: singleLogo, logoDark: singleLogo }
+  return {}
 }
 
 function toTeam(competitor: EspnCompetitor): Team {
@@ -41,7 +46,7 @@ function toTeam(competitor: EspnCompetitor): Team {
     color: team.color ? `#${team.color}` : undefined,
     alternateColor: team.alternateColor ? `#${team.alternateColor}` : undefined,
     rank: rank && rank > 0 && rank <= 25 ? rank : undefined,
-    ...pickLogos(team.logos),
+    ...pickLogos(team.logos, team.logo),
   }
 }
 

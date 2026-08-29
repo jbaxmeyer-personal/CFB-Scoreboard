@@ -1,0 +1,78 @@
+.game-chip {
+  position: absolute;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.game-chip:hover {
+  background: var(--bg-panel-hover);
+  z-index: 3;
+}
+
+.game-chip--live {
+  border-color: rgba(255, 59, 48, 0.5);
+}
+
+.game-chip--favorite {
+  border-color: color-mix(in srgb, var(--favorite-glow, var(--accent-favorite)) 70%, black);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--favorite-glow, var(--accent-favorite)) 35%, transparent);
+}
+
+.game-chip__matchup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.game-chip__team {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.game-chip__abbr {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-chip__at {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.game-chip__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.game-chip__status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.game-chip__status--live {
+  color: var(--accent-live);
+}
