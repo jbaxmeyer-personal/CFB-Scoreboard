@@ -1,7 +1,6 @@
 import './GameCard.css'
 import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
-import { RankBadge } from '../shared/RankBadge'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { ProtectedTag } from '../shared/SpoilerGate'
 import { ExpandedGame } from './ExpandedGame'
@@ -13,10 +12,8 @@ function TeamCompactRow({ team, score, showScore }: { team: Team; score?: number
   const favorite = isFavoriteTeam(team.id)
   return (
     <div className={`game-card__team-row${favorite ? ' game-card__team-row--favorite' : ''}`}>
-      <TeamLogo team={team} size={26} />
-      <span className="game-card__team-name">
-        {team.rank && <RankBadge rank={team.rank} />} {team.abbreviation}
-      </span>
+      <TeamLogo team={team} size={26} rank={team.rank} />
+      <span className="game-card__team-name">{team.abbreviation}</span>
       {showScore && <span className="game-card__score ticker">{score ?? 0}</span>}
     </div>
   )

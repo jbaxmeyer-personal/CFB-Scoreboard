@@ -1,7 +1,6 @@
 import './ExpandedGame.css'
 import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
-import { RankBadge } from '../shared/RankBadge'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { SpoilerGate } from '../shared/SpoilerGate'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
@@ -9,9 +8,8 @@ import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 function TeamIdentity({ team }: { team: Team }) {
   return (
     <div className="expanded-game__identity">
-      <TeamLogo team={team} size={48} />
+      <TeamLogo team={team} size={48} rank={team.rank} />
       <div className="expanded-game__name">
-        {team.rank && <RankBadge rank={team.rank} />}
         <span>{team.shortName}</span>
       </div>
     </div>
