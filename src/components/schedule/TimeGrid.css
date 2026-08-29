@@ -1,6 +1,8 @@
 .time-grid-scroll {
   overflow-x: auto;
-  padding: 4px 16px 20px;
+  /* No left padding/inset — the network-label column should sit flush
+     against the true screen edge, not float with a gap to its left. */
+  padding: 4px 16px 20px 0;
 }
 
 .time-grid {

@@ -5,12 +5,15 @@ import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { SpoilerGate } from '../shared/SpoilerGate'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 
-function TeamIdentity({ team }: { team: Team }) {
+function TeamIdentity({ team, showRecord }: { team: Team; showRecord: boolean }) {
   return (
     <div className="expanded-game__identity">
       <TeamLogo team={team} size={48} rank={team.rank} />
       <div className="expanded-game__name">
         <span>{team.shortName}</span>
+        {/* Only shown pre-game: a live/final record can itself reflect this
+            game's outcome, which would leak a protected result. */}
+        {showRecord && team.record && <span className="expanded-game__record">{team.record}</span>}
       </div>
     </div>
   )
@@ -63,9 +66,9 @@ export function ExpandedGame({ game, zoneId, isProtected }: ExpandedGameProps) {
       <div className="expanded-game__panel">
         <div className="expanded-game__bezel">
           <div className="expanded-game__matchup">
-            <TeamIdentity team={game.away} />
+            <TeamIdentity team={game.away} showRecord={game.state === 'pre'} />
             <span className="expanded-game__at">@</span>
-            <TeamIdentity team={game.home} />
+            <TeamIdentity team={game.home} showRecord={game.state === 'pre'} />
           </div>
 
           <div className={`expanded-game__live-area${hasHideableResult ? ' expanded-game__live-area--gated' : ''}`}>

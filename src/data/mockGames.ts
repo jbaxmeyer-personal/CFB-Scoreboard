@@ -9,8 +9,8 @@ function team(partial: Omit<Team, 'logoLight'> & { espnId: string }): Team {
   return { ...rest, logoLight: logo(espnId) }
 }
 
-const OHIO_STATE = team({ espnId: '194', id: 't194', name: 'Ohio State Buckeyes', shortName: 'Ohio State', abbreviation: 'OSU', color: '#BB0000', rank: 1 })
-const TEXAS = team({ espnId: '251', id: 't251', name: 'Texas Longhorns', shortName: 'Texas', abbreviation: 'TEX', color: '#BF5700', rank: 3 })
+const OHIO_STATE = team({ espnId: '194', id: 't194', name: 'Ohio State Buckeyes', shortName: 'Ohio State', abbreviation: 'OSU', color: '#BB0000', rank: 1, record: '1-0' })
+const TEXAS = team({ espnId: '251', id: 't251', name: 'Texas Longhorns', shortName: 'Texas', abbreviation: 'TEX', color: '#BF5700', rank: 3, record: '1-0' })
 const ALABAMA = team({ espnId: '333', id: 't333', name: 'Alabama Crimson Tide', shortName: 'Alabama', abbreviation: 'ALA', color: '#9E1B32', rank: 2 })
 const FLORIDA_STATE = team({ espnId: '52', id: 't52', name: 'Florida State Seminoles', shortName: 'Florida State', abbreviation: 'FSU', color: '#782F40' })
 const MICHIGAN = team({ espnId: '130', id: 't130', name: 'Michigan Wolverines', shortName: 'Michigan', abbreviation: 'MICH', color: '#00274C' })
