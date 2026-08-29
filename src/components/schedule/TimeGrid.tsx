@@ -4,18 +4,9 @@ import type { SafeGameEntry } from '../../hooks/useSpoilerSafeGames'
 import { GameChip } from './GameChip'
 import { NetworkBadge } from '../shared/NetworkBadge'
 import { EmptyState } from '../shared/StatusStates'
-import {
-  computeGridBounds,
-  groupByNetwork,
-  hourTicks,
-  minutesFromStart,
-  pxPerMinute,
-  chipWidth,
-  layoutLanes,
-  LABEL_WIDTH,
-} from '../../lib/scheduleGrid'
+import { computeGridBounds, groupByNetwork, hourTicks, pxPerMinute, layoutRow, LABEL_WIDTH } from '../../lib/scheduleGrid'
 
-const LANE_HEIGHT = 64
+const ROW_HEIGHT = 64
 
 interface TimeGridProps {
   entries: SafeGameEntry[]
@@ -34,7 +25,6 @@ export function TimeGrid({ entries, zoneId, onSelectGame }: TimeGridProps) {
 
   const totalWidth = bounds.totalMinutes * pxPerMinute()
   const ticks = hourTicks(bounds)
-  const width = chipWidth()
 
   return (
     <div className="time-grid-scroll scrollbar-hide">
@@ -54,39 +44,34 @@ export function TimeGrid({ entries, zoneId, onSelectGame }: TimeGridProps) {
           </div>
         </div>
 
-        {rows.map((row) => {
-          const laned = layoutLanes(row.games, zoneId, bounds)
-          const laneCount = Math.max(...laned.map((l) => l.lane)) + 1
-          const trackHeight = laneCount * LANE_HEIGHT
-          return (
-            <div className="time-grid__row" key={row.network} style={{ height: trackHeight }}>
-              <div className="time-grid__row-label">
-                <NetworkBadge name={row.network} />
-              </div>
-              <div
-                className="time-grid__row-track"
-                style={{
-                  width: totalWidth,
-                  height: trackHeight,
-                  backgroundSize: `${totalWidth / (bounds.totalMinutes / 60)}px 100%`,
-                }}
-              >
-                {laned.map(({ game, lane }) => (
-                  <GameChip
-                    key={game.id}
-                    game={game}
-                    isProtected={protectedIds.has(game.id)}
-                    zoneId={zoneId}
-                    left={minutesFromStart(game.startDate, zoneId, bounds) * pxPerMinute()}
-                    top={lane * LANE_HEIGHT + 4}
-                    width={width}
-                    onSelect={() => onSelectGame(game.id)}
-                  />
-                ))}
-              </div>
+        {rows.map((row) => (
+          <div className="time-grid__row" key={row.network} style={{ height: ROW_HEIGHT }}>
+            <div className="time-grid__row-label">
+              <NetworkBadge name={row.network} />
             </div>
-          )
-        })}
+            <div
+              className="time-grid__row-track"
+              style={{
+                width: totalWidth,
+                height: ROW_HEIGHT,
+                backgroundSize: `${totalWidth / (bounds.totalMinutes / 60)}px 100%`,
+              }}
+            >
+              {layoutRow(row.games, zoneId, bounds).map(({ game, left, width }) => (
+                <GameChip
+                  key={game.id}
+                  game={game}
+                  isProtected={protectedIds.has(game.id)}
+                  zoneId={zoneId}
+                  left={left}
+                  top={4}
+                  width={width - 6}
+                  onSelect={() => onSelectGame(game.id)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

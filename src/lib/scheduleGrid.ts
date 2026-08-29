@@ -69,30 +69,26 @@ export function hourTicks(bounds: GridBounds): DateTime[] {
   return ticks
 }
 
-export interface LanedGame {
+export interface PositionedGame {
   game: Game
-  lane: number
+  left: number
+  width: number
 }
 
 /**
- * Greedily assigns each game to the first lane whose previous chip has
- * already ended by this game's kickoff, so ~3.5hr-wide chips for
- * back-to-back games on the same network stack instead of overlapping.
+ * A single network only ever airs one game at a time, so games on the same
+ * row never stack — instead, each chip's width is capped at the next
+ * game's kickoff on that same network (falling back to the full assumed
+ * duration for the last game in the row).
  */
-export function layoutLanes(games: Game[], zoneId: string, bounds: GridBounds): LanedGame[] {
+export function layoutRow(games: Game[], zoneId: string, bounds: GridBounds): PositionedGame[] {
   const sorted = [...games].sort((a, b) => a.startDate.localeCompare(b.startDate))
-  const laneEnds: number[] = []
-  return sorted.map((game) => {
+  return sorted.map((game, i) => {
     const startMin = minutesFromStart(game.startDate, zoneId, bounds)
-    const endMin = startMin + ASSUMED_DURATION_MIN
-    let lane = laneEnds.findIndex((end) => end <= startMin)
-    if (lane === -1) {
-      lane = laneEnds.length
-      laneEnds.push(endMin)
-    } else {
-      laneEnds[lane] = endMin
-    }
-    return { game, lane }
+    const next = sorted[i + 1]
+    const gapToNext = next ? minutesFromStart(next.startDate, zoneId, bounds) - startMin : Infinity
+    const durationMin = Math.min(ASSUMED_DURATION_MIN, gapToNext)
+    return { game, left: startMin * pxPerMinute(), width: durationMin * pxPerMinute() }
   })
 }
 
