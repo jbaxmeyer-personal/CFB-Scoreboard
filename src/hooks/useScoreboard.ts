@@ -35,6 +35,10 @@ export function useScoreboard(): ScoreboardResult {
       queryKey: ['scoreboard', dateParam],
       queryFn: () => fetchScoreboard(dateParam),
       staleTime: 5 * 60_000, // ESPN scores move fast on live game days; keep this short
+      // Keeps score/clock/possession/state fresh without any user action.
+      // Pauses automatically while the tab is hidden (refetchIntervalInBackground
+      // defaults to false), so this never polls when nobody's looking.
+      refetchInterval: 30_000,
     })),
   })
 
