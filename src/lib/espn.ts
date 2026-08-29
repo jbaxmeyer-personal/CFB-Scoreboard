@@ -23,15 +23,23 @@ export async function fetchScoreboard(dateParam: string): Promise<EspnScoreboard
   return res.json() as Promise<EspnScoreboardResponse>
 }
 
+// ESPN's CDN publishes a "-dark" logo variant for teams whose default mark
+// has dark elements that disappear on a dark background (many others 404
+// on this path) — e.g. .../teamlogos/ncaa/500/99.png -> .../500-dark/99.png.
+// TeamLogo tries this first and falls back to the regular logo on error.
+function deriveDarkVariant(url: string): string | undefined {
+  const match = url.match(/^(.*\/ncaa\/)500(\/.*)$/)
+  return match ? `${match[1]}500-dark${match[2]}` : undefined
+}
+
 function pickLogos(logos: EspnLogo[] | undefined, singleLogo: string | undefined): { logoLight?: string; logoDark?: string } {
   if (logos && logos.length > 0) {
     const dark = logos.find((l) => l.rel.includes('dark'))
     const full = logos.find((l) => l.rel.includes('full')) ?? logos[0]
     return { logoLight: full?.href, logoDark: dark?.href ?? full?.href }
   }
-  // The scoreboard endpoint gives just this single URL — no dark variant,
-  // so TeamLogo's backdrop/shadow treatment is what makes it read on dark.
-  if (singleLogo) return { logoLight: singleLogo, logoDark: singleLogo }
+  // The scoreboard endpoint gives just this single (light-background) URL.
+  if (singleLogo) return { logoLight: singleLogo, logoDark: deriveDarkVariant(singleLogo) ?? singleLogo }
   return {}
 }
 

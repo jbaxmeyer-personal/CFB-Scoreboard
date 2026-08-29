@@ -7,11 +7,19 @@ interface TeamLogoProps {
   size?: number
 }
 
-export function TeamLogo({ team, size = 40 }: TeamLogoProps) {
-  const [failed, setFailed] = useState(false)
-  const src = team.logoDark ?? team.logoLight
+type Stage = 'dark' | 'light' | 'fallback'
 
-  if (!src || failed) {
+function initialStage(team: Team): Stage {
+  if (team.logoDark && team.logoDark !== team.logoLight) return 'dark'
+  if (team.logoLight) return 'light'
+  return 'fallback'
+}
+
+export function TeamLogo({ team, size = 40 }: TeamLogoProps) {
+  const [stage, setStage] = useState<Stage>(() => initialStage(team))
+  const src = stage === 'dark' ? team.logoDark : stage === 'light' ? team.logoLight : undefined
+
+  if (stage === 'fallback' || !src) {
     return (
       <div
         className="team-logo team-logo--fallback"
@@ -21,9 +29,19 @@ export function TeamLogo({ team, size = 40 }: TeamLogoProps) {
       </div>
     )
   }
+
   return (
     <div className="team-logo" style={{ width: size, height: size }}>
-      <img src={src} alt={`${team.name} logo`} width={size} height={size} loading="lazy" onError={() => setFailed(true)} />
+      <img
+        src={src}
+        alt={`${team.name} logo`}
+        width={size}
+        height={size}
+        loading="lazy"
+        // The "-dark" CDN variant 404s for teams that don't have one — fall
+        // back to the regular logo, then finally to the initials circle.
+        onError={() => setStage((s) => (s === 'dark' && team.logoLight ? 'light' : 'fallback'))}
+      />
     </div>
   )
 }
