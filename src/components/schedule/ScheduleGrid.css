@@ -25,10 +25,3 @@
   font-size: 12px;
   color: var(--text-tertiary);
 }
-
-.schedule-grid__list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-}

@@ -19,6 +19,10 @@ export interface EspnTeam {
   shortDisplayName: string
   color?: string
   alternateColor?: string
+  // The scoreboard endpoint typically gives a single `logo` URL; the richer
+  // `logos` array (with rel tags like "dark") shows up on other ESPN
+  // endpoints (e.g. /teams/{id}) and occasionally here too — handle both.
+  logo?: string
   logos?: EspnLogo[]
 }
 

@@ -30,7 +30,7 @@ const KANSAS_STATE = team({ espnId: '2306', id: 't2306', name: 'Kansas State Wil
 const STANFORD = team({ espnId: '24', id: 't24', name: 'Stanford Cardinal', shortName: 'Stanford', abbreviation: 'STAN', color: '#8C1515' })
 const HAWAII = team({ espnId: '62', id: 't62', name: 'Hawaiʻi Rainbow Warriors', shortName: 'Hawaiʻi', abbreviation: 'HAW', color: '#024731' })
 
-export const MOCK_GAMES: Game[] = [
+const RAW_GAMES: Game[] = [
   // Thursday 8/27 — kicked off, both final
   {
     id: 'mock-1',
@@ -161,3 +161,10 @@ export const MOCK_GAMES: Game[] = [
     broadcasts: ['ESPN'],
   },
 ]
+
+// Real ESPN returns score "0" for both teams even before kickoff — mirror
+// that here so pre-game mock data exercises the same "don't show 0-0" logic
+// the real feed does, instead of masking it with `undefined`.
+export const MOCK_GAMES: Game[] = RAW_GAMES.map((game) =>
+  game.state === 'pre' ? { ...game, homeScore: 0, awayScore: 0 } : game,
+)

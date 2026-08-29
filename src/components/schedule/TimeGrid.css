@@ -1,0 +1,67 @@
+.time-grid-scroll {
+  overflow-x: auto;
+  padding: 4px 16px 20px;
+}
+
+.time-grid {
+  position: relative;
+}
+
+.time-grid__header {
+  display: flex;
+  height: 26px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 6px;
+}
+
+.time-grid__corner {
+  width: 68px;
+  flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  background: var(--bg-base);
+  z-index: 3;
+}
+
+.time-grid__ticks {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.time-grid__tick {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 6px;
+  border-left: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.time-grid__row {
+  display: flex;
+}
+
+.time-grid__row-label {
+  width: 68px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  position: sticky;
+  left: 0;
+  background: var(--bg-base);
+  z-index: 2;
+}
+
+.time-grid__row-track {
+  position: relative;
+  border-bottom: 1px solid var(--border-subtle);
+  background-image: linear-gradient(to right, var(--border-subtle) 1px, transparent 1px);
+  background-repeat: repeat-x;
+  background-position: 0 0;
+}
