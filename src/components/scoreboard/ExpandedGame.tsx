@@ -3,6 +3,7 @@ import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { SpoilerGate } from '../shared/SpoilerGate'
+import { SeasonLeaders, GameBoxScoreContainer } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 
 function TeamIdentity({ team, showRecord }: { team: Team; showRecord: boolean }) {
@@ -46,6 +47,7 @@ function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
         </span>
       )}
       {game.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
+      <GameBoxScoreContainer game={game} />
     </div>
   )
 }
@@ -81,6 +83,8 @@ export function ExpandedGame({ game, zoneId, isProtected }: ExpandedGameProps) {
             )}
           </div>
         </div>
+
+        {game.state === 'pre' && <SeasonLeaders home={game.home} away={game.away} />}
 
         <div className="expanded-game__footer">
           <span className="expanded-game__venue">{game.venue ?? formatDayLabel(game.startDate, zoneId)}</span>

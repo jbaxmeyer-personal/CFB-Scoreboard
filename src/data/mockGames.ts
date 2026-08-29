@@ -9,8 +9,22 @@ function team(partial: Omit<Team, 'logoLight'> & { espnId: string }): Team {
   return { ...rest, logoLight: logo(espnId) }
 }
 
-const OHIO_STATE = team({ espnId: '194', id: 't194', name: 'Ohio State Buckeyes', shortName: 'Ohio State', abbreviation: 'OSU', color: '#BB0000', rank: 1, record: '1-0' })
-const TEXAS = team({ espnId: '251', id: 't251', name: 'Texas Longhorns', shortName: 'Texas', abbreviation: 'TEX', color: '#BF5700', rank: 3, record: '1-0' })
+const OHIO_STATE = team({
+  espnId: '194', id: 't194', name: 'Ohio State Buckeyes', shortName: 'Ohio State', abbreviation: 'OSU', color: '#BB0000', rank: 1, record: '1-0',
+  seasonLeaders: [
+    { category: 'passing', playerName: 'W. Howard', displayValue: '312 yds, 3 TD' },
+    { category: 'rushing', playerName: 'T. Judkins', displayValue: '145 yds, 2 TD' },
+    { category: 'receiving', playerName: 'E. Egbuka', displayValue: '98 yds, 1 TD' },
+  ],
+})
+const TEXAS = team({
+  espnId: '251', id: 't251', name: 'Texas Longhorns', shortName: 'Texas', abbreviation: 'TEX', color: '#BF5700', rank: 3, record: '1-0',
+  seasonLeaders: [
+    { category: 'passing', playerName: 'Q. Ewers', displayValue: '289 yds, 2 TD' },
+    { category: 'rushing', playerName: 'C. Baxter', displayValue: '112 yds, 1 TD' },
+    { category: 'receiving', playerName: 'I. Bond', displayValue: '87 yds, 1 TD' },
+  ],
+})
 const ALABAMA = team({ espnId: '333', id: 't333', name: 'Alabama Crimson Tide', shortName: 'Alabama', abbreviation: 'ALA', color: '#9E1B32', rank: 2 })
 const FLORIDA_STATE = team({ espnId: '52', id: 't52', name: 'Florida State Seminoles', shortName: 'Florida State', abbreviation: 'FSU', color: '#782F40' })
 const MICHIGAN = team({ espnId: '130', id: 't130', name: 'Michigan Wolverines', shortName: 'Michigan', abbreviation: 'MICH', color: '#00274C' })
