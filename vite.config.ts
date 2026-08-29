@@ -4,19 +4,19 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/cfb-scoreboard/',
+  base: '/CFB-Scoreboard/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
-        id: '/cfb-scoreboard/',
+        id: '/CFB-Scoreboard/',
         name: 'Slate — College Football TV Guide',
         short_name: 'Slate',
         description: 'A dark-themed college football TV viewing guide: kickoff times in your timezone, network badges, and a live scoreboard.',
-        start_url: '/cfb-scoreboard/',
-        scope: '/cfb-scoreboard/',
+        start_url: '/CFB-Scoreboard/',
+        scope: '/CFB-Scoreboard/',
         display: 'standalone',
         background_color: '#0b0f14',
         theme_color: '#0b0f14',
