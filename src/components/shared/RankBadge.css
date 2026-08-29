@@ -1,0 +1,16 @@
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: linear-gradient(160deg, #3a2a12, #1c1408);
+  border: 1px solid rgba(255, 149, 0, 0.5);
+  color: var(--accent-amber);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+}

@@ -1,0 +1,131 @@
+.game-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.game-row:hover {
+  background: var(--bg-panel-hover);
+}
+
+.game-row--favorite {
+  border-color: color-mix(in srgb, var(--favorite-glow, var(--accent-favorite)) 70%, black);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--favorite-glow, var(--accent-favorite)) 35%, transparent);
+}
+
+.game-row--live {
+  border-color: rgba(255, 59, 48, 0.4);
+}
+
+.game-row__matchup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.game-row__team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.game-row__team--right {
+  justify-content: flex-end;
+}
+
+.game-row__team-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.game-row__team-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-row__team--right .game-row__team-label {
+  flex-direction: row-reverse;
+}
+
+.game-row__at {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.game-row__star {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+}
+
+.game-row__star--active {
+  color: var(--accent-favorite);
+}
+
+.game-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.game-row__status {
+  font-size: 15px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 64px;
+  justify-content: flex-end;
+}
+
+.game-row__status--live {
+  color: var(--accent-live);
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-live);
+  box-shadow: 0 0 6px var(--accent-live);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+
+@media (max-width: 480px) {
+  .game-row {
+    flex-wrap: wrap;
+  }
+  .game-row__meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

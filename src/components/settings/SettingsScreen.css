@@ -1,0 +1,134 @@
+.settings-screen {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding-bottom: 24px;
+}
+
+.settings-screen__header {
+  padding: 20px 16px 4px;
+}
+
+.settings-screen__title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.settings-section {
+  padding: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.settings-section__title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.settings-section__subtitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 18px 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-section__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0 0 10px;
+}
+
+.settings-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 6px 0;
+}
+
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 13px;
+}
+
+.settings-toggle input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--accent-amber);
+}
+
+.settings-team-list,
+.settings-game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.settings-team-row,
+.settings-game-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-team-row--active,
+.settings-game-row--active {
+  border-color: var(--accent-amber);
+  background: rgba(255, 149, 0, 0.08);
+}
+
+.settings-team-row__name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-game-row__matchup {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-game-row__time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.settings-checkbox-indicator {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--accent-amber);
+}

@@ -1,0 +1,31 @@
+.scoreboard-overview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.scoreboard-overview__header {
+  padding: 20px 16px 4px;
+}
+
+.scoreboard-overview__title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.scoreboard-overview__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 16px;
+  align-items: start;
+}
+
+@media (max-width: 340px) {
+  .scoreboard-overview__grid {
+    grid-template-columns: 1fr;
+  }
+}
