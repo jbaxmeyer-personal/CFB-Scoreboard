@@ -1,16 +1,18 @@
+/* Overlaid on the top-left corner of a team logo (see TeamLogo) rather than
+   sitting inline next to the team name — reads like a broadcast-graphic
+   rank chip instead of crowding the row. Ported from Dynasty Tracker's
+   logo-rank-wrap pattern. */
 .rank-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 4px;
-  border-radius: 6px;
+  position: absolute;
+  top: -15%;
+  left: -15%;
+  box-sizing: border-box;
+  border-radius: 999px;
   background: linear-gradient(160deg, #3a2a12, #1c1408);
-  border: 1px solid rgba(255, 149, 0, 0.5);
+  border: 2px solid var(--bg-base);
   color: var(--accent-amber);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 12px;
-  line-height: 1;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }

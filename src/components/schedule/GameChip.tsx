@@ -1,7 +1,6 @@
 import './GameChip.css'
 import type { Game } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
-import { RankBadge } from '../shared/RankBadge'
 import { ProtectedTag } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
@@ -45,15 +44,13 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
     >
       <div className="game-chip__matchup">
         <div className="game-chip__team">
-          <TeamLogo team={game.away} size={20} />
+          <TeamLogo team={game.away} size={20} rank={game.away.rank} />
           <span className="game-chip__abbr">{game.away.abbreviation}</span>
-          {game.away.rank && <RankBadge rank={game.away.rank} />}
         </div>
         <span className="game-chip__at">@</span>
         <div className="game-chip__team">
-          <TeamLogo team={game.home} size={20} />
+          <TeamLogo team={game.home} size={20} rank={game.home.rank} />
           <span className="game-chip__abbr">{game.home.abbreviation}</span>
-          {game.home.rank && <RankBadge rank={game.home.rank} />}
         </div>
       </div>
       <div className="game-chip__meta">

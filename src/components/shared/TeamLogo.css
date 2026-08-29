@@ -23,3 +23,9 @@
   font-size: 0.7em;
   letter-spacing: 0.02em;
 }
+
+.team-logo-rank-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
