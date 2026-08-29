@@ -21,7 +21,7 @@
 }
 
 .day-tabs__tab--active {
-  background: var(--accent-amber);
-  border-color: var(--accent-amber);
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
   color: #1a0f00;
 }
