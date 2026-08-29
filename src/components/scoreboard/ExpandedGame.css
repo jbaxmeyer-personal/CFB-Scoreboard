@@ -85,15 +85,17 @@
   font-size: 56px;
   font-weight: 600;
   line-height: 1;
-  color: var(--accent-amber);
-  text-shadow: 0 0 12px rgba(255, 149, 0, 0.65), 0 0 2px rgba(255, 149, 0, 0.9);
   min-width: 56px;
   text-align: center;
   font-variant-numeric: tabular-nums;
-}
-
-.expanded-game__led--possession {
-  color: #ffd479;
+  color: #fff;
+  /* Dot-matrix texture clipped to the glyph shape — reads like the individual
+     bulbs on a physical scoreboard instead of a smooth glowing digit. */
+  background-image: radial-gradient(circle, #fff 55%, transparent 58%);
+  background-size: 4px 4px;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* Absolutely positioned so it never adds height to the flex item — that
@@ -107,8 +109,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent-amber);
-  box-shadow: 0 0 6px var(--accent-amber);
+  background: #fff;
 }
 
 .expanded-game__led-sep {

@@ -7,7 +7,7 @@ import { resolveZone } from './timezone'
 // length — long enough that the grid reads like a real broadcast schedule
 // (games overlapping into the next kickoff slot) rather than implying every
 // game wraps in under an hour.
-export const PX_PER_HOUR = 112
+export const PX_PER_HOUR = 78
 export const LABEL_WIDTH = 68
 export const ASSUMED_DURATION_MIN = 210 // ~3.5 hours
 const MIN_SPAN_HOURS = 5
@@ -58,6 +58,14 @@ export function minutesFromStart(iso: string, zoneId: string, bounds: GridBounds
   const zone = resolveZone(zoneId)
   const dt = DateTime.fromISO(iso, { zone })
   return dt.diff(bounds.start, 'minutes').minutes
+}
+
+/** Minutes from the grid's start hour to right now, in the given zone —
+ * used to position the "now" line. Can be negative or beyond totalMinutes
+ * if the viewed day isn't today; callers should check that range. */
+export function nowOffsetMinutes(zoneId: string, bounds: GridBounds): number {
+  const zone = resolveZone(zoneId)
+  return DateTime.now().setZone(zone).diff(bounds.start, 'minutes').minutes
 }
 
 export function hourTicks(bounds: GridBounds): DateTime[] {

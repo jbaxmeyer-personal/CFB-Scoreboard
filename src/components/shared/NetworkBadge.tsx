@@ -1,5 +1,22 @@
 import './NetworkBadge.css'
 
+// ESPN sometimes gives the full network name instead of its usual short
+// abbreviation (e.g. "ACC Network" instead of "ACCN") — normalize those so
+// badges stay compact and still hit the color map below.
+const NETWORK_ABBREVIATIONS: Record<string, string> = {
+  'ACC Network': 'ACCN',
+  'ACC Network Extra': 'ACCNX',
+  'SEC Network': 'SECN',
+  'SEC Network+': 'SECN+',
+  'Big Ten Network': 'BTN',
+  'Pac-12 Network': 'PAC-12',
+  'ESPN Deportes': 'ESPN Dep.',
+}
+
+function shortNetworkName(name: string): string {
+  return NETWORK_ABBREVIATIONS[name] ?? name
+}
+
 const NETWORK_COLORS: Record<string, string> = {
   ESPN: '#d00000',
   ESPN2: '#d00000',
@@ -16,10 +33,11 @@ const NETWORK_COLORS: Record<string, string> = {
 }
 
 export function NetworkBadge({ name }: { name: string }) {
-  const color = NETWORK_COLORS[name] ?? '#3a4150'
+  const short = shortNetworkName(name)
+  const color = NETWORK_COLORS[short] ?? '#3a4150'
   return (
     <span className="network-badge" style={{ '--nb-color': color } as React.CSSProperties}>
-      {name}
+      {short}
     </span>
   )
 }

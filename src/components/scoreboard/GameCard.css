@@ -10,7 +10,6 @@
 }
 
 .game-card--expanded {
-  grid-column: 1 / -1;
   border-color: var(--accent-amber);
   box-shadow: var(--shadow-glow-amber);
 }
