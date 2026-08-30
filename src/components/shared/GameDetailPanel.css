@@ -8,6 +8,14 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+/* Scoreboard's card grid already supplies 16px of horizontal padding —
+   without this the panel doubled up on top of it, wasting space on both
+   sides that the collapsed cards above it don't lose. */
+.game-detail-panel--flush {
+  margin-left: 0;
+  margin-right: 0;
+}
+
 .game-detail-panel__close {
   display: block;
   margin-left: auto;

@@ -63,6 +63,7 @@ export function ScoreboardOverview() {
                   expandedGameId={expandedGameId}
                   onClose={() => setExpandedGameId(null)}
                   zoneId={settings.timezoneId}
+                  flush
                 />
               )}
             </Fragment>
