@@ -42,14 +42,24 @@ function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
   if (game.state === 'pre') {
     return <span className="ticker expanded-game__clock">{formatKickoff(game.startDate, zoneId)}</span>
   }
+  // Only a final score is a real result — a live score can still flip, so
+  // only 'post' games ever get a winner highlight.
+  const isFinal = game.state === 'post'
+  const awayWins = isFinal && (game.awayScore ?? 0) > (game.homeScore ?? 0)
+  const homeWins = isFinal && (game.homeScore ?? 0) > (game.awayScore ?? 0)
+
   return (
     <div className="expanded-game__score-block">
       <div className="expanded-game__digits">
-        <span className={`expanded-game__led${game.possession === 'away' ? ' expanded-game__led--possession' : ''}`}>
+        <span
+          className={`expanded-game__led${game.possession === 'away' ? ' expanded-game__led--possession' : ''}${awayWins ? ' expanded-game__led--winner' : ''}`}
+        >
           {game.awayScore ?? 0}
         </span>
         <span className="expanded-game__led-sep">–</span>
-        <span className={`expanded-game__led${game.possession === 'home' ? ' expanded-game__led--possession' : ''}`}>
+        <span
+          className={`expanded-game__led${game.possession === 'home' ? ' expanded-game__led--possession' : ''}${homeWins ? ' expanded-game__led--winner' : ''}`}
+        >
           {game.homeScore ?? 0}
         </span>
       </div>

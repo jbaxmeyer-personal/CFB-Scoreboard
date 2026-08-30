@@ -362,7 +362,10 @@ type PlayFilter = 'all' | 'scoring'
 export function PlayByPlayContainer({ game }: { game: Game }) {
   const { plays, isLoading, isError } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in')
   const { reactions, setReaction } = useReactions()
-  const [filter, setFilter] = useState<PlayFilter>('all')
+  // A finished game defaults to just the scoring plays (the full feed is a
+  // long scroll of no-longer-relevant detail once the outcome is set); a
+  // live game defaults to the full feed since every play still matters.
+  const [filter, setFilter] = useState<PlayFilter>(game.state === 'post' ? 'scoring' : 'all')
 
   const leadStats = useMemo(() => computeLeadStats(plays), [plays])
   const visiblePlays = filter === 'scoring' ? plays.filter((p) => p.isScoringPlay) : plays
