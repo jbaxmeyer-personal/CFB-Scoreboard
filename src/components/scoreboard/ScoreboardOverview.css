@@ -5,7 +5,7 @@
 }
 
 .scoreboard-overview__header {
-  padding: 20px 16px 4px;
+  padding: 20px 12px 4px;
 }
 
 .scoreboard-overview__title {
@@ -20,7 +20,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  padding: 16px;
+  padding: 12px;
   align-items: start;
 }
 

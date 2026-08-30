@@ -2,7 +2,7 @@
   overflow-x: auto;
   /* No left padding/inset — the network-label column should sit flush
      against the true screen edge, not float with a gap to its left. */
-  padding: 4px 16px 20px 0;
+  padding: 4px 12px 20px 0;
 }
 
 .time-grid {
