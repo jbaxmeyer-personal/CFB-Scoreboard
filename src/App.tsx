@@ -5,6 +5,7 @@ import { ScheduleGrid } from './components/schedule/ScheduleGrid'
 import { ScoreboardOverview } from './components/scoreboard/ScoreboardOverview'
 import { SettingsScreen } from './components/settings/SettingsScreen'
 import { TabBar } from './components/shared/TabBar'
+import { UpdateBanner } from './components/shared/UpdateBanner'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +26,7 @@ function Shell() {
         {tab === 'settings' && <SettingsScreen />}
       </main>
       <TabBar />
+      <UpdateBanner />
     </>
   )
 }
