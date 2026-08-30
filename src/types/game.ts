@@ -40,6 +40,14 @@ export interface GameBoxScore {
 
 export type GameState = 'pre' | 'in' | 'post'
 
+/** Identifies one ESPN scoreboard week — seasonType 2 = regular season,
+ * 3 = postseason (bowls/playoff). */
+export interface WeekSelector {
+  year: number
+  seasonType: number
+  week: number
+}
+
 export interface Game {
   id: string
   startDate: string // ISO 8601, UTC

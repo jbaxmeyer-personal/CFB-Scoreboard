@@ -105,6 +105,11 @@ export interface EspnEvent {
 
 export interface EspnScoreboardResponse {
   events: EspnEvent[]
+  // Present when the scoreboard is fetched without an explicit date/week
+  // (i.e. "what's the current week right now") — used to bootstrap the
+  // season week-navigator. Field names are best-effort/unverified.
+  week?: { number: number }
+  season?: { year: number; type: number }
 }
 
 // Shape of the separate per-game summary endpoint

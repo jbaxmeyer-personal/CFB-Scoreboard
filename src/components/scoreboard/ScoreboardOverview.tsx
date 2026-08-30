@@ -1,6 +1,6 @@
 import { Fragment, useEffect } from 'react'
 import './ScoreboardOverview.css'
-import { useScoreboard } from '../../hooks/useScoreboard'
+import { useSeasonScoreboard } from '../../hooks/useSeasonScoreboard'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
 import { useSpoilerSafeGames } from '../../hooks/useSpoilerSafeGames'
 import { useSettings } from '../../context/SettingsContext'
@@ -8,10 +8,11 @@ import { useViewState } from '../../context/ViewStateContext'
 import { DayTabs } from '../shared/DayTabs'
 import { GameCard } from './GameCard'
 import { GameDetailPanel } from '../shared/GameDetailPanel'
+import { WeekNav } from './WeekNav'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 
 export function ScoreboardOverview() {
-  const { games, isLoading, isError, refetch } = useScoreboard()
+  const { games, weekLabel, isLoading, isError, goToPrevWeek, goToNextWeek, refetch } = useSeasonScoreboard()
   const { settings } = useSettings()
   const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame } = useViewState()
   const days = useGamesByDay(games, settings.timezoneId)
@@ -30,6 +31,8 @@ export function ScoreboardOverview() {
       <div className="scoreboard-overview__header">
         <h1 className="scoreboard-overview__title">Scoreboard</h1>
       </div>
+
+      {weekLabel && <WeekNav label={weekLabel} onPrev={goToPrevWeek} onNext={goToNextWeek} />}
 
       {isLoading && <LoadingState label="Loading the scoreboard…" />}
       {isError && <ErrorState onRetry={refetch} />}

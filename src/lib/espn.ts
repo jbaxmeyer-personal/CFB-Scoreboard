@@ -8,7 +8,7 @@ import type {
   EspnScoreboardResponse,
   EspnSummaryResponse,
 } from '../types/espn'
-import type { Game, GameBoxScore, GameState, StatLeader, Team, TeamStatLine } from '../types/game'
+import type { Game, GameBoxScore, GameState, StatLeader, Team, TeamStatLine, WeekSelector } from '../types/game'
 
 export const FBS_GROUP = 80
 
@@ -29,6 +29,50 @@ export async function fetchScoreboard(dateParam: string): Promise<EspnScoreboard
   const res = await fetch(buildScoreboardUrl(dateParam))
   if (!res.ok) {
     throw new Error(`ESPN scoreboard request failed: ${res.status}`)
+  }
+  return res.json() as Promise<EspnScoreboardResponse>
+}
+
+// --- Season-wide, week-based fetching (Scoreboard) ------------------------
+// The per-day `dates=` query above is what Slate uses for its short
+// "known kickoff times" window. Browsing a whole season that way would mean
+// one request per calendar day (~150 of them) — ESPN's scoreboard endpoint
+// also accepts a week number directly, which pulls an entire week's slate
+// in a single request. This `week`/`seasontype`/`dates=<year>` combination
+// is the standard shape documented across ESPN's public (if unofficial)
+// site API, but unverified against a live response in this environment —
+// normalizeScoreboard degrades to an empty list rather than crashing if a
+// field is missing or shaped differently than expected.
+
+export function buildWeekScoreboardUrl({ year, seasonType, week }: WeekSelector, group = FBS_GROUP): string {
+  const params = new URLSearchParams({
+    dates: String(year),
+    seasontype: String(seasonType),
+    week: String(week),
+    groups: String(group),
+    limit: '300',
+  })
+  return `${SCOREBOARD_URL}?${params.toString()}`
+}
+
+export async function fetchScoreboardWeek(selector: WeekSelector): Promise<EspnScoreboardResponse> {
+  const res = await fetch(buildWeekScoreboardUrl(selector))
+  if (!res.ok) {
+    throw new Error(`ESPN scoreboard (week) request failed: ${res.status}`)
+  }
+  return res.json() as Promise<EspnScoreboardResponse>
+}
+
+/** Fetched with no date/week params at all, so ESPN returns whatever it
+ * considers "right now" — used once to learn the current year/seasonType/
+ * week number to seed the week navigator. Its `events` are discarded; the
+ * actual displayed week is always fetched explicitly via fetchScoreboardWeek
+ * so navigating is just incrementing/decrementing a known week number. */
+export async function fetchCurrentWeek(group = FBS_GROUP): Promise<EspnScoreboardResponse> {
+  const params = new URLSearchParams({ groups: String(group), limit: '1' })
+  const res = await fetch(`${SCOREBOARD_URL}?${params.toString()}`)
+  if (!res.ok) {
+    throw new Error(`ESPN scoreboard (current week) request failed: ${res.status}`)
   }
   return res.json() as Promise<EspnScoreboardResponse>
 }
