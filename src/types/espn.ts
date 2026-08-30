@@ -210,4 +210,9 @@ export interface EspnTeamStatisticsResponse {
     stats?: { categories?: EspnTeamStatCategory[] }
     opponent?: EspnTeamStatCategory[]
   }
+  // Which season the endpoint actually served — confirmed to silently
+  // differ from what was asked for when the current season doesn't have
+  // enough data yet. Used to detect and hide that fallback rather than
+  // show stale stats.
+  requestedSeason?: { year: number; type: number }
 }

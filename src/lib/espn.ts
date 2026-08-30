@@ -297,8 +297,21 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
 
 const TEAMS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams'
 
-export async function fetchTeamSeasonStats(teamId: string): Promise<EspnTeamStatisticsResponse> {
-  const res = await fetch(`${TEAMS_URL}/${teamId}/statistics`)
+/** ESPN's CFB season spans Aug-Jan; a game in Jan-Jun belongs to the season
+ * that started the previous fall (bowls/playoffs run into January). */
+export function seasonYearFromDate(iso: string): number {
+  const d = new Date(iso)
+  const month = d.getUTCMonth() // 0 = Jan
+  return month <= 5 ? d.getUTCFullYear() - 1 : d.getUTCFullYear()
+}
+
+/** Without an explicit season, this endpoint silently falls back to the
+ * most recently *completed* season instead of the in-progress one (seen
+ * live: a request in the 2026 season returned full 2025 postseason stats,
+ * 12 games played, with no error) — so the year must be forced. seasontype
+ * 2 = regular season, matching what's actually in progress right now. */
+export async function fetchTeamSeasonStats(teamId: string, year: number): Promise<EspnTeamStatisticsResponse> {
+  const res = await fetch(`${TEAMS_URL}/${teamId}/statistics?season=${year}&seasontype=2`)
   if (!res.ok) {
     throw new Error(`ESPN team statistics request failed: ${res.status}`)
   }
@@ -371,7 +384,17 @@ const SEASON_STAT_DEFS: SeasonStatDef[] = [
   },
 ]
 
-export function normalizeSeasonStats(homeStats: EspnTeamStatisticsResponse, awayStats: EspnTeamStatisticsResponse): TeamStatLine[] {
+/** The response echoes back which season it actually served under
+ * `requestedSeason` — if that doesn't match what was asked for (ESPN
+ * ignored the query params, or fell back again for some other reason),
+ * treat it as no data rather than silently showing a stale year. */
+export function normalizeSeasonStats(
+  homeStats: EspnTeamStatisticsResponse,
+  awayStats: EspnTeamStatisticsResponse,
+  expectedYear: number,
+): TeamStatLine[] {
+  if (homeStats.requestedSeason?.year !== expectedYear || awayStats.requestedSeason?.year !== expectedYear) return []
+
   const homeOwn = flattenStatCategories(homeStats.results?.stats?.categories)
   const homeAllowed = flattenStatCategories(homeStats.results?.opponent)
   const awayOwn = flattenStatCategories(awayStats.results?.stats?.categories)

@@ -5,6 +5,7 @@ import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { SpoilerGate } from '../shared/SpoilerGate'
 import { SeasonLeaders, SeasonTeamComparison, GameBoxScoreContainer, PlayByPlayContainer, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
+import { seasonYearFromDate } from '../../lib/espn'
 
 /** Logo above name (not side by side) so a long team name gets the
  * identity column's full width instead of being squeezed to the right of
@@ -98,7 +99,7 @@ export function ExpandedGame({ game, zoneId, isProtected }: ExpandedGameProps) {
           </div>
         </div>
 
-        {game.state === 'pre' && <SeasonTeamComparison home={game.home} away={game.away} />}
+        {game.state === 'pre' && <SeasonTeamComparison home={game.home} away={game.away} year={seasonYearFromDate(game.startDate)} />}
         {game.state === 'pre' && <SeasonLeaders home={game.home} away={game.away} />}
 
         <div className="expanded-game__footer">
