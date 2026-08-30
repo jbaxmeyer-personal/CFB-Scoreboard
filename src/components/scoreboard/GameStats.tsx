@@ -53,12 +53,19 @@ export function SeasonLeaders({ home, away }: { home: Team; away: Team }) {
  * this game's outcome. A separate per-team endpoint from season leaders
  * above; degrades to nothing if it doesn't resolve for both teams.
  */
+const SEASON_SECTION_LABEL: Record<NonNullable<TeamStatLine['section']>, string> = {
+  offense: 'Offense',
+  defense: 'Defense',
+  turnovers: 'Turnovers',
+}
+
 export function SeasonTeamComparison({ home, away, year }: { home: Team; away: Team; year: number }) {
   const { stats, isLoading, isError } = useSeasonTeamStats(home.id, away.id, year)
 
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
   if (isError || stats.length === 0) return null
 
+  let lastSection: TeamStatLine['section'] | undefined
   return (
     <div className="game-stats">
       <h3 className="game-stats__title">Season Comparison</h3>
@@ -66,9 +73,16 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
         <span>{away.abbreviation}</span>
         <span>{home.abbreviation}</span>
       </div>
-      {stats.map((line) => (
-        <StatRow key={line.label} line={line} awayColor={away.color} homeColor={home.color} />
-      ))}
+      {stats.map((line) => {
+        const showSectionHeader = line.section !== undefined && line.section !== lastSection
+        lastSection = line.section
+        return (
+          <div key={line.label}>
+            {showSectionHeader && <div className="game-stats__section-label">{SEASON_SECTION_LABEL[line.section!]}</div>}
+            <StatRow line={line} awayColor={away.color} homeColor={home.color} />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -121,7 +135,11 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
   // whole — bail out of the bar rather than render a nonsensical width.
   const bothNonNegative = awayNum !== null && homeNum !== null && awayNum >= 0 && homeNum >= 0
   const total = bothNonNegative ? awayNum + homeNum : 0
-  const awayPct = total > 0 ? (awayNum! / total) * 100 : 0
+  const rawAwayPct = total > 0 ? (awayNum! / total) * 100 : 0
+  // For an "invert" stat (allowed yards/points, turnovers) a *lower* value
+  // is better, so the bigger bar segment should go to whoever has less —
+  // i.e. each team's segment shows the *other* team's share of the total.
+  const awayPct = line.invert ? 100 - rawAwayPct : rawAwayPct
 
   return (
     <div className="game-stats__stat-row">

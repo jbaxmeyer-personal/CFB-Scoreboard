@@ -33,6 +33,11 @@ export interface TeamStatLine {
   label: string
   homeValue: string
   awayValue: string
+  /** Season-comparison-only: groups the row under an Offense/Defense/
+   * Turnovers subheader, and (for allowed/defense stats, where a lower
+   * value is better) flips which team's bar segment reads as "ahead". */
+  section?: 'offense' | 'defense' | 'turnovers'
+  invert?: boolean
 }
 
 /** This-game box score — only ever fetched/shown once a game is live or

@@ -25,9 +25,17 @@ export function useSeasonTeamStats(homeTeamId: string, awayTeamId: string, year:
     staleTime: 60 * 60_000,
   })
 
+  const stats = homeQuery.data && awayQuery.data ? normalizeSeasonStats(homeQuery.data, awayQuery.data, year) : []
+  // `isLoading` alone can briefly read false before data actually lands
+  // (e.g. between a transient failure and react-query's automatic retry),
+  // which was flashing an empty gap in the UI. Keep reporting "loading"
+  // for as long as either query is still pending or actively (re)fetching,
+  // and only surface an error once nothing is left in flight.
+  const stillWorking = homeQuery.isPending || homeQuery.isFetching || awayQuery.isPending || awayQuery.isFetching
+
   return {
-    stats: homeQuery.data && awayQuery.data ? normalizeSeasonStats(homeQuery.data, awayQuery.data, year) : [],
-    isLoading: homeQuery.isLoading || awayQuery.isLoading,
-    isError: homeQuery.isError || awayQuery.isError,
+    stats,
+    isLoading: stats.length === 0 && stillWorking,
+    isError: stats.length === 0 && !stillWorking && (homeQuery.isError || awayQuery.isError),
   }
 }

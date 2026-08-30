@@ -351,37 +351,37 @@ function yardsPerPlay(map: Map<string, EspnTeamStatEntry>): string | undefined {
 
 interface SeasonStatDef {
   label: string
+  section: 'offense' | 'defense' | 'turnovers'
+  // Lower is better for allowed/defense stats (and for turnovers) — flips
+  // which team's bar segment reads as "ahead" rather than just "bigger".
+  invert?: boolean
   get: (own: Map<string, EspnTeamStatEntry>, allowed: Map<string, EspnTeamStatEntry>) => string | undefined
 }
 
 const SEASON_STAT_DEFS: SeasonStatDef[] = [
-  { label: 'Points Per Game', get: (own) => statDisplay(own, 'totalPointsPerGame', false) },
-  { label: 'Points Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'totalPointsPerGame', false) },
-  { label: 'Yards Per Play', get: (own) => yardsPerPlay(own) },
-  { label: 'Yards Per Play Allowed', get: (_own, allowed) => yardsPerPlay(allowed) },
-  { label: 'Passing Yards Per Play', get: (own) => statDisplay(own, 'yardsPerPassAttempt', false) },
-  { label: 'Passing Yards Per Play Allowed', get: (_own, allowed) => statDisplay(allowed, 'yardsPerPassAttempt', false) },
-  { label: 'Rushing Yards Per Play', get: (own) => statDisplay(own, 'yardsPerRushAttempt', false) },
-  { label: 'Rushing Yards Per Play Allowed', get: (_own, allowed) => statDisplay(allowed, 'yardsPerRushAttempt', false) },
+  // Offense
+  { label: 'Points Per Game', section: 'offense', get: (own) => statDisplay(own, 'totalPointsPerGame', false) },
   // "yardsPerGame" lives inside ESPN's passing category despite meaning
   // total offensive yards per game — confirmed against the real payload.
-  { label: 'Total Yards Per Game', get: (own) => statDisplay(own, 'yardsPerGame', false) },
-  { label: 'Total Yards Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'yardsPerGame', false) },
-  { label: 'Passing Yards Per Game', get: (own) => statDisplay(own, 'passingYardsPerGame', false) },
-  { label: 'Passing Yards Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'passingYardsPerGame', false) },
-  { label: 'Rushing Yards Per Game', get: (own) => statDisplay(own, 'rushingYardsPerGame', false) },
-  { label: 'Rushing Yards Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'rushingYardsPerGame', false) },
-  { label: 'Turnovers', get: (own) => statDisplay(own, 'totalGiveaways', false) },
-  { label: 'Takeaways', get: (own) => statDisplay(own, 'totalTakeaways', false) },
-  { label: 'Turnover Margin', get: (own) => statDisplay(own, 'turnOverDifferential', false) },
-  { label: 'First Downs Per Game', get: (own) => statDisplay(own, 'firstDowns', true) },
-  {
-    label: '3rd Down %',
-    get: (own) => {
-      const v = statDisplay(own, 'thirdDownConvPct', false)
-      return v ? `${v}%` : undefined
-    },
-  },
+  { label: 'Total Yards Per Game', section: 'offense', get: (own) => statDisplay(own, 'yardsPerGame', false) },
+  { label: 'Passing Yards Per Game', section: 'offense', get: (own) => statDisplay(own, 'passingYardsPerGame', false) },
+  { label: 'Rushing Yards Per Game', section: 'offense', get: (own) => statDisplay(own, 'rushingYardsPerGame', false) },
+  { label: 'First Downs Per Game', section: 'offense', get: (own) => statDisplay(own, 'firstDowns', true) },
+  { label: 'Yards Per Play', section: 'offense', get: (own) => yardsPerPlay(own) },
+  { label: 'Passing Yards Per Play', section: 'offense', get: (own) => statDisplay(own, 'yardsPerPassAttempt', false) },
+  { label: 'Rushing Yards Per Play', section: 'offense', get: (own) => statDisplay(own, 'yardsPerRushAttempt', false) },
+  // Defense (all "allowed" — lower is better, so bars invert)
+  { label: 'Points Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'totalPointsPerGame', false) },
+  { label: 'Total Yards Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'yardsPerGame', false) },
+  { label: 'Passing Yards Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'passingYardsPerGame', false) },
+  { label: 'Rushing Yards Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'rushingYardsPerGame', false) },
+  { label: 'Yards Allowed Per Play', section: 'defense', invert: true, get: (_own, allowed) => yardsPerPlay(allowed) },
+  { label: 'Passing Yards Allowed Per Play', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'yardsPerPassAttempt', false) },
+  { label: 'Rushing Yards Allowed Per Play', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'yardsPerRushAttempt', false) },
+  // Turnovers — giving the ball away is bad (fewer is better), taking it
+  // away is good (more is better), so only Turnovers inverts.
+  { label: 'Turnovers', section: 'turnovers', invert: true, get: (own) => statDisplay(own, 'totalGiveaways', false) },
+  { label: 'Takeaways', section: 'turnovers', get: (own) => statDisplay(own, 'totalTakeaways', false) },
 ]
 
 /** The response echoes back which season it actually served under
@@ -404,7 +404,9 @@ export function normalizeSeasonStats(
   for (const def of SEASON_STAT_DEFS) {
     const homeValue = def.get(homeOwn, homeAllowed)
     const awayValue = def.get(awayOwn, awayAllowed)
-    if (homeValue !== undefined && awayValue !== undefined) lines.push({ label: def.label, homeValue, awayValue })
+    if (homeValue !== undefined && awayValue !== undefined) {
+      lines.push({ label: def.label, homeValue, awayValue, section: def.section, invert: def.invert })
+    }
   }
   return lines
 }
