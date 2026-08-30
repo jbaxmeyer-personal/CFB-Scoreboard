@@ -5,10 +5,11 @@ import type {
   EspnEvent,
   EspnLeaderCategory,
   EspnLogo,
+  EspnPlay,
   EspnScoreboardResponse,
   EspnSummaryResponse,
 } from '../types/espn'
-import type { Game, GameBoxScore, GameState, StatLeader, Team, TeamStatLine, WeekSelector } from '../types/game'
+import type { Game, GameBoxScore, GamePlay, GameState, StatLeader, Team, TeamStatLine, WeekSelector } from '../types/game'
 
 export const FBS_GROUP = 80
 
@@ -231,6 +232,39 @@ function parseGameLeaders(entry: EspnBoxscorePlayerEntry | undefined): StatLeade
     }
   }
   return result
+}
+
+// --- Play-by-play (live/final only) ---------------------------------------
+
+function toGamePlay(play: EspnPlay): GamePlay | null {
+  if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
+  return {
+    id: play.id,
+    text: play.text,
+    period: play.period?.number ?? 0,
+    clock: play.clock?.displayValue ?? '',
+    homeScore: play.homeScore,
+    awayScore: play.awayScore,
+    isScoringPlay: play.scoringPlay ?? false,
+  }
+}
+
+/**
+ * Flattens ESPN's drives into a single newest-first play list. `previous` is
+ * assumed oldest-drive-first and each drive's own plays oldest-first (the
+ * usual convention for this endpoint, unverified in this environment) — so
+ * the chronological feed is every previous drive's plays followed by the
+ * in-progress drive's plays, then reversed for a newest-first display order
+ * matching a live play-by-play feed.
+ */
+export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
+  const previousPlays = (response.drives?.previous ?? []).flatMap((d) => d.plays ?? [])
+  const currentPlays = response.drives?.current?.plays ?? []
+  const chronological = [...previousPlays, ...currentPlays]
+  return chronological
+    .map(toGamePlay)
+    .filter((p): p is GamePlay => p !== null)
+    .reverse()
 }
 
 export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: string, awayTeamId: string): GameBoxScore {

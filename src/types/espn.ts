@@ -148,6 +148,31 @@ export interface EspnBoxscore {
   players?: EspnBoxscorePlayerEntry[]
 }
 
+// Play-by-play — best-effort/unverified shape, same caveat as the box
+// score above. ESPN's summary endpoint groups plays into drives; `current`
+// is the in-progress drive, `previous` is every completed drive.
+export interface EspnPlay {
+  id: string
+  text?: string
+  type?: { text?: string }
+  period?: { number: number }
+  clock?: { displayValue: string }
+  homeScore?: number
+  awayScore?: number
+  scoringPlay?: boolean
+}
+
+export interface EspnDrive {
+  id?: string
+  plays?: EspnPlay[]
+}
+
+export interface EspnDrives {
+  previous?: EspnDrive[]
+  current?: EspnDrive
+}
+
 export interface EspnSummaryResponse {
   boxscore?: EspnBoxscore
+  drives?: EspnDrives
 }

@@ -3,7 +3,7 @@ import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { SpoilerGate } from '../shared/SpoilerGate'
-import { SeasonLeaders, GameBoxScoreContainer } from './GameStats'
+import { SeasonLeaders, GameBoxScoreContainer, PlayByPlayContainer } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 
 /** Logo above name (not side by side) so a long team name gets the
@@ -50,6 +50,7 @@ function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
         </span>
       )}
       {game.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
+      <PlayByPlayContainer game={game} />
       <GameBoxScoreContainer game={game} />
     </div>
   )
