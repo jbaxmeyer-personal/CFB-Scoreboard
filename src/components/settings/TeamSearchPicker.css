@@ -81,7 +81,7 @@
 
 .team-picker__result--active {
   border-color: var(--accent-primary);
-  background: rgba(255, 149, 0, 0.08);
+  background: rgba(77, 166, 255, 0.08);
 }
 
 .team-picker__result-name {

@@ -6,14 +6,14 @@ import { ProtectedToggle } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
 
-function TeamCompactRow({ team, score, showScore }: { team: Team; score?: number; showScore: boolean }) {
+function TeamCompactRow({ team, score, showScore, isWinner }: { team: Team; score?: number; showScore: boolean; isWinner: boolean }) {
   const { isFavoriteTeam } = useSettings()
   const favorite = isFavoriteTeam(team.id)
   return (
     <div className={`game-card__team-row${favorite ? ' game-card__team-row--favorite' : ''}`}>
       <TeamLogo team={team} size={26} rank={team.rank} />
-      <span className="game-card__team-name">{team.abbreviation}</span>
-      {showScore && <span className="game-card__score ticker">{score ?? 0}</span>}
+      <span className={`game-card__team-name${isWinner ? ' game-card__team-name--winner' : ''}`}>{team.abbreviation}</span>
+      {showScore && <span className={`game-card__score ticker${isWinner ? ' game-card__score--winner' : ''}`}>{score ?? 0}</span>}
     </div>
   )
 }
@@ -36,6 +36,11 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
   // required because a protected *live* game reports state 'in' (to show the
   // bare LIVE badge) with scores stripped, and must not fall back to "0".
   const showScore = game.state !== 'pre' && game.homeScore !== undefined && game.awayScore !== undefined
+  // Only a final score is a real result — a live score can still flip, so
+  // only 'post' games ever get a winner highlight.
+  const isFinal = game.state === 'post' && showScore
+  const homeWins = isFinal && game.homeScore! > game.awayScore!
+  const awayWins = isFinal && game.awayScore! > game.homeScore!
 
   return (
     <div id={`game-card-${game.id}`} className={`game-card${isSelected ? ' game-card--selected' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}>
@@ -56,8 +61,8 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
           <NetworkBadgeList networks={game.broadcasts} />
           <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} />
         </div>
-        <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} />
-        <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} />
+        <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} isWinner={awayWins} />
+        <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} isWinner={homeWins} />
         <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
           {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
           {kickoffOrStatus(game, zoneId)}
