@@ -71,6 +71,7 @@
 }
 
 .game-stats__stat-bar {
+  position: relative;
   display: flex;
   height: 4px;
   border-radius: 999px;
@@ -80,6 +81,17 @@
 
 .game-stats__stat-bar-segment {
   height: 100%;
+}
+
+.game-stats__stat-bar-mid {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: rgba(0, 0, 0, 0.6);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 .game-stats__stat-label {
