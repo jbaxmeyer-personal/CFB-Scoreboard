@@ -32,6 +32,15 @@
   color: var(--text-secondary);
 }
 
+.game-stats__section-label {
+  margin: 10px 2px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent-primary);
+}
+
 .game-stats__stat-row {
   display: flex;
   flex-direction: column;
