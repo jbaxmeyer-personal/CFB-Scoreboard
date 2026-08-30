@@ -15,8 +15,13 @@ export interface ScoreboardResult {
 // ESPN's scoreboard endpoint is queried per-day; CFB games cluster
 // Thu-through-Mon, so we pull a rolling window around today rather than
 // requiring the user to page one day at a time.
+//
+// DAYS_AFTER must be at least 6: the worst case is "today" being a Sunday,
+// where the next Saturday's slate (the biggest one of the week) is exactly
+// 6 days out. A shorter window can clip it depending on what weekday it
+// happens to be when someone opens the app.
 const DAYS_BEFORE = 1
-const DAYS_AFTER = 5
+const DAYS_AFTER = 6
 
 function getWindowDateParams(): string[] {
   const today = DateTime.now().startOf('day')
