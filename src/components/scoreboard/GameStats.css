@@ -108,12 +108,15 @@
 }
 
 .game-stats__play-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
   padding: 6px 2px;
   border-top: 1px solid var(--border-subtle);
   font-size: 12px;
+}
+
+.game-stats__play-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .game-stats__play-meta {
@@ -143,4 +146,42 @@
   color: var(--text-primary);
   min-width: 44px;
   text-align: right;
+}
+
+.game-stats__play-react-trigger {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel-raised);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.game-stats__play-react-menu {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0 2px 50px;
+}
+
+.game-stats__play-react-option {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.game-stats__play-react-option--selected {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-dim);
 }

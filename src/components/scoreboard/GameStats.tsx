@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import './GameStats.css'
 import type { Game, GameBoxScore, GamePlay, StatLeader, Team } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
+import { useReactions } from '../../hooks/useReactions'
+
+const REACTIONS = ['🔥', '😱', '👏', '😂', '💀', '🚀']
 
 const CATEGORY_LABEL: Record<StatLeader['category'], string> = {
   passing: 'Passing',
@@ -98,18 +102,46 @@ export function GameBoxScoreContainer({ game }: { game: Game }) {
   return <BoxScoreBody boxScore={boxScore} home={game.home} away={game.away} />
 }
 
-function PlayRow({ play }: { play: GamePlay }) {
+function PlayRow({ play, reaction, onReact }: { play: GamePlay; reaction?: string; onReact: (emoji: string) => void }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   return (
     <div className={`game-stats__play-row${play.isScoringPlay ? ' game-stats__play-row--scoring' : ''}`}>
-      <span className="game-stats__play-meta">
-        Q{play.period}
-        <br />
-        {play.clock}
-      </span>
-      <span className="game-stats__play-text">{play.text}</span>
-      <span className="game-stats__play-score ticker">
-        {play.awayScore}–{play.homeScore}
-      </span>
+      <div className="game-stats__play-main">
+        <span className="game-stats__play-meta">
+          Q{play.period}
+          <br />
+          {play.clock}
+        </span>
+        <span className="game-stats__play-text">{play.text}</span>
+        <span className="game-stats__play-score ticker">
+          {play.awayScore}–{play.homeScore}
+        </span>
+        <button
+          type="button"
+          className="game-stats__play-react-trigger"
+          onClick={() => setPickerOpen((o) => !o)}
+          aria-label="React to this play"
+        >
+          {reaction ?? '+'}
+        </button>
+      </div>
+      {pickerOpen && (
+        <div className="game-stats__play-react-menu">
+          {REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              className={`game-stats__play-react-option${reaction === emoji ? ' game-stats__play-react-option--selected' : ''}`}
+              onClick={() => {
+                onReact(emoji)
+                setPickerOpen(false)
+              }}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -118,10 +150,12 @@ function PlayRow({ play }: { play: GamePlay }) {
  * Fetches and renders the live play-by-play feed for the game currently
  * expanded, newest play first — same gating and shared query as the box
  * score above (see GameBoxScoreContainer), so mounting both here costs no
- * extra network request.
+ * extra network request. Each play carries your own emoji reaction, saved
+ * locally (see useReactions) — no accounts, no server, no other users.
  */
 export function PlayByPlayContainer({ game }: { game: Game }) {
   const { plays, isLoading, isError } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in')
+  const { reactions, setReaction } = useReactions()
 
   if (isLoading) return <p className="game-stats__hint">Loading plays…</p>
   if (isError || plays.length === 0) return null
@@ -130,9 +164,10 @@ export function PlayByPlayContainer({ game }: { game: Game }) {
     <div className="game-stats">
       <h3 className="game-stats__title">Play by Play</h3>
       <div className="game-stats__plays">
-        {plays.map((play) => (
-          <PlayRow key={play.id} play={play} />
-        ))}
+        {plays.map((play) => {
+          const key = `${game.id}:${play.id}`
+          return <PlayRow key={play.id} play={play} reaction={reactions[key]} onReact={(emoji) => setReaction(key, emoji)} />
+        })}
       </div>
     </div>
   )
