@@ -185,3 +185,21 @@ export interface EspnSummaryResponse {
   boxscore?: EspnBoxscore
   drives?: EspnDrives
 }
+
+// Shape of the separate per-team season-statistics endpoint
+// (.../teams/{id}/statistics) — best-effort/unverified, same caveat as
+// everything else above. Fetched only pre-game, for the season stat
+// comparison shown alongside season leaders.
+export interface EspnTeamStatEntry {
+  name: string
+  displayValue: string
+}
+
+export interface EspnTeamStatCategory {
+  name?: string
+  stats?: EspnTeamStatEntry[]
+}
+
+export interface EspnTeamStatisticsResponse {
+  splits?: { categories?: EspnTeamStatCategory[] }
+}

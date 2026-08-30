@@ -6,13 +6,28 @@ import { ProtectedToggle } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
 
-function TeamCompactRow({ team, score, showScore, isWinner }: { team: Team; score?: number; showScore: boolean; isWinner: boolean }) {
+function TeamCompactRow({
+  team,
+  score,
+  showScore,
+  showRecord,
+  isWinner,
+}: {
+  team: Team
+  score?: number
+  showScore: boolean
+  showRecord: boolean
+  isWinner: boolean
+}) {
   const { isFavoriteTeam } = useSettings()
   const favorite = isFavoriteTeam(team.id)
   return (
     <div className={`game-card__team-row${favorite ? ' game-card__team-row--favorite' : ''}`}>
       <TeamLogo team={team} size={26} rank={team.rank} />
       <span className={`game-card__team-name${isWinner ? ' game-card__team-name--winner' : ''}`}>{team.abbreviation}</span>
+      {/* Only pre-game: a live/final record can itself reflect this game's
+          outcome, which would leak a protected result. */}
+      {showRecord && team.record && <span className="game-card__team-record">{team.record}</span>}
       {showScore && <span className={`game-card__score ticker${isWinner ? ' game-card__score--winner' : ''}`}>{score ?? 0}</span>}
     </div>
   )
@@ -61,8 +76,8 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
           <NetworkBadgeList networks={game.broadcasts} />
           <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} />
         </div>
-        <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} isWinner={awayWins} />
-        <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} isWinner={homeWins} />
+        <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} />
+        <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} />
         <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
           {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
           {kickoffOrStatus(game, zoneId)}

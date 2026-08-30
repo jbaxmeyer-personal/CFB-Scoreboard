@@ -8,6 +8,8 @@ import type {
   EspnPlay,
   EspnScoreboardResponse,
   EspnSummaryResponse,
+  EspnTeamStatCategory,
+  EspnTeamStatisticsResponse,
 } from '../types/espn'
 import type { Game, GameBoxScore, GamePlay, GameState, StatLeader, Team, TeamStatLine, WeekSelector } from '../types/game'
 
@@ -122,6 +124,8 @@ function toTeam(competitor: EspnCompetitor): Team {
   const { team, curatedRank, records, leaders } = competitor
   const rank = curatedRank?.current
   const overallRecord = records?.find((r) => r.type === 'total' || r.name === 'overall')?.summary ?? records?.[0]?.summary
+  const homeRecord = records?.find((r) => r.type === 'home')?.summary
+  const awayRecord = records?.find((r) => r.type === 'road' || r.type === 'away')?.summary
   return {
     id: team.id,
     name: team.displayName,
@@ -131,6 +135,8 @@ function toTeam(competitor: EspnCompetitor): Team {
     alternateColor: team.alternateColor ? `#${team.alternateColor}` : undefined,
     rank: rank && rank > 0 && rank <= 25 ? rank : undefined,
     record: overallRecord,
+    homeRecord,
+    awayRecord,
     seasonLeaders: parseSeasonLeaders(leaders),
     ...pickLogos(team.logos, team.logo),
   }
@@ -271,6 +277,58 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
     .map(toGamePlay)
     .filter((p): p is GamePlay => p !== null)
     .reverse()
+}
+
+// --- Season-long team stats (pre-game only) --------------------------------
+// A separate per-team endpoint, fetched only pre-game for the season stat
+// comparison shown alongside season leaders. Field names here are a wide
+// best-effort net over plausible ESPN naming conventions, not verified
+// against a live response — any stat that doesn't match a known name for
+// both teams just doesn't show a row, same resilience pattern as the box
+// score and play-by-play above.
+
+const TEAMS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams'
+
+export async function fetchTeamSeasonStats(teamId: string): Promise<EspnTeamStatisticsResponse> {
+  const res = await fetch(`${TEAMS_URL}/${teamId}/statistics`)
+  if (!res.ok) {
+    throw new Error(`ESPN team statistics request failed: ${res.status}`)
+  }
+  return res.json() as Promise<EspnTeamStatisticsResponse>
+}
+
+function findSeasonStat(categories: EspnTeamStatCategory[] | undefined, names: string[]): string | undefined {
+  if (!categories) return undefined
+  for (const category of categories) {
+    for (const name of names) {
+      const found = category.stats?.find((s) => s.name === name)
+      if (found) return found.displayValue
+    }
+  }
+  return undefined
+}
+
+const SEASON_STAT_DEFS: { label: string; names: string[] }[] = [
+  { label: 'Points Per Game', names: ['totalPointsPerGame', 'avgPointsFor', 'pointsPerGame'] },
+  { label: 'Points Allowed Per Game', names: ['totalPointsPerGameAllowed', 'avgPointsAgainst', 'pointsAllowedPerGame'] },
+  { label: 'Total Yards Per Game', names: ['totalYardsPerGame', 'yardsPerGame'] },
+  { label: 'Passing Yards Per Game', names: ['netPassingYardsPerGame', 'passingYardsPerGame'] },
+  { label: 'Rushing Yards Per Game', names: ['rushingYardsPerGame'] },
+  { label: 'Turnovers', names: ['totalTurnovers', 'turnovers'] },
+  { label: 'First Downs Per Game', names: ['firstDownsPerGame', 'avgFirstDowns'] },
+  { label: '3rd Down %', names: ['thirdDownConvPct', 'thirdDownConversionPct'] },
+]
+
+export function normalizeSeasonStats(homeStats: EspnTeamStatisticsResponse, awayStats: EspnTeamStatisticsResponse): TeamStatLine[] {
+  const homeCats = homeStats.splits?.categories
+  const awayCats = awayStats.splits?.categories
+  const lines: TeamStatLine[] = []
+  for (const def of SEASON_STAT_DEFS) {
+    const homeValue = findSeasonStat(homeCats, def.names)
+    const awayValue = findSeasonStat(awayCats, def.names)
+    if (homeValue !== undefined && awayValue !== undefined) lines.push({ label: def.label, homeValue, awayValue })
+  }
+  return lines
 }
 
 export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: string, awayTeamId: string): GameBoxScore {

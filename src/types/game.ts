@@ -14,6 +14,11 @@ export interface Team {
   rank?: number
   /** Overall win-loss record entering/during this game, e.g. "7-1". */
   record?: string
+  /** Split records — this team's record at home / on the road this season,
+   * not specific to whoever they're playing this game. Best-effort: parsed
+   * from the same `records` array as the overall record above. */
+  homeRecord?: string
+  awayRecord?: string
   /** Season stat leaders (passing/rushing/receiving), shown pre-game only. */
   seasonLeaders?: StatLeader[]
 }
