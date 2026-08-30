@@ -3,6 +3,7 @@ import './GameStats.css'
 import type { Game, GameBoxScore, GamePlay, StatLeader, Team, TeamStatLine } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import { useReactions } from '../../hooks/useReactions'
+import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
 
 const REACTIONS = ['🔥', '😱', '👏', '😂', '💀', '🚀']
 const DOWN_ORDINAL = ['', '1st', '2nd', '3rd', '4th']
@@ -42,6 +43,32 @@ export function SeasonLeaders({ home, away }: { home: Team; away: Team }) {
           {home.seasonLeaders?.map((l) => <LeaderRow key={l.category} leader={l} />)}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Season-long team stat comparison (points/yards per game, turnovers,
+ * etc.) — safe to show pre-game since it's about the season so far, not
+ * this game's outcome. A separate per-team endpoint from season leaders
+ * above; degrades to nothing if it doesn't resolve for both teams.
+ */
+export function SeasonTeamComparison({ home, away }: { home: Team; away: Team }) {
+  const { stats, isLoading, isError } = useSeasonTeamStats(home.id, away.id)
+
+  if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
+  if (isError || stats.length === 0) return null
+
+  return (
+    <div className="game-stats">
+      <h3 className="game-stats__title">Season Comparison</h3>
+      <div className="game-stats__team-header">
+        <span>{away.abbreviation}</span>
+        <span>{home.abbreviation}</span>
+      </div>
+      {stats.map((line) => (
+        <StatRow key={line.label} line={line} awayColor={away.color} homeColor={home.color} />
+      ))}
     </div>
   )
 }
