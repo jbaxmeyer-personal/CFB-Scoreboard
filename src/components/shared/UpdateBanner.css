@@ -1,0 +1,36 @@
+.update-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  /* Sits just above the fixed tab bar (72px reserved + safe area, see
+     .app-main), never overlapping it. */
+  bottom: calc(72px + env(safe-area-inset-bottom) + 10px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--accent-primary);
+  box-shadow: var(--shadow-panel);
+}
+
+.update-banner span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.update-banner button {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-primary);
+  color: var(--bg-base);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
