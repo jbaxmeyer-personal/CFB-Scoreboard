@@ -152,9 +152,14 @@ export function normalizeEvent(event: EspnEvent): Game | null {
 
   const status = competition.status ?? event.status
   const broadcasts = (competition.broadcasts ?? []).flatMap((b) => b.names)
-  const possessionId = competition.situation?.possession
+  const sit = competition.situation
+  const possessionId = sit?.possession
   const possession =
     possessionId === home.team.id ? 'home' : possessionId === away.team.id ? 'away' : undefined
+  const situation =
+    sit?.down !== undefined && sit?.distance !== undefined && sit?.yardLine !== undefined
+      ? { down: sit.down, distance: sit.distance, yardLine: sit.yardLine, possessionText: sit.possessionText ?? '', isRedZone: sit.isRedZone ?? false }
+      : undefined
 
   return {
     id: event.id,
@@ -171,6 +176,7 @@ export function normalizeEvent(event: EspnEvent): Game | null {
     clock: status.displayClock,
     possession,
     broadcasts,
+    situation,
   }
 }
 
