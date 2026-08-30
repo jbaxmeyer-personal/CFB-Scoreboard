@@ -53,8 +53,8 @@ export function SeasonLeaders({ home, away }: { home: Team; away: Team }) {
  * this game's outcome. A separate per-team endpoint from season leaders
  * above; degrades to nothing if it doesn't resolve for both teams.
  */
-export function SeasonTeamComparison({ home, away }: { home: Team; away: Team }) {
-  const { stats, isLoading, isError } = useSeasonTeamStats(home.id, away.id)
+export function SeasonTeamComparison({ home, away, year }: { home: Team; away: Team; year: number }) {
+  const { stats, isLoading, isError } = useSeasonTeamStats(home.id, away.id, year)
 
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
   if (isError || stats.length === 0) return null
