@@ -111,6 +111,10 @@
   color: #fff;
 }
 
+.expanded-game__led--winner {
+  color: var(--accent-win);
+}
+
 /* Absolutely positioned so it never adds height to the flex item — that
    was throwing off the vertical alignment between the two scores. */
 .expanded-game__led--possession::after {
