@@ -43,7 +43,10 @@
   border: 1px solid var(--border-subtle);
   background: var(--bg-panel);
   color: var(--text-primary);
-  font-size: 14px;
+  /* iOS Safari auto-zooms the page on focus for any text input under
+     16px — this is the one input in the app, so it's the one place that
+     needs to stay at/above that threshold. */
+  font-size: 16px;
 }
 
 .team-picker__input:focus {
