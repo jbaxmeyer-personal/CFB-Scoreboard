@@ -187,12 +187,17 @@ export interface EspnSummaryResponse {
 }
 
 // Shape of the separate per-team season-statistics endpoint
-// (.../teams/{id}/statistics) — best-effort/unverified, same caveat as
-// everything else above. Fetched only pre-game, for the season stat
-// comparison shown alongside season leaders.
+// (.../teams/{id}/statistics), fetched only pre-game for the season stat
+// comparison shown alongside season leaders. Confirmed against a real
+// response — see lib/espn.ts for how `results.stats.categories` (this
+// team's own production) and `results.opponent` (what opponents did
+// against this team, i.e. this team's "allowed" numbers) are used.
 export interface EspnTeamStatEntry {
   name: string
+  value?: number
   displayValue: string
+  perGameValue?: number
+  perGameDisplayValue?: string
 }
 
 export interface EspnTeamStatCategory {
@@ -201,5 +206,8 @@ export interface EspnTeamStatCategory {
 }
 
 export interface EspnTeamStatisticsResponse {
-  splits?: { categories?: EspnTeamStatCategory[] }
+  results?: {
+    stats?: { categories?: EspnTeamStatCategory[] }
+    opponent?: EspnTeamStatCategory[]
+  }
 }

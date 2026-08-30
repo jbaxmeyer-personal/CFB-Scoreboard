@@ -9,6 +9,7 @@ import type {
   EspnScoreboardResponse,
   EspnSummaryResponse,
   EspnTeamStatCategory,
+  EspnTeamStatEntry,
   EspnTeamStatisticsResponse,
 } from '../types/espn'
 import type { Game, GameBoxScore, GamePlay, GameState, StatLeader, Team, TeamStatLine, WeekSelector } from '../types/game'
@@ -284,11 +285,15 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
 
 // --- Season-long team stats (pre-game only) --------------------------------
 // A separate per-team endpoint, fetched only pre-game for the season stat
-// comparison shown alongside season leaders. Field names here are a wide
-// best-effort net over plausible ESPN naming conventions, not verified
-// against a live response — any stat that doesn't match a known name for
-// both teams just doesn't show a row, same resilience pattern as the box
-// score and play-by-play above.
+// comparison shown alongside season leaders. Shape confirmed against a real
+// response (site.api.espn.com/.../teams/{id}/statistics): results.stats.
+// categories is the team's own offensive/special-teams production;
+// results.opponent is the *same* category shape but for what opponents did
+// against this team — that's where "allowed" (defensive) numbers come
+// from, since this endpoint has no separate offense-vs-defense split of
+// its own. Note: results.opponent only carries passing/rushing/receiving/
+// general/scoring categories (no miscellaneous/defensive), so allowed-side
+// first downs and 3rd-down% aren't available here.
 
 const TEAMS_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams'
 
@@ -300,35 +305,82 @@ export async function fetchTeamSeasonStats(teamId: string): Promise<EspnTeamStat
   return res.json() as Promise<EspnTeamStatisticsResponse>
 }
 
-function findSeasonStat(categories: EspnTeamStatCategory[] | undefined, names: string[]): string | undefined {
-  if (!categories) return undefined
-  for (const category of categories) {
-    for (const name of names) {
-      const found = category.stats?.find((s) => s.name === name)
-      if (found) return found.displayValue
+function flattenStatCategories(categories: EspnTeamStatCategory[] | undefined): Map<string, EspnTeamStatEntry> {
+  const map = new Map<string, EspnTeamStatEntry>()
+  for (const category of categories ?? []) {
+    for (const stat of category.stats ?? []) {
+      // First occurrence wins: a few stat names (e.g. totalPointsPerGame)
+      // repeat across categories with the same value, except "scoring",
+      // which computes it differently — categories are ordered with
+      // passing/rushing/receiving first, so this always keeps the
+      // consistent value.
+      if (!map.has(stat.name)) map.set(stat.name, stat)
     }
   }
-  return undefined
+  return map
 }
 
-const SEASON_STAT_DEFS: { label: string; names: string[] }[] = [
-  { label: 'Points Per Game', names: ['totalPointsPerGame', 'avgPointsFor', 'pointsPerGame'] },
-  { label: 'Points Allowed Per Game', names: ['totalPointsPerGameAllowed', 'avgPointsAgainst', 'pointsAllowedPerGame'] },
-  { label: 'Total Yards Per Game', names: ['totalYardsPerGame', 'yardsPerGame'] },
-  { label: 'Passing Yards Per Game', names: ['netPassingYardsPerGame', 'passingYardsPerGame'] },
-  { label: 'Rushing Yards Per Game', names: ['rushingYardsPerGame'] },
-  { label: 'Turnovers', names: ['totalTurnovers', 'turnovers'] },
-  { label: 'First Downs Per Game', names: ['firstDownsPerGame', 'avgFirstDowns'] },
-  { label: '3rd Down %', names: ['thirdDownConvPct', 'thirdDownConversionPct'] },
+function statDisplay(map: Map<string, EspnTeamStatEntry>, name: string, perGame: boolean): string | undefined {
+  const stat = map.get(name)
+  if (!stat) return undefined
+  return (perGame ? stat.perGameDisplayValue : undefined) ?? stat.displayValue
+}
+
+/** ESPN doesn't expose a single "yards per play" field — derive it from the
+ * season total yards and total offensive plays, both confirmed present on
+ * both the team's own stats and (separately) the opponent side. */
+function yardsPerPlay(map: Map<string, EspnTeamStatEntry>): string | undefined {
+  const yards = map.get('totalYards')?.value
+  const plays = map.get('totalOffensivePlays')?.value
+  if (yards === undefined || plays === undefined || plays === 0) return undefined
+  return (yards / plays).toFixed(1)
+}
+
+interface SeasonStatDef {
+  label: string
+  get: (own: Map<string, EspnTeamStatEntry>, allowed: Map<string, EspnTeamStatEntry>) => string | undefined
+}
+
+const SEASON_STAT_DEFS: SeasonStatDef[] = [
+  { label: 'Points Per Game', get: (own) => statDisplay(own, 'totalPointsPerGame', false) },
+  { label: 'Points Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'totalPointsPerGame', false) },
+  { label: 'Yards Per Play', get: (own) => yardsPerPlay(own) },
+  { label: 'Yards Per Play Allowed', get: (_own, allowed) => yardsPerPlay(allowed) },
+  { label: 'Passing Yards Per Play', get: (own) => statDisplay(own, 'yardsPerPassAttempt', false) },
+  { label: 'Passing Yards Per Play Allowed', get: (_own, allowed) => statDisplay(allowed, 'yardsPerPassAttempt', false) },
+  { label: 'Rushing Yards Per Play', get: (own) => statDisplay(own, 'yardsPerRushAttempt', false) },
+  { label: 'Rushing Yards Per Play Allowed', get: (_own, allowed) => statDisplay(allowed, 'yardsPerRushAttempt', false) },
+  // "yardsPerGame" lives inside ESPN's passing category despite meaning
+  // total offensive yards per game — confirmed against the real payload.
+  { label: 'Total Yards Per Game', get: (own) => statDisplay(own, 'yardsPerGame', false) },
+  { label: 'Total Yards Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'yardsPerGame', false) },
+  { label: 'Passing Yards Per Game', get: (own) => statDisplay(own, 'passingYardsPerGame', false) },
+  { label: 'Passing Yards Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'passingYardsPerGame', false) },
+  { label: 'Rushing Yards Per Game', get: (own) => statDisplay(own, 'rushingYardsPerGame', false) },
+  { label: 'Rushing Yards Allowed Per Game', get: (_own, allowed) => statDisplay(allowed, 'rushingYardsPerGame', false) },
+  { label: 'Turnovers', get: (own) => statDisplay(own, 'totalGiveaways', false) },
+  { label: 'Takeaways', get: (own) => statDisplay(own, 'totalTakeaways', false) },
+  { label: 'Turnover Margin', get: (own) => statDisplay(own, 'turnOverDifferential', false) },
+  { label: 'First Downs Per Game', get: (own) => statDisplay(own, 'firstDowns', true) },
+  {
+    label: '3rd Down %',
+    get: (own) => {
+      const v = statDisplay(own, 'thirdDownConvPct', false)
+      return v ? `${v}%` : undefined
+    },
+  },
 ]
 
 export function normalizeSeasonStats(homeStats: EspnTeamStatisticsResponse, awayStats: EspnTeamStatisticsResponse): TeamStatLine[] {
-  const homeCats = homeStats.splits?.categories
-  const awayCats = awayStats.splits?.categories
+  const homeOwn = flattenStatCategories(homeStats.results?.stats?.categories)
+  const homeAllowed = flattenStatCategories(homeStats.results?.opponent)
+  const awayOwn = flattenStatCategories(awayStats.results?.stats?.categories)
+  const awayAllowed = flattenStatCategories(awayStats.results?.opponent)
+
   const lines: TeamStatLine[] = []
   for (const def of SEASON_STAT_DEFS) {
-    const homeValue = findSeasonStat(homeCats, def.names)
-    const awayValue = findSeasonStat(awayCats, def.names)
+    const homeValue = def.get(homeOwn, homeAllowed)
+    const awayValue = def.get(awayOwn, awayAllowed)
     if (homeValue !== undefined && awayValue !== undefined) lines.push({ label: def.label, homeValue, awayValue })
   }
   return lines
