@@ -8,6 +8,11 @@ interface GameDetailPanelProps {
   expandedGameId: string | null
   onClose: () => void
   zoneId: string
+  /** Slate's TimeGrid has no outer horizontal padding of its own, so this
+   * panel's default margin supplies the page-edge inset there. Scoreboard's
+   * card grid already has that padding, so it passes this to avoid a
+   * doubled-up inset (extra unused space on both sides). */
+  flush?: boolean
 }
 
 /**
@@ -17,7 +22,7 @@ interface GameDetailPanelProps {
  * item in place (rather than appending a separate section like this) warps
  * the layout of unrelated siblings.
  */
-export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId }: GameDetailPanelProps) {
+export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId, flush }: GameDetailPanelProps) {
   const entry = entries.find((e) => e.game.id === expandedGameId)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -28,7 +33,7 @@ export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId }: Ga
   if (!entry) return null
 
   return (
-    <div className="game-detail-panel" ref={ref}>
+    <div className={`game-detail-panel${flush ? ' game-detail-panel--flush' : ''}`} ref={ref}>
       <button type="button" className="game-detail-panel__close" onClick={onClose}>
         Close ×
       </button>
