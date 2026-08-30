@@ -104,19 +104,23 @@ export function FieldPositionBar({ game }: { game: Game }) {
   )
 }
 
-/** Parses "180", "0", or "18:22" (mm:ss) into a comparable number; anything
- * else (e.g. a already-formatted percentage) opts out of the comparison bar. */
+/** Parses "180", "9.5", "-3", or "18:22" (mm:ss) into a comparable number;
+ * anything else (e.g. an already-formatted "48.15%") opts out of the
+ * comparison bar. */
 function parseStatMagnitude(value: string): number | null {
   const mmss = value.match(/^(\d+):(\d{2})$/)
   if (mmss) return Number(mmss[1]) * 60 + Number(mmss[2])
-  if (/^\d+$/.test(value)) return Number(value)
+  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value)
   return null
 }
 
 function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor?: string; homeColor?: string }) {
   const awayNum = parseStatMagnitude(line.awayValue)
   const homeNum = parseStatMagnitude(line.homeValue)
-  const total = awayNum !== null && homeNum !== null ? awayNum + homeNum : 0
+  // A negative value (e.g. turnover margin) can't be shown as a share of a
+  // whole — bail out of the bar rather than render a nonsensical width.
+  const bothNonNegative = awayNum !== null && homeNum !== null && awayNum >= 0 && homeNum >= 0
+  const total = bothNonNegative ? awayNum + homeNum : 0
   const awayPct = total > 0 ? (awayNum! / total) * 100 : 0
 
   return (
