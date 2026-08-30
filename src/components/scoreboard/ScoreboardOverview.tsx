@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import './ScoreboardOverview.css'
 import { useScoreboard } from '../../hooks/useScoreboard'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
@@ -42,25 +42,39 @@ export function ScoreboardOverview() {
 
       {!isLoading && !isError && activeDay && (
         <div className="scoreboard-overview__grid">
-          {safeGames.map(({ game, isProtected }) => (
-            <GameCard
-              key={game.id}
-              game={game}
-              isProtected={isProtected}
-              isSelected={expandedGameId === game.id}
-              onToggle={() => toggleExpandedGame(game.id)}
-              zoneId={settings.timezoneId}
-            />
+          {chunkIntoRows(safeGames, 2).map((row) => (
+            <Fragment key={row[0].game.id}>
+              {row.map(({ game, isProtected }) => (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  isProtected={isProtected}
+                  isSelected={expandedGameId === game.id}
+                  onToggle={() => toggleExpandedGame(game.id)}
+                  zoneId={settings.timezoneId}
+                />
+              ))}
+              {row.some(({ game }) => game.id === expandedGameId) && (
+                <GameDetailPanel
+                  entries={safeGames}
+                  expandedGameId={expandedGameId}
+                  onClose={() => setExpandedGameId(null)}
+                  zoneId={settings.timezoneId}
+                />
+              )}
+            </Fragment>
           ))}
         </div>
       )}
-
-      <GameDetailPanel
-        entries={safeGames}
-        expandedGameId={expandedGameId}
-        onClose={() => setExpandedGameId(null)}
-        zoneId={settings.timezoneId}
-      />
     </div>
   )
+}
+
+/** Groups the (already row-major, 2-column) card list into its visual rows,
+ * so the expanded detail panel can be inserted right after the row holding
+ * the selected card instead of dumped after every card in the grid. */
+function chunkIntoRows<T>(items: T[], perRow: number): T[][] {
+  const rows: T[][] = []
+  for (let i = 0; i < items.length; i += perRow) rows.push(items.slice(i, i + perRow))
+  return rows
 }

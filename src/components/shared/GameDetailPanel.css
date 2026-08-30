@@ -1,4 +1,8 @@
 .game-detail-panel {
+  /* No-op outside a grid container (e.g. Slate's TimeGrid), but on
+     Scoreboard's 2-column card grid this makes the panel span both
+     columns instead of just sitting in whichever one it lands in. */
+  grid-column: 1 / -1;
   margin: 8px 16px 16px;
   padding-top: 12px;
   border-top: 1px solid var(--border-subtle);
