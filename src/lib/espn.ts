@@ -115,7 +115,10 @@ function parseSeasonLeaders(leaders: EspnLeaderCategory[] | undefined): StatLead
   for (const { category, pattern } of LEADER_CATEGORY_MATCHERS) {
     const found = leaders.find((l) => pattern.test(l.name) || (l.displayName && pattern.test(l.displayName)))
     const leader = found?.leaders?.[0]
-    if (leader) result.push({ category, playerName: leader.athlete?.displayName ?? 'Unknown', displayValue: leader.displayValue })
+    // Skip rather than show a placeholder name — ESPN's scoreboard payload
+    // doesn't always carry athlete data for every matchup (e.g. smaller
+    // programs), and a blank/"Unknown" row is worse than no row.
+    if (leader?.athlete?.displayName) result.push({ category, playerName: leader.athlete.displayName, displayValue: leader.displayValue })
   }
   return result
 }
