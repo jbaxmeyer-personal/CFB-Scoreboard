@@ -6,15 +6,19 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: linear-gradient(160deg, #1c222c, #0d1117);
-  border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-panel), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .expanded-game__bezel {
   position: relative;
-  margin: 8px;
+  /* No margin/border-radius mismatch with the panel — that gap was the
+     panel's own lighter background showing through as a grey frame
+     around the black bezel. Matching the panel's own radius keeps the
+     corners flush with zero gap, without touching the bezel's own
+     padding (which controls the size of the recessed black area). */
+  margin: 0;
   padding: 16px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: radial-gradient(ellipse at 50% 0%, #05070a 0%, #010203 100%);
   border: 6px solid #05070a;
   box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.85), inset 0 2px 0 rgba(255, 255, 255, 0.04);
