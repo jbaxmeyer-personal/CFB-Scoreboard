@@ -101,3 +101,46 @@
 .game-stats__leader-value {
   color: var(--text-secondary);
 }
+
+.game-stats__plays {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.game-stats__play-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 2px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+}
+
+.game-stats__play-meta {
+  flex-shrink: 0;
+  width: 42px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.game-stats__play-text {
+  flex: 1;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.game-stats__play-row--scoring .game-stats__play-text {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.game-stats__play-score {
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  min-width: 44px;
+  text-align: right;
+}

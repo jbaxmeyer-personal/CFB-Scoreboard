@@ -1,5 +1,5 @@
 import './GameStats.css'
-import type { Game, GameBoxScore, StatLeader, Team } from '../../types/game'
+import type { Game, GameBoxScore, GamePlay, StatLeader, Team } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
 
 const CATEGORY_LABEL: Record<StatLeader['category'], string> = {
@@ -96,4 +96,44 @@ export function GameBoxScoreContainer({ game }: { game: Game }) {
   if (isError || !boxScore) return null
 
   return <BoxScoreBody boxScore={boxScore} home={game.home} away={game.away} />
+}
+
+function PlayRow({ play }: { play: GamePlay }) {
+  return (
+    <div className={`game-stats__play-row${play.isScoringPlay ? ' game-stats__play-row--scoring' : ''}`}>
+      <span className="game-stats__play-meta">
+        Q{play.period}
+        <br />
+        {play.clock}
+      </span>
+      <span className="game-stats__play-text">{play.text}</span>
+      <span className="game-stats__play-score ticker">
+        {play.awayScore}–{play.homeScore}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Fetches and renders the live play-by-play feed for the game currently
+ * expanded, newest play first — same gating and shared query as the box
+ * score above (see GameBoxScoreContainer), so mounting both here costs no
+ * extra network request.
+ */
+export function PlayByPlayContainer({ game }: { game: Game }) {
+  const { plays, isLoading, isError } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in')
+
+  if (isLoading) return <p className="game-stats__hint">Loading plays…</p>
+  if (isError || plays.length === 0) return null
+
+  return (
+    <div className="game-stats">
+      <h3 className="game-stats__title">Play by Play</h3>
+      <div className="game-stats__plays">
+        {plays.map((play) => (
+          <PlayRow key={play.id} play={play} />
+        ))}
+      </div>
+    </div>
+  )
 }

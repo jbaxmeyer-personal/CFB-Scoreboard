@@ -38,6 +38,18 @@ export interface GameBoxScore {
   awayLeaders: StatLeader[]
 }
 
+/** One play from the live play-by-play feed — same spoiler-gating rules as
+ * the box score (only ever shown once a game is live or final). */
+export interface GamePlay {
+  id: string
+  text: string
+  period: number
+  clock: string
+  homeScore: number
+  awayScore: number
+  isScoringPlay: boolean
+}
+
 export type GameState = 'pre' | 'in' | 'post'
 
 /** Identifies one ESPN scoreboard week — seasonType 2 = regular season,
