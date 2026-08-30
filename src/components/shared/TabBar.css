@@ -26,5 +26,5 @@
 
 .tab-bar__item--active {
   color: var(--accent-primary);
-  background: rgba(255, 149, 0, 0.08);
+  background: rgba(77, 166, 255, 0.08);
 }

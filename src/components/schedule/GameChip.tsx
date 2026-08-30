@@ -22,6 +22,11 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
   // `game` is already the spoiler-sanitized view by the time it reaches here,
   // so a protected game's scores are already stripped — no separate check needed.
   const showScore = game.state !== 'pre' && game.homeScore !== undefined && game.awayScore !== undefined
+  // Only a final score is a real result — a live score can still flip, so
+  // only 'post' games ever get a winner highlight.
+  const isFinal = game.state === 'post' && showScore
+  const homeWins = isFinal && game.homeScore! > game.awayScore!
+  const awayWins = isFinal && game.awayScore! > game.homeScore!
 
   const classes = [
     'game-chip',
@@ -48,14 +53,14 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
       <div className="game-chip__matchup">
         <div className="game-chip__team">
           <TeamLogo team={game.away} size={20} rank={game.away.rank} />
-          <span className="game-chip__abbr">{game.away.abbreviation}</span>
-          {showScore && <span className="game-chip__score ticker">{game.awayScore}</span>}
+          <span className={`game-chip__abbr${awayWins ? ' game-chip__abbr--winner' : ''}`}>{game.away.abbreviation}</span>
+          {showScore && <span className={`game-chip__score ticker${awayWins ? ' game-chip__score--winner' : ''}`}>{game.awayScore}</span>}
         </div>
         <span className="game-chip__at">@</span>
         <div className="game-chip__team">
           <TeamLogo team={game.home} size={20} rank={game.home.rank} />
-          <span className="game-chip__abbr">{game.home.abbreviation}</span>
-          {showScore && <span className="game-chip__score ticker">{game.homeScore}</span>}
+          <span className={`game-chip__abbr${homeWins ? ' game-chip__abbr--winner' : ''}`}>{game.home.abbreviation}</span>
+          {showScore && <span className={`game-chip__score ticker${homeWins ? ' game-chip__score--winner' : ''}`}>{game.homeScore}</span>}
         </div>
       </div>
       <div className="game-chip__meta">

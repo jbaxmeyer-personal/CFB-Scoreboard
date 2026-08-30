@@ -59,10 +59,18 @@
   white-space: nowrap;
 }
 
+.game-card__team-name--winner {
+  color: var(--accent-win);
+}
+
 .game-card__score {
   font-size: 20px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.game-card__score--winner {
+  color: var(--accent-win);
 }
 
 .game-card__status {

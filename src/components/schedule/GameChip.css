@@ -51,10 +51,18 @@
   text-overflow: ellipsis;
 }
 
+.game-chip__abbr--winner {
+  color: var(--accent-win);
+}
+
 .game-chip__score {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.game-chip__score--winner {
+  color: var(--accent-win);
 }
 
 .game-chip__at {
