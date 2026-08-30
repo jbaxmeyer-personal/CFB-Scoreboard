@@ -52,7 +52,6 @@ body {
   color: var(--text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 
 #root {
@@ -66,6 +65,14 @@ body {
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
+  /* Clips horizontal bleed (e.g. Slate's wide scrollable time grid) here,
+     not on body/html: setting `overflow` on body/html is a known trigger
+     for iOS Safari to detach position:fixed descendants (like TabBar) from
+     the true viewport and position them relative to body's own box instead
+     — which is exactly what showed up as the tab bar "floating" mid-page
+     with a large gap below it, on every screen, invisible in Chromium
+     testing since it's a WebKit-only quirk. */
+  overflow-x: hidden;
   /* TabBar is fixed to the viewport bottom now, not a flex sibling — reserve
      room for it so content never renders underneath it. */
   padding-bottom: calc(72px + env(safe-area-inset-bottom));
