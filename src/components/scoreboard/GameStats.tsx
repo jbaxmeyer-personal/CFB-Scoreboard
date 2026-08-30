@@ -65,6 +65,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
   if (isError || stats.length === 0) return null
 
+  const awayColor = resolveAwayBarColor(home.color, away.color)
   let lastSection: TeamStatLine['section'] | undefined
   return (
     <div className="game-stats">
@@ -79,7 +80,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
         return (
           <div key={line.label}>
             {showSectionHeader && <div className="game-stats__section-label">{SEASON_SECTION_LABEL[line.section!]}</div>}
-            <StatRow line={line} awayColor={away.color} homeColor={home.color} />
+            <StatRow line={line} awayColor={awayColor} homeColor={home.color} />
           </div>
         )
       })}
@@ -128,6 +129,37 @@ function parseStatMagnitude(value: string): number | null {
   return null
 }
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const match = hex.replace('#', '').match(/^([0-9a-f]{6})$/i)
+  if (!match) return null
+  const n = parseInt(match[1], 16)
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+}
+
+function colorDistance(a: string, b: string): number {
+  const rgbA = hexToRgb(a)
+  const rgbB = hexToRgb(b)
+  if (!rgbA || !rgbB) return Infinity
+  return Math.sqrt((rgbA.r - rgbB.r) ** 2 + (rgbA.g - rgbB.g) ** 2 + (rgbA.b - rgbB.b) ** 2)
+}
+
+function lighten(hex: string, amount: number): string {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return hex
+  const mix = (c: number) => Math.round(c + (255 - c) * amount)
+  return `#${[mix(rgb.r), mix(rgb.g), mix(rgb.b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+}
+
+/** When both teams share (near enough) the same color — common for two
+ * red/blue programs facing off — a solid-color comparison bar becomes
+ * unreadable at a glance. Lightens the away team's segment so the two
+ * stay visually distinct without introducing an unrelated third color. */
+function resolveAwayBarColor(homeColor: string | undefined, awayColor: string | undefined): string | undefined {
+  if (!homeColor || !awayColor) return awayColor
+  if (colorDistance(homeColor, awayColor) > 60) return awayColor
+  return lighten(awayColor, 0.45)
+}
+
 function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor?: string; homeColor?: string }) {
   const awayNum = parseStatMagnitude(line.awayValue)
   const homeNum = parseStatMagnitude(line.homeValue)
@@ -152,6 +184,9 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
         <div className="game-stats__stat-bar">
           <span className="game-stats__stat-bar-segment" style={{ width: `${awayPct}%`, background: awayColor ?? 'var(--text-tertiary)' }} />
           <span className="game-stats__stat-bar-segment" style={{ width: `${100 - awayPct}%`, background: homeColor ?? 'var(--text-tertiary)' }} />
+          {/* Marks the exact halfway point so it's obvious at a glance which
+              side's segment crosses past it — that's always the "ahead" team. */}
+          <span className="game-stats__stat-bar-mid" />
         </div>
       )}
     </div>
@@ -163,6 +198,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   const hasLeaders = boxScore.homeLeaders.length > 0 || boxScore.awayLeaders.length > 0
   if (!hasStats && !hasLeaders) return null
 
+  const awayColor = resolveAwayBarColor(home.color, away.color)
   return (
     <div className="game-stats">
       {hasStats && (
@@ -173,7 +209,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
             <span>{home.abbreviation}</span>
           </div>
           {boxScore.teamStats.map((line) => (
-            <StatRow key={line.label} line={line} awayColor={away.color} homeColor={home.color} />
+            <StatRow key={line.label} line={line} awayColor={awayColor} homeColor={home.color} />
           ))}
         </>
       )}
