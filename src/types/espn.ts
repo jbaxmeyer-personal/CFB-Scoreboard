@@ -82,6 +82,15 @@ export interface EspnBroadcast {
 
 export interface EspnSituation {
   possession?: string
+  // Field-position fields — best-effort/unverified, same caveat as the
+  // play-by-play and box score shapes below. yardLine is assumed to be
+  // 0-100 measured from the possessing team's own goal line (the usual
+  // convention for this endpoint).
+  down?: number
+  distance?: number
+  yardLine?: number
+  possessionText?: string
+  isRedZone?: boolean
 }
 
 export interface EspnCompetition {

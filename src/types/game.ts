@@ -52,6 +52,16 @@ export interface GamePlay {
 
 export type GameState = 'pre' | 'in' | 'post'
 
+/** Live down/distance/field-position, when the game is in progress.
+ * yardLine is 0-100 from the possessing team's own goal line. */
+export interface FieldSituation {
+  down: number
+  distance: number
+  yardLine: number
+  possessionText: string
+  isRedZone: boolean
+}
+
 /** Identifies one ESPN scoreboard week — seasonType 2 = regular season,
  * 3 = postseason (bowls/playoff). */
 export interface WeekSelector {
@@ -75,4 +85,5 @@ export interface Game {
   clock?: string
   possession?: 'home' | 'away'
   broadcasts: string[]
+  situation?: FieldSituation
 }
