@@ -295,15 +295,18 @@ function cleanPlayText(text: string, isScoringPlay: boolean): string {
 
 function toGamePlay(play: EspnPlay): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
-  const isScoringPlay = play.scoringPlay ?? false
+  // isScoringPlay (and the text cleanup that depends on it) is corrected
+  // below in normalizePlays, once the real signal — an actual score change
+  // versus the previous play — is known; ESPN's own scoringPlay flag isn't
+  // reliable enough to use directly (see normalizePlays for why).
   return {
     id: play.id,
-    text: cleanPlayText(play.text, isScoringPlay),
+    text: play.text,
     period: play.period?.number ?? 0,
     clock: play.clock?.displayValue ?? '',
     homeScore: play.homeScore,
     awayScore: play.awayScore,
-    isScoringPlay,
+    isScoringPlay: false,
   }
 }
 
@@ -331,10 +334,28 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
     seen.add(key)
     return true
   })
-  return deduped
-    .map(toGamePlay)
-    .filter((p): p is GamePlay => p !== null)
-    .reverse()
+  const games = deduped.map(toGamePlay).filter((p): p is GamePlay => p !== null)
+
+  // ESPN's own scoringPlay flag isn't reliable — confirmed live, it was set
+  // on plays whose score hadn't actually changed (a kickoff and a later
+  // first-down completion both showing up under the "Scoring" filter, well
+  // after the field goal that actually scored). Derive it ourselves
+  // instead: the one true signal for "this play scored" is that the
+  // running score differs from the play immediately before it, in
+  // chronological order — `games` is still oldest-first here, so a simple
+  // walk forward does this directly from data we already have.
+  let prevHomeScore: number | undefined
+  let prevAwayScore: number | undefined
+  for (const play of games) {
+    const scored =
+      prevHomeScore !== undefined && prevAwayScore !== undefined && (play.homeScore !== prevHomeScore || play.awayScore !== prevAwayScore)
+    play.isScoringPlay = scored
+    if (scored) play.text = cleanPlayText(play.text, true)
+    prevHomeScore = play.homeScore
+    prevAwayScore = play.awayScore
+  }
+
+  return games.reverse()
 }
 
 // --- Season-long team stats (pre-game only) --------------------------------
