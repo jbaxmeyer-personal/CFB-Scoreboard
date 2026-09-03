@@ -6,6 +6,7 @@ import { SpoilerGate } from '../shared/SpoilerGate'
 import { SeasonLeaders, SeasonTeamComparison, GameBoxScoreContainer, PlayByPlayContainer, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 import { seasonYearFromDate } from '../../lib/espn'
+import { useGameSummary } from '../../hooks/useGameSummary'
 
 /** Logo above name (not side by side) so a long team name gets the
  * identity column's full width instead of being squeezed to the right of
@@ -39,14 +40,32 @@ function TeamIdentity({ team, showRecord, role }: { team: Team; showRecord: bool
  * game is protected and there's something (a live score or a final) to hide.
  */
 function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
+  // Called unconditionally — game.state can transition pre -> in on this
+  // same mounted instance as scoreboard data refreshes, so this can't sit
+  // after the pre-game early return below (Rules of Hooks). Only actually
+  // fetches once live/final, and shares its query key with
+  // PlayByPlayContainer/GameBoxScoreContainer further down, so this never
+  // costs an extra request.
+  const { plays } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in', game.state !== 'pre')
+
   if (game.state === 'pre') {
     return <span className="ticker expanded-game__clock">{formatKickoff(game.startDate, zoneId)}</span>
   }
+
+  // The scoreboard endpoint (game.homeScore/awayScore, polled every 30s
+  // across the whole week's games) and the per-game summary endpoint
+  // (plays, polled every 20s for just this game while live) can briefly
+  // disagree right after a score — prefer the newest play's score once
+  // there is one, since that endpoint is both more granular and faster.
+  const latestPlay = plays[0]
+  const awayScore = latestPlay?.awayScore ?? game.awayScore ?? 0
+  const homeScore = latestPlay?.homeScore ?? game.homeScore ?? 0
+
   // Only a final score is a real result — a live score can still flip, so
   // only 'post' games ever get a winner highlight.
   const isFinal = game.state === 'post'
-  const awayWins = isFinal && (game.awayScore ?? 0) > (game.homeScore ?? 0)
-  const homeWins = isFinal && (game.homeScore ?? 0) > (game.awayScore ?? 0)
+  const awayWins = isFinal && awayScore > homeScore
+  const homeWins = isFinal && homeScore > awayScore
 
   return (
     <div className="expanded-game__score-block">
@@ -54,13 +73,13 @@ function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
         <span
           className={`expanded-game__led${game.possession === 'away' ? ' expanded-game__led--possession' : ''}${awayWins ? ' expanded-game__led--winner' : ''}`}
         >
-          {game.awayScore ?? 0}
+          {awayScore}
         </span>
         <span className="expanded-game__led-sep">–</span>
         <span
           className={`expanded-game__led${game.possession === 'home' ? ' expanded-game__led--possession' : ''}${homeWins ? ' expanded-game__led--winner' : ''}`}
         >
-          {game.homeScore ?? 0}
+          {homeScore}
         </span>
       </div>
       {game.state === 'in' && (

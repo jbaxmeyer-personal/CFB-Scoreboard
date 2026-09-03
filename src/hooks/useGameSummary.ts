@@ -14,10 +14,17 @@ export interface GameSummaryResult {
  * detail view is actually mounted (see ExpandedGame), so this never fires
  * for every game in a list. Box score and play-by-play containers both call
  * this with the same query key, so it's a single shared request. */
-export function useGameSummary(eventId: string, homeTeamId: string, awayTeamId: string, isLive: boolean): GameSummaryResult {
+export function useGameSummary(
+  eventId: string,
+  homeTeamId: string,
+  awayTeamId: string,
+  isLive: boolean,
+  enabled = true,
+): GameSummaryResult {
   const query = useQuery({
     queryKey: ['gameSummary', eventId],
     queryFn: () => fetchGameSummary(eventId),
+    enabled,
     staleTime: 30_000,
     // A final game's summary is done changing; only keep polling while the
     // game is actually in progress.
