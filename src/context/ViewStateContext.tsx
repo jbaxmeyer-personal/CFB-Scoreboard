@@ -1,7 +1,19 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { WeekSelector } from '../types/game'
 
 export type Tab = 'schedule' | 'scoreboard' | 'settings'
+
+const TAB_STORAGE_KEY = 'slate.tab.v1'
+const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'settings']
+
+function readStoredTab(): Tab {
+  try {
+    const raw = localStorage.getItem(TAB_STORAGE_KEY)
+    return VALID_TABS.includes(raw as Tab) ? (raw as Tab) : 'schedule'
+  } catch {
+    return 'schedule'
+  }
+}
 
 interface ViewStateValue {
   tab: Tab
@@ -23,10 +35,18 @@ interface ViewStateValue {
 const ViewStateContext = createContext<ViewStateValue | null>(null)
 
 export function ViewStateProvider({ children }: { children: ReactNode }) {
-  const [tab, setTab] = useState<Tab>('schedule')
+  const [tab, setTab] = useState<Tab>(readStoredTab)
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
   const [expandedGameId, setExpandedGameId] = useState<string | null>(null)
   const [scoreboardWeek, setScoreboardWeek] = useState<WeekSelector | null>(null)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, tab)
+    } catch {
+      // best-effort persistence only
+    }
+  }, [tab])
 
   const value = useMemo<ViewStateValue>(
     () => ({
