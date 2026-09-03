@@ -278,16 +278,28 @@ function parseGameLeaders(entry: EspnBoxscorePlayerEntry | undefined): StatLeade
 
 // --- Play-by-play (live/final only) ---------------------------------------
 
+/** ESPN's own play text still appends a redundant "1ST DOWN" to a
+ * touchdown's description (the play technically satisfies the down-
+ * tracking rule, but the drive is already over — there's no down left to
+ * convert) — confirmed live, strip it so a scoring play doesn't also
+ * claim a first down. Left untouched for every other play, where a real
+ * first down is exactly what happened. */
+function cleanPlayText(text: string, isScoringPlay: boolean): string {
+  if (!isScoringPlay) return text
+  return text.replace(/,?\s*1ST DOWN\.?\s*$/i, '').trim()
+}
+
 function toGamePlay(play: EspnPlay): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
+  const isScoringPlay = play.scoringPlay ?? false
   return {
     id: play.id,
-    text: play.text,
+    text: cleanPlayText(play.text, isScoringPlay),
     period: play.period?.number ?? 0,
     clock: play.clock?.displayValue ?? '',
     homeScore: play.homeScore,
     awayScore: play.awayScore,
-    isScoringPlay: play.scoringPlay ?? false,
+    isScoringPlay,
   }
 }
 
@@ -297,13 +309,21 @@ function toGamePlay(play: EspnPlay): GamePlay | null {
  * usual convention for this endpoint, unverified in this environment) — so
  * the chronological feed is every previous drive's plays followed by the
  * in-progress drive's plays, then reversed for a newest-first display order
- * matching a live play-by-play feed.
+ * matching a live play-by-play feed. A scoring play sometimes shows up in
+ * both the drive it ended *and* as the lead-in to the next (kickoff) drive
+ * — confirmed live, deduped by id, keeping the first (oldest) occurrence.
  */
 export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   const previousPlays = (response.drives?.previous ?? []).flatMap((d) => d.plays ?? [])
   const currentPlays = response.drives?.current?.plays ?? []
   const chronological = [...previousPlays, ...currentPlays]
-  return chronological
+  const seen = new Set<string>()
+  const deduped = chronological.filter((p) => {
+    if (seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
+  return deduped
     .map(toGamePlay)
     .filter((p): p is GamePlay => p !== null)
     .reverse()
