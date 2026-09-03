@@ -144,12 +144,14 @@ export function FieldPositionBar({ game }: { game: Game }) {
   )
 }
 
-/** Parses "180", "9.5", "-3", or "18:22" (mm:ss) into a comparable number;
- * anything else (e.g. an already-formatted "48.15%") opts out of the
- * comparison bar. */
+/** Parses "180", "9.5", "-3", "18:22" (mm:ss), or "0:18:22" (hh:mm:ss —
+ * some duration stats like time of possession come zero-padded with an
+ * hours component) into a comparable number of seconds; anything else
+ * (e.g. an already-formatted "48.15%") opts out of the comparison bar. */
 function parseStatMagnitude(value: string): number | null {
-  const mmss = value.match(/^(\d+):(\d{2})$/)
-  if (mmss) return Number(mmss[1]) * 60 + Number(mmss[2])
+  if (/^\d+(:\d{2}){1,2}$/.test(value)) {
+    return value.split(':').reduce((total, part) => total * 60 + Number(part), 0)
+  }
   if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value)
   return null
 }
@@ -168,21 +170,54 @@ function colorDistance(a: string, b: string): number {
   return Math.sqrt((rgbA.r - rgbB.r) ** 2 + (rgbA.g - rgbB.g) ** 2 + (rgbA.b - rgbB.b) ** 2)
 }
 
+function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
+  const rgb = hexToRgb(hex)
+  if (!rgb) return null
+  const r = rgb.r / 255
+  const g = rgb.g / 255
+  const b = rgb.b / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  if (max === min) return { h: 0, s: 0, l }
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  let h: number
+  if (max === r) h = (g - b) / d + (g < b ? 6 : 0)
+  else if (max === g) h = (b - r) / d + 2
+  else h = (r - g) / d + 4
+  return { h: h * 60, s, l }
+}
+
+/** Shortest distance between two hues on the 360° color wheel. */
+function hueDistance(a: number, b: number): number {
+  const diff = Math.abs(a - b) % 360
+  return diff > 180 ? 360 - diff : diff
+}
+
+/** When both teams read as the same color family — not just near-identical
+ * RGB values, but the same hue at a different shade (e.g. UMass maroon vs.
+ * Rutgers scarlet: both plainly "red" to the eye despite an RGB distance
+ * over 75) — a solid-color comparison bar becomes unreadable at a glance.
+ * Lightens the away team's segment so the two stay visually distinct
+ * without introducing an unrelated third color. Falls back to plain RGB
+ * distance for near-grayscale colors, where hue isn't meaningful. */
+function resolveAwayBarColor(homeColor: string | undefined, awayColor: string | undefined): string | undefined {
+  if (!homeColor || !awayColor) return awayColor
+  const homeHsl = hexToHsl(homeColor)
+  const awayHsl = hexToHsl(awayColor)
+  const tooSimilar =
+    homeHsl && awayHsl && homeHsl.s > 0.15 && awayHsl.s > 0.15
+      ? hueDistance(homeHsl.h, awayHsl.h) < 30
+      : colorDistance(homeColor, awayColor) < 60
+  return tooSimilar ? lighten(awayColor, 0.45) : awayColor
+}
+
 function lighten(hex: string, amount: number): string {
   const rgb = hexToRgb(hex)
   if (!rgb) return hex
   const mix = (c: number) => Math.round(c + (255 - c) * amount)
   return `#${[mix(rgb.r), mix(rgb.g), mix(rgb.b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`
-}
-
-/** When both teams share (near enough) the same color — common for two
- * red/blue programs facing off — a solid-color comparison bar becomes
- * unreadable at a glance. Lightens the away team's segment so the two
- * stay visually distinct without introducing an unrelated third color. */
-function resolveAwayBarColor(homeColor: string | undefined, awayColor: string | undefined): string | undefined {
-  if (!homeColor || !awayColor) return awayColor
-  if (colorDistance(homeColor, awayColor) > 60) return awayColor
-  return lighten(awayColor, 0.45)
 }
 
 function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor?: string; homeColor?: string }) {
@@ -192,7 +227,9 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
   // whole — bail out of the bar rather than render a nonsensical width.
   const bothNonNegative = awayNum !== null && homeNum !== null && awayNum >= 0 && homeNum >= 0
   const total = bothNonNegative ? awayNum + homeNum : 0
-  const rawAwayPct = total > 0 ? (awayNum! / total) * 100 : 0
+  // A genuine 0-0 tie (e.g. neither team has turned it over) still gets a
+  // bar — split exactly down the middle, since neither side is "ahead".
+  const rawAwayPct = bothNonNegative ? (total > 0 ? (awayNum! / total) * 100 : 50) : 0
   // For an "invert" stat (allowed yards/points, turnovers) a *lower* value
   // is better, so the bigger bar segment should go to whoever has less —
   // i.e. each team's segment shows the *other* team's share of the total.
@@ -205,7 +242,7 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
         <span className="game-stats__stat-label">{line.label}</span>
         <span className="game-stats__stat-value">{line.homeValue}</span>
       </div>
-      {total > 0 && (
+      {bothNonNegative && (
         <div className="game-stats__stat-bar">
           <span className="game-stats__stat-bar-segment" style={{ width: `${awayPct}%`, background: awayColor ?? 'var(--text-tertiary)' }} />
           <span className="game-stats__stat-bar-segment" style={{ width: `${100 - awayPct}%`, background: homeColor ?? 'var(--text-tertiary)' }} />
