@@ -97,6 +97,10 @@ export function FieldPositionBar({ game }: { game: Game }) {
   if (!sit) return null
   const possessor = game.possession === 'home' ? game.home : game.possession === 'away' ? game.away : undefined
   const color = possessor?.color ?? 'var(--accent-primary)'
+  // ESPN sends down/distance as -1 (not just absent) whenever there's no
+  // live down to show — between a score and the ensuing kickoff, at
+  // halftime, etc. — so a real down is always 1-4, never a value to render.
+  const hasDown = sit.down >= 1 && sit.down <= 4
 
   return (
     <div className="field-bar">
@@ -111,10 +115,12 @@ export function FieldPositionBar({ game }: { game: Game }) {
         <span>20</span>
         <span>G</span>
       </div>
-      <div className="field-bar__downs ticker">
-        {DOWN_ORDINAL[sit.down] ?? sit.down} &amp; {sit.distance}
-        {sit.possessionText ? ` · ${sit.possessionText}` : ''}
-      </div>
+      {hasDown && (
+        <div className="field-bar__downs ticker">
+          {DOWN_ORDINAL[sit.down]} &amp; {sit.distance}
+          {sit.possessionText ? ` · ${sit.possessionText}` : ''}
+        </div>
+      )}
     </div>
   )
 }
