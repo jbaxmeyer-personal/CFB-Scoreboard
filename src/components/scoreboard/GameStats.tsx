@@ -90,9 +90,14 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
 }
 
 /** Live down/distance/field-position — only rendered while a game is
- * actually in progress (see ExpandedGame). yardLine is 0-100 from the
- * possessing team's own goal line; unverified against a live response but
- * degrades to nothing if the situation data is missing entirely. */
+ * actually in progress (see ExpandedGame). ESPN's yardLine is 0-100 from
+ * the possessing team's own goal line, but flipping which end is "0" every
+ * time possession changes is disorienting on a compact widget — instead
+ * this fixes home's goal on the left and away's on the right (like a real
+ * broadcast graphic) and mirrors away's position onto that fixed axis, so
+ * the two ends never swap and the ball moves realistically back and forth.
+ * Unverified against a live response but degrades to nothing if the
+ * situation data is missing entirely. */
 export function FieldPositionBar({ game }: { game: Game }) {
   const sit = game.situation
   if (!sit) return null
@@ -103,23 +108,31 @@ export function FieldPositionBar({ game }: { game: Game }) {
   // halftime, etc. — so a real down is always 1-4, never a value to render.
   const hasDown = sit.down >= 1 && sit.down <= 4
 
+  const fieldPosition = game.possession === 'away' ? 100 - sit.yardLine : sit.yardLine
+  const fillLeft = game.possession === 'away' ? fieldPosition : 0
+  const fillWidth = game.possession === 'away' ? 100 - fieldPosition : fieldPosition
+
   return (
     <div className="field-bar">
       <div className="field-bar__track">
-        <div className="field-bar__fill" style={{ width: `${sit.yardLine}%`, background: color }} />
+        <div className="field-bar__fill" style={{ left: `${fillLeft}%`, width: `${fillWidth}%`, background: color }} />
         {possessor && (
-          <div className="field-bar__possessor" style={{ left: `${sit.yardLine}%` }}>
+          <div className="field-bar__possessor" style={{ left: `${fieldPosition}%` }}>
             <TeamLogo team={possessor} size={18} />
           </div>
         )}
-        <div className="field-bar__marker" style={{ left: `${sit.yardLine}%` }} />
+        <div className="field-bar__marker" style={{ left: `${fieldPosition}%` }} />
       </div>
       <div className="field-bar__ticks">
-        <span>G</span>
+        <span className="field-bar__ticks-team" style={{ color: game.home.color }}>
+          {game.home.abbreviation}
+        </span>
         <span>20</span>
         <span>50</span>
         <span>20</span>
-        <span>G</span>
+        <span className="field-bar__ticks-team" style={{ color: game.away.color }}>
+          {game.away.abbreviation}
+        </span>
       </div>
       {hasDown && (
         <div className="field-bar__downs ticker">
