@@ -4,6 +4,7 @@ import type { Game, GameBoxScore, GamePlay, StatLeader, Team, TeamStatLine } fro
 import { useGameSummary } from '../../hooks/useGameSummary'
 import { useReactions } from '../../hooks/useReactions'
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
+import { TeamLogo } from '../shared/TeamLogo'
 
 const REACTIONS = ['🔥', '😱', '👏', '😂', '💀', '🚀']
 const DOWN_ORDINAL = ['', '1st', '2nd', '3rd', '4th']
@@ -106,6 +107,11 @@ export function FieldPositionBar({ game }: { game: Game }) {
     <div className="field-bar">
       <div className="field-bar__track">
         <div className="field-bar__fill" style={{ width: `${sit.yardLine}%`, background: color }} />
+        {possessor && (
+          <div className="field-bar__possessor" style={{ left: `${sit.yardLine}%` }}>
+            <TeamLogo team={possessor} size={18} />
+          </div>
+        )}
         <div className="field-bar__marker" style={{ left: `${sit.yardLine}%` }} />
       </div>
       <div className="field-bar__ticks">

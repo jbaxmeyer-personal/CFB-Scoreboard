@@ -229,6 +229,9 @@
   width: 100%;
   max-width: 280px;
   margin: 10px auto 0;
+  /* Reserves room for the possessor logo floating above the track (see
+     .field-bar__possessor) so it doesn't overlap the clock line above. */
+  padding-top: 22px;
 }
 
 .field-bar__track {
@@ -256,6 +259,16 @@
   background: #fff;
   border: 2px solid var(--bg-base);
   transform: translate(-50%, -50%);
+  transition: left 0.4s ease;
+}
+
+/* The team logo floating above the ball marker — who actually has it,
+   since a solid color fill alone reads ambiguous at a glance. */
+.field-bar__possessor {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 4px;
+  transform: translateX(-50%);
   transition: left 0.4s ease;
 }
 
