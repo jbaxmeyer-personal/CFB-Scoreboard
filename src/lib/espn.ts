@@ -278,15 +278,19 @@ function parseGameLeaders(entry: EspnBoxscorePlayerEntry | undefined): StatLeade
 
 // --- Play-by-play (live/final only) ---------------------------------------
 
-/** ESPN's own play text still appends a redundant "1ST DOWN" to a
- * touchdown's description (the play technically satisfies the down-
- * tracking rule, but the drive is already over — there's no down left to
- * convert) — confirmed live, strip it so a scoring play doesn't also
- * claim a first down. Left untouched for every other play, where a real
- * first down is exactly what happened. */
+/** ESPN's own play text still marks a redundant "1ST DOWN" on a touchdown's
+ * description (the play technically satisfies the down-tracking rule, but
+ * the drive is already over — there's no down left to convert) — confirmed
+ * live, strip it so a scoring play doesn't also claim a first down. The
+ * clause sits mid-string, not necessarily at the end — the same play's
+ * text often continues on into the extra-point attempt ("...TOUCHDOWN,
+ * clock 09:43, 1ST DOWN #99 D.Morris kick attempt good...") — so this
+ * removes it wherever it appears rather than anchoring to the end. Left
+ * untouched for every other play, where a real first down is exactly what
+ * happened. */
 function cleanPlayText(text: string, isScoringPlay: boolean): string {
   if (!isScoringPlay) return text
-  return text.replace(/,?\s*1ST DOWN\.?\s*$/i, '').trim()
+  return text.replace(/,?\s*1ST DOWN\b\.?/gi, '').replace(/\s{2,}/g, ' ').trim()
 }
 
 function toGamePlay(play: EspnPlay): GamePlay | null {
@@ -311,7 +315,10 @@ function toGamePlay(play: EspnPlay): GamePlay | null {
  * in-progress drive's plays, then reversed for a newest-first display order
  * matching a live play-by-play feed. A scoring play sometimes shows up in
  * both the drive it ended *and* as the lead-in to the next (kickoff) drive
- * — confirmed live, deduped by id, keeping the first (oldest) occurrence.
+ * — confirmed live, and confirmed under a *different* play id each time
+ * (an id-based dedupe alone didn't catch it), so this dedupes by the
+ * play's actual content — period + clock + text — instead, keeping the
+ * first (oldest) occurrence.
  */
 export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   const previousPlays = (response.drives?.previous ?? []).flatMap((d) => d.plays ?? [])
@@ -319,8 +326,9 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   const chronological = [...previousPlays, ...currentPlays]
   const seen = new Set<string>()
   const deduped = chronological.filter((p) => {
-    if (seen.has(p.id)) return false
-    seen.add(p.id)
+    const key = `${p.period?.number ?? ''}|${p.clock?.displayValue ?? ''}|${p.text ?? ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
     return true
   })
   return deduped
