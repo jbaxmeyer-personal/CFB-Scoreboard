@@ -108,9 +108,14 @@ export function FieldPositionBar({ game }: { game: Game }) {
   // halftime, etc. — so a real down is always 1-4, never a value to render.
   const hasDown = sit.down >= 1 && sit.down <= 4
 
-  const fieldPosition = game.possession === 'away' ? 100 - sit.yardLine : sit.yardLine
-  const fillLeft = game.possession === 'away' ? fieldPosition : 0
-  const fillWidth = game.possession === 'away' ? 100 - fieldPosition : fieldPosition
+  // Away's goal is fixed on the left, home's on the right — matching the
+  // "away @ home" order used everywhere else in this app (the matchup
+  // header, box score columns, etc.), not the reverse this shipped with
+  // originally. Away drives left-to-right toward home's goal; home drives
+  // right-to-left toward away's goal.
+  const fieldPosition = game.possession === 'home' ? 100 - sit.yardLine : sit.yardLine
+  const fillLeft = game.possession === 'home' ? fieldPosition : 0
+  const fillWidth = game.possession === 'home' ? 100 - fieldPosition : fieldPosition
 
   return (
     <div className="field-bar">
@@ -124,14 +129,14 @@ export function FieldPositionBar({ game }: { game: Game }) {
         <div className="field-bar__marker" style={{ left: `${fieldPosition}%` }} />
       </div>
       <div className="field-bar__ticks">
-        <span className="field-bar__ticks-team" style={{ color: game.home.color }}>
-          {game.home.abbreviation}
+        <span className="field-bar__ticks-team" style={{ color: game.away.color }}>
+          {game.away.abbreviation}
         </span>
         <span>20</span>
         <span>50</span>
         <span>20</span>
-        <span className="field-bar__ticks-team" style={{ color: game.away.color }}>
-          {game.away.abbreviation}
+        <span className="field-bar__ticks-team" style={{ color: game.home.color }}>
+          {game.home.abbreviation}
         </span>
       </div>
       {hasDown && (
