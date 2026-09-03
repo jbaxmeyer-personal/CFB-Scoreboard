@@ -1,9 +1,12 @@
 .tab-bar {
   display: flex;
-  position: fixed;
-  left: 0;
-  right: 0;
+  /* Sticky, not fixed — see #root/.app-main in index.css for why: fixed
+     positioning is what caused the huge blank void below this bar on real
+     iOS Safari. Sticky keeps it pinned to the viewport bottom while
+     scrolling without ever needing a separate positioning context. */
+  position: sticky;
   bottom: 0;
+  flex-shrink: 0;
   z-index: 10;
   border-top: 1px solid var(--border-subtle);
   background: rgba(10, 13, 18, 0.9);
