@@ -39,15 +39,6 @@
 
 body {
   margin: 0;
-  /* 100vh on mobile Safari measures against the browser chrome fully
-     collapsed — its largest possible viewport — which is taller than
-     what's actually visible whenever the address bar is showing. That
-     leftover height is real extra scrollable space below the fixed tab
-     bar, on every screen. 100dvh tracks the viewport Safari is actually
-     showing right now; the 100vh line is just a fallback for browsers
-     that don't support dvh yet. */
-  min-height: 100vh;
-  min-height: 100dvh;
   background: radial-gradient(ellipse 120% 80% at 50% -10%, #171d27 0%, var(--bg-base) 55%);
   background-attachment: fixed;
   color: var(--text-primary);
@@ -55,28 +46,37 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* TabBar used to be position:fixed, with .app-main reserving bottom padding
+   to clear it — that combination is what produced the huge blank void
+   below the tab bar on real iOS Safari (confirmed on-device, twice: this
+   isn't the ~100px toolbar-collapse gap the earlier 100vh/100dvh fix
+   targeted, it's a much larger, structural mispositioning). position:fixed
+   is positioned relative to the nearest ancestor with certain CSS
+   properties (overflow, transform, filter, etc.) rather than always the
+   true viewport — WebKit is known to get this wrong in ways Chromium
+   doesn't reproduce, which is why this shipped untested on real hardware
+   twice before finally being reported broken. Removed entirely: #root is
+   now the single flexed, full-height column (app-main grows to fill any
+   leftover space so the tab bar still sits flush against the bottom edge
+   on a short page), and TabBar uses position:sticky — anchored to the
+   normal document scroll, never a separate positioning context that can
+   detach. */
 #root {
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-main {
   display: flex;
   flex-direction: column;
+  flex: 1;
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  /* Clips horizontal bleed (e.g. Slate's wide scrollable time grid) here,
-     not on body/html: setting `overflow` on body/html is a known trigger
-     for iOS Safari to detach position:fixed descendants (like TabBar) from
-     the true viewport and position them relative to body's own box instead
-     — which is exactly what showed up as the tab bar "floating" mid-page
-     with a large gap below it, on every screen, invisible in Chromium
-     testing since it's a WebKit-only quirk. */
+  /* Clips horizontal bleed (e.g. Slate's wide scrollable time grid). */
   overflow-x: hidden;
-  /* TabBar is fixed to the viewport bottom now, not a flex sibling — reserve
-     room for it so content never renders underneath it. */
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 
 img {
