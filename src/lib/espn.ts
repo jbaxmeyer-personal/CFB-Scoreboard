@@ -212,17 +212,43 @@ export async function fetchGameSummary(eventId: string): Promise<EspnSummaryResp
   return res.json() as Promise<EspnSummaryResponse>
 }
 
-const TEAM_STAT_LABELS: { name: string; label: string }[] = [
-  { name: 'totalYards', label: 'Total Yards' },
-  { name: 'netPassingYards', label: 'Passing Yards' },
-  { name: 'rushingYards', label: 'Rushing Yards' },
-  { name: 'turnovers', label: 'Turnovers' },
-  { name: 'possessionTime', label: 'Time of Possession' },
-]
-
 function statByName(stats: { name: string; displayValue: string }[] | undefined, name: string): string | undefined {
   return stats?.find((s) => s.name === name)?.displayValue
 }
+
+/** The per-game box score doesn't expose a raw "yards per play" field
+ * either (same gap as the season stats endpoint — see yardsPerPlay above),
+ * so derive it the same way from this game's totals. displayValue strings
+ * have to be parsed by hand here since, unlike the season endpoint, the
+ * box score's stat entries don't also carry a numeric `value`. */
+function boxYardsPerPlay(stats: { name: string; displayValue: string }[] | undefined): string | undefined {
+  const yards = Number(statByName(stats, 'totalYards'))
+  const plays = Number(statByName(stats, 'totalOffensivePlays'))
+  if (!Number.isFinite(yards) || !Number.isFinite(plays) || plays === 0) return undefined
+  return (yards / plays).toFixed(1)
+}
+
+interface BoxScoreStatDef {
+  label: string
+  // Turnovers is the one box-score row where fewer is better — flips
+  // which team's bar segment reads as "ahead", same as the season stats.
+  invert?: boolean
+  get: (stats: { name: string; displayValue: string }[] | undefined) => string | undefined
+}
+
+const BOX_SCORE_STAT_DEFS: BoxScoreStatDef[] = [
+  { label: 'Total Yards', get: (s) => statByName(s, 'totalYards') },
+  { label: 'Passing Yards', get: (s) => statByName(s, 'netPassingYards') },
+  { label: 'Rushing Yards', get: (s) => statByName(s, 'rushingYards') },
+  { label: 'Yards/Play', get: (s) => boxYardsPerPlay(s) },
+  // yardsPerPass/yardsPerRushAttempt are unverified field names for this
+  // endpoint specifically (confirmed only on the season stats endpoint) —
+  // degrades to not shown, same as everywhere else in this file, if wrong.
+  { label: 'Passing Yards/Play', get: (s) => statByName(s, 'yardsPerPass') },
+  { label: 'Rushing Yards/Play', get: (s) => statByName(s, 'yardsPerRushAttempt') },
+  { label: 'Turnovers', invert: true, get: (s) => statByName(s, 'turnovers') },
+  { label: 'Time of Possession', get: (s) => statByName(s, 'possessionTime') },
+]
 
 function statValue(labels: string[], stats: string[], label: string): string | undefined {
   const idx = labels.findIndex((l) => l.toLowerCase() === label.toLowerCase())
@@ -417,11 +443,11 @@ export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: str
   const awayEntry = teams?.find((t: EspnBoxscoreTeamEntry) => t.team.id === awayTeamId)
 
   const teamStats: TeamStatLine[] = []
-  for (const { name, label } of TEAM_STAT_LABELS) {
-    const homeValue = statByName(homeEntry?.statistics, name)
-    const awayValue = statByName(awayEntry?.statistics, name)
+  for (const def of BOX_SCORE_STAT_DEFS) {
+    const homeValue = def.get(homeEntry?.statistics)
+    const awayValue = def.get(awayEntry?.statistics)
     if (homeValue !== undefined && awayValue !== undefined) {
-      teamStats.push({ label, homeValue, awayValue })
+      teamStats.push({ label: def.label, homeValue, awayValue, invert: def.invert })
     }
   }
 
