@@ -326,21 +326,6 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   )
 }
 
-/**
- * Fetches and renders the box score for the game currently expanded — only
- * mounted for a live/final game once its detail view is visible (and, when
- * protected, only after the spoiler reveal — see ExpandedGame), so this
- * never fires for every game in a list.
- */
-export function GameBoxScoreContainer({ game }: { game: Game }) {
-  const { boxScore, isLoading, isError } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in')
-
-  if (isLoading) return <p className="game-stats__hint">Loading stats…</p>
-  if (isError || !boxScore) return null
-
-  return <BoxScoreBody boxScore={boxScore} home={game.home} away={game.away} />
-}
-
 function PlayRow({ play, reaction, onReact }: { play: GamePlay; reaction?: string; onReact: (emoji: string) => void }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   return (
@@ -447,14 +432,13 @@ function LeadTracker({ stats, home, away }: { stats: LeadStats; home: Team; away
 type PlayFilter = 'all' | 'scoring'
 
 /**
- * Fetches and renders the live play-by-play feed for the game currently
- * expanded, newest play first — same gating and shared query as the box
- * score above (see GameBoxScoreContainer), so mounting both here costs no
- * extra network request. Each play carries your own emoji reaction, saved
- * locally (see useReactions) — no accounts, no server, no other users.
+ * Renders the play-by-play feed, newest play first. Each play carries your
+ * own emoji reaction, saved locally (see useReactions) — no accounts, no
+ * server, no other users. Only mounted once there's at least one play to
+ * show; the empty and failed cases are handled once for the whole summary
+ * by GameSummarySections below.
  */
-export function PlayByPlayContainer({ game }: { game: Game }) {
-  const { plays, isLoading, isError } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in')
+function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
   const { reactions, setReaction } = useReactions()
   // A finished game defaults to just the scoring plays (the full feed is a
   // long scroll of no-longer-relevant detail once the outcome is set); a
@@ -463,9 +447,6 @@ export function PlayByPlayContainer({ game }: { game: Game }) {
 
   const leadStats = useMemo(() => computeLeadStats(plays), [plays])
   const visiblePlays = filter === 'scoring' ? plays.filter((p) => p.isScoringPlay) : plays
-
-  if (isLoading) return <p className="game-stats__hint">Loading plays…</p>
-  if (isError || plays.length === 0) return null
 
   return (
     <>
@@ -497,6 +478,89 @@ export function PlayByPlayContainer({ game }: { game: Game }) {
           })}
         </div>
       </div>
+    </>
+  )
+}
+
+/**
+ * Why this game's stats panel is empty, said out loud. Rendering nothing —
+ * which is what this used to do — leaves a live game showing just a score
+ * and a venue, with no way to tell "ESPN isn't covering this game" from
+ * "Slate is broken". The three cases are genuinely different and only one
+ * of them is worth retrying.
+ */
+function SummaryNotice({
+  isError,
+  hasPlayByPlay,
+  state,
+  onRetry,
+}: {
+  isError: boolean
+  hasPlayByPlay: boolean
+  state: Game['state']
+  onRetry: () => void
+}) {
+  if (isError) {
+    return (
+      <div className="game-stats__notice">
+        <p className="game-stats__hint">Couldn’t load stats for this game.</p>
+        <button type="button" className="game-stats__notice-retry" onClick={onRetry}>
+          Retry
+        </button>
+      </div>
+    )
+  }
+  // ESPN's own playByPlaySource flag says it has no live feed for this
+  // game: it'll keep updating the score and clock by hand, but there will
+  // be no drives, no team stats and no down/distance for the whole game.
+  if (!hasPlayByPlay) {
+    return (
+      <div className="game-stats__notice">
+        <p className="game-stats__hint">ESPN isn’t carrying play-by-play or team stats for this game.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="game-stats__notice">
+      <p className="game-stats__hint">
+        {state === 'in' ? 'Waiting on ESPN for this game’s first stats…' : 'ESPN hasn’t posted stats for this game.'}
+      </p>
+      <button type="button" className="game-stats__notice-retry" onClick={onRetry}>
+        Retry
+      </button>
+    </div>
+  )
+}
+
+/**
+ * The whole detail half of an expanded live/final game: play-by-play and
+ * box score, which come from a single shared request, plus the one notice
+ * that explains an empty result. Both sections read the same query, so
+ * owning them together means one hook call, one loading state, and one
+ * explanation instead of two components independently rendering nothing.
+ */
+export function GameSummarySections({ game }: { game: Game }) {
+  const { plays, boxScore, isLoading, isError, hasPlayByPlay, refetch } = useGameSummary(
+    game.id,
+    game.home.id,
+    game.away.id,
+    game.state === 'in',
+  )
+
+  const hasPlays = plays.length > 0
+  const hasBoxScore =
+    boxScore !== undefined &&
+    (boxScore.teamStats.length > 0 || boxScore.homeLeaders.length > 0 || boxScore.awayLeaders.length > 0)
+
+  if (isLoading) return <p className="game-stats__hint">Loading stats…</p>
+  if (!hasPlays && !hasBoxScore) {
+    return <SummaryNotice isError={isError} hasPlayByPlay={hasPlayByPlay} state={game.state} onRetry={refetch} />
+  }
+
+  return (
+    <>
+      {hasPlays && <PlayByPlay game={game} plays={plays} />}
+      {hasBoxScore && <BoxScoreBody boxScore={boxScore!} home={game.home} away={game.away} />}
     </>
   )
 }

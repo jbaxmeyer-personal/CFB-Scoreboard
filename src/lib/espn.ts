@@ -557,10 +557,46 @@ export function normalizeSeasonStats(
   return lines
 }
 
+/**
+ * Does ESPN have a live stats feed for this game at all? `playByPlaySource`
+ * is ESPN's own flag and can literally be "none" — when it is, the payload
+ * carries no drives and no team statistics no matter how far along the game
+ * is, so an empty box score means "ESPN isn't covering this game" rather
+ * than "Slate failed to parse it". Anything else (including a missing
+ * field) is treated as "should have data", since only the explicit "none"
+ * is a definite negative.
+ */
+export function summaryHasPlayByPlay(response: EspnSummaryResponse): boolean {
+  return response.header?.competitions?.[0]?.playByPlaySource !== 'none'
+}
+
+/**
+ * Finds one team's entry in a summary section keyed by ESPN team id. A
+ * single id mismatch would silently blank *every* stat row, so when the id
+ * lookup misses, fall back to elimination: these sections always carry
+ * exactly the two teams in this game, so if the *other* team matched by id,
+ * the remaining entry can only be this one. Deliberately gives up rather
+ * than guessing by array position when neither id matches — showing one
+ * team's stats under the other team's column would be worse than showing
+ * none, and the UI now says so explicitly instead of rendering nothing.
+ */
+function findTeamEntry<T extends { team: { id: string } }>(
+  entries: T[] | undefined,
+  teamId: string,
+  otherTeamId: string,
+): T | undefined {
+  if (!entries) return undefined
+  const byId = entries.find((e) => e.team.id === teamId)
+  if (byId) return byId
+  if (entries.length !== 2) return undefined
+  const otherIndex = entries.findIndex((e) => e.team.id === otherTeamId)
+  return otherIndex === -1 ? undefined : entries[1 - otherIndex]
+}
+
 export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: string, awayTeamId: string): GameBoxScore {
   const teams = response.boxscore?.teams
-  const homeEntry = teams?.find((t: EspnBoxscoreTeamEntry) => t.team.id === homeTeamId)
-  const awayEntry = teams?.find((t: EspnBoxscoreTeamEntry) => t.team.id === awayTeamId)
+  const homeEntry = findTeamEntry<EspnBoxscoreTeamEntry>(teams, homeTeamId, awayTeamId)
+  const awayEntry = findTeamEntry<EspnBoxscoreTeamEntry>(teams, awayTeamId, homeTeamId)
 
   const teamStats: TeamStatLine[] = []
   for (const def of BOX_SCORE_STAT_DEFS) {
@@ -582,8 +618,8 @@ export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: str
   }
 
   const players = response.boxscore?.players
-  const homePlayers = players?.find((p) => p.team.id === homeTeamId)
-  const awayPlayers = players?.find((p) => p.team.id === awayTeamId)
+  const homePlayers = findTeamEntry<EspnBoxscorePlayerEntry>(players, homeTeamId, awayTeamId)
+  const awayPlayers = findTeamEntry<EspnBoxscorePlayerEntry>(players, awayTeamId, homeTeamId)
 
   return {
     teamStats,

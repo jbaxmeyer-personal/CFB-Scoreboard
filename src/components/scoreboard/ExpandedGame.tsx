@@ -3,7 +3,7 @@ import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { SpoilerGate } from '../shared/SpoilerGate'
-import { SeasonLeaders, SeasonTeamComparison, GameBoxScoreContainer, PlayByPlayContainer, FieldPositionBar } from './GameStats'
+import { SeasonLeaders, SeasonTeamComparison, GameSummarySections, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 import { seasonYearFromDate } from '../../lib/espn'
 import { useGameSummary } from '../../hooks/useGameSummary'
@@ -44,8 +44,7 @@ function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
   // same mounted instance as scoreboard data refreshes, so this can't sit
   // after the pre-game early return below (Rules of Hooks). Only actually
   // fetches once live/final, and shares its query key with
-  // PlayByPlayContainer/GameBoxScoreContainer further down, so this never
-  // costs an extra request.
+  // GameSummarySections further down, so this never costs an extra request.
   const { plays } = useGameSummary(game.id, game.home.id, game.away.id, game.state === 'in', game.state !== 'pre')
 
   if (game.state === 'pre') {
@@ -90,8 +89,7 @@ function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
       )}
       {game.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
       {game.state === 'in' && <FieldPositionBar game={game} />}
-      <PlayByPlayContainer game={game} />
-      <GameBoxScoreContainer game={game} />
+      <GameSummarySections game={game} />
     </div>
   )
 }

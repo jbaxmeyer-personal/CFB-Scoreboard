@@ -191,9 +191,22 @@ export interface EspnDrives {
   current?: EspnDrive
 }
 
+/** ESPN's own flag for whether it has a live stats/play-by-play feed for a
+ * game at all. Confirmed to literally take the value "none" — every
+ * sportsdataverse ESPN parser (CFB, NBA, MBB) gates all drive/play parsing
+ * on `playByPlaySource != "none"` before touching `drives`. When it's
+ * "none" ESPN still updates the score and clock by hand, but carries no
+ * drives, no team statistics, and no down/distance situation — which is
+ * exactly the case where Slate would otherwise render a blank card with no
+ * explanation. */
+export interface EspnSummaryHeaderCompetition {
+  playByPlaySource?: string
+}
+
 export interface EspnSummaryResponse {
   boxscore?: EspnBoxscore
   drives?: EspnDrives
+  header?: { competitions?: EspnSummaryHeaderCompetition[] }
 }
 
 // Shape of the separate per-team season-statistics endpoint

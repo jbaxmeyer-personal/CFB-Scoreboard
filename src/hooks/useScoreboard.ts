@@ -52,11 +52,21 @@ export function useScoreboard(): ScoreboardResult {
   const isError = !hasAnyData && results.some((r) => r.isError)
 
   const games = useMemo(() => {
-    const all: Game[] = []
+    // Deduped by event id, not just concatenated: ESPN's `dates=` day
+    // boundary isn't the viewer's, so a late kickoff comes back in *both*
+    // the day it's filed under and the adjacent day's payload. Those two
+    // copies then land in the same local-day bucket (see useGamesByDay),
+    // which rendered the same game twice on Slate and handed React two
+    // children with the same key — a warned-about state where children
+    // "may be duplicated and/or omitted".
+    const byId = new Map<string, Game>()
     for (const r of results) {
-      if (r.data) all.push(...normalizeScoreboard(r.data))
+      if (!r.data) continue
+      for (const game of normalizeScoreboard(r.data)) {
+        if (!byId.has(game.id)) byId.set(game.id, game)
+      }
     }
-    return all.sort((a, b) => a.startDate.localeCompare(b.startDate))
+    return [...byId.values()].sort((a, b) => a.startDate.localeCompare(b.startDate))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results.map((r) => r.dataUpdatedAt).join(',')])
 
