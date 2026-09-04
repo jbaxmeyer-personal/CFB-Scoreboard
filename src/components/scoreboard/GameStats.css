@@ -365,7 +365,15 @@
 
 .game-stats__notice-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
+}
+
+/* The ESPN link is an <a>, so it needs the button's box explicitly. */
+a.game-stats__notice-retry {
+  text-decoration: none;
+  line-height: normal;
 }
 
 /* The response's actual shape, on tap — deliberately plain and monospaced:

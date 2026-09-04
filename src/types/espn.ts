@@ -256,3 +256,46 @@ export interface EspnTeamStatisticsResponse {
   // show stale stats.
   requestedSeason?: { year: number; type: number }
 }
+
+// --- ESPN "core" API (sports.core.api.espn.com) ---------------------------
+// A separate backing store from the site API's summary endpoint, and the one
+// ESPN's own surfaces fall back on. Confirmed necessary: for at least one
+// real game the summary endpoint returned every container present and empty
+// (team statistics 0, player categories with 0 athletes, leaders with 0
+// leaders, no drives at all) while the game itself was fully played. These
+// shapes are taken from sportsdataverse's ESPN core-v2 parsers, which read
+// exactly these keys — not guessed.
+
+export interface EspnCoreStat {
+  name?: string
+  abbreviation?: string
+  value?: number
+  displayValue?: string
+}
+
+export interface EspnCoreStatCategory {
+  name?: string
+  displayName?: string
+  stats?: EspnCoreStat[]
+}
+
+export interface EspnCoreStatSplit {
+  name?: string
+  displayName?: string
+  categories?: EspnCoreStatCategory[]
+}
+
+/** Some core endpoints nest stats under `splits`, others expose
+ * `categories` directly — sportsdataverse handles both, so this does too. */
+export interface EspnCoreStatisticsResponse {
+  splits?: EspnCoreStatSplit[]
+  categories?: EspnCoreStatCategory[]
+}
+
+/** Core plays are the same play objects the summary nests inside drives,
+ * served as a flat paged list. */
+export interface EspnCorePlaysResponse {
+  items?: EspnPlay[]
+  pageCount?: number
+  pageIndex?: number
+}

@@ -1,5 +1,8 @@
 import type {
   EspnBoxscorePlayerEntry,
+  EspnCorePlaysResponse,
+  EspnCoreStatCategory,
+  EspnCoreStatisticsResponse,
   EspnBoxscoreTeamEntry,
   EspnCompetitor,
   EspnEvent,
@@ -458,6 +461,9 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
  * empty. */
 export interface SummaryDiagnostics {
   eventId: string
+  /** Filled in by useGameSummary from the core-API fallback requests. */
+  coreStats?: string
+  corePlays?: string
   pbpSource: string
   plays: string
   wantTeams: string
@@ -536,6 +542,113 @@ export function summaryDiagnostics(
     leaders: describeLeaderEntries(response.leaders),
     keys: Object.keys(response).join(', ') || '(none)',
   }
+}
+
+// --- ESPN core API fallback (sports.core.api.espn.com) --------------------
+// Reached for only when the summary endpoint comes back empty. Confirmed
+// necessary against a real game whose summary returned nothing but empty
+// containers; this is a different backing store, not a different spelling
+// of the same one.
+
+const CORE_URL = 'https://sports.core.api.espn.com/v2/sports/football/leagues/college-football'
+
+/** The competition id equals the event id for CFB (sportsdataverse defaults
+ * `cid` to `event_id` for exactly this reason). */
+function coreCompetitionPath(eventId: string): string {
+  return `${CORE_URL}/events/${eventId}/competitions/${eventId}`
+}
+
+export async function fetchCoreTeamStats(eventId: string, teamId: string): Promise<EspnCoreStatisticsResponse> {
+  const res = await fetch(`${coreCompetitionPath(eventId)}/competitors/${teamId}/statistics`)
+  if (!res.ok) throw new Error(`ESPN core team statistics failed: ${res.status}`)
+  return res.json() as Promise<EspnCoreStatisticsResponse>
+}
+
+export async function fetchCorePlays(eventId: string): Promise<EspnCorePlaysResponse> {
+  const res = await fetch(`${coreCompetitionPath(eventId)}/plays?limit=1000`)
+  if (!res.ok) throw new Error(`ESPN core plays failed: ${res.status}`)
+  return res.json() as Promise<EspnCorePlaysResponse>
+}
+
+function coreCategories(response: EspnCoreStatisticsResponse | undefined): EspnCoreStatCategory[] {
+  if (!response) return []
+  const fromSplits = (response.splits ?? []).flatMap((split) => split.categories ?? [])
+  return fromSplits.length > 0 ? fromSplits : (response.categories ?? [])
+}
+
+/**
+ * Flattens the core API's split/category/stat nesting into the same flat
+ * `{name, displayValue}` list the summary's box score uses, so the existing
+ * BOX_SCORE_STAT_DEFS work against it unchanged. Core and site occasionally
+ * spell the same stat differently (yardsPerPassAttempt vs yardsPerPass), so
+ * the site spelling is added as an alias where they diverge rather than
+ * duplicating the stat definitions.
+ */
+const CORE_STAT_ALIASES: Record<string, string> = {
+  yardsPerPassAttempt: 'yardsPerPass',
+  yardsPerRushingAttempt: 'yardsPerRushAttempt',
+  netTotalYards: 'totalYards',
+  totalOffensiveYards: 'totalYards',
+}
+
+export function flattenCoreStats(response: EspnCoreStatisticsResponse | undefined): { name: string; displayValue: string }[] {
+  const flat: { name: string; displayValue: string }[] = []
+  const seen = new Set<string>()
+  const push = (name: string | undefined, displayValue: string | undefined) => {
+    if (!name || displayValue === undefined || seen.has(name)) return
+    seen.add(name)
+    flat.push({ name, displayValue })
+  }
+  for (const category of coreCategories(response)) {
+    for (const stat of category.stats ?? []) {
+      const displayValue = stat.displayValue ?? (stat.value !== undefined ? String(stat.value) : undefined)
+      push(stat.name, displayValue)
+      const alias = stat.name ? CORE_STAT_ALIASES[stat.name] : undefined
+      push(alias, displayValue)
+    }
+  }
+  return flat
+}
+
+/** Builds the same GameBoxScore shape from core stats, so the UI renders it
+ * identically to a summary-sourced one. Leaders aren't available here — the
+ * core equivalent is a separate per-team request — so they stay empty. */
+export function boxScoreFromCoreStats(
+  home: EspnCoreStatisticsResponse | undefined,
+  away: EspnCoreStatisticsResponse | undefined,
+  response: EspnSummaryResponse,
+  homeTeamId: string,
+  awayTeamId: string,
+): GameBoxScore {
+  const homeStats = flattenCoreStats(home)
+  const awayStats = flattenCoreStats(away)
+  const teamStats: TeamStatLine[] = []
+  for (const def of BOX_SCORE_STAT_DEFS) {
+    const homeValue = def.get({ stats: homeStats, response, teamId: homeTeamId, teamAbbreviation: '' })
+    const awayValue = def.get({ stats: awayStats, response, teamId: awayTeamId, teamAbbreviation: '' })
+    if (homeValue !== undefined && awayValue !== undefined) {
+      teamStats.push({ label: def.label, homeValue, awayValue, invert: def.invert })
+    }
+  }
+  return { teamStats, homeLeaders: [], awayLeaders: [] }
+}
+
+/** Core plays are the same objects the summary nests inside drives, so this
+ * reuses the summary path wholesale — dedupe, score-delta scoring detection
+ * and the 1ST DOWN cleanup all apply identically. */
+export function normalizeCorePlays(response: EspnCorePlaysResponse | undefined): GamePlay[] {
+  if (!response?.items?.length) return []
+  return normalizePlays({ drives: { previous: [{ plays: response.items }] } })
+}
+
+/** Names the core API actually returned, for the empty-panel details — the
+ * same "report it, don't infer it" loop that identified this problem. */
+export function describeCoreStats(response: EspnCoreStatisticsResponse | undefined): string {
+  if (!response) return '(not fetched)'
+  const categories = coreCategories(response)
+  if (categories.length === 0) return 'no categories'
+  const total = categories.reduce((n, c) => n + (c.stats?.length ?? 0), 0)
+  return `${categories.length} cats, ${total} stats: ${categories.map((c) => c.name ?? '?').join(' ')}`
 }
 
 // --- Season-long team stats (pre-game only) --------------------------------
