@@ -109,6 +109,22 @@ function toTeam(competitor: EspnCompetitor): Team {
   }
 }
 
+/**
+ * A competitor's score, from either shape ESPN uses: the scoreboard sends
+ * `"38"`, the team-schedule endpoint sends `{value: 38, displayValue: "38"}`.
+ * Reading only the first shape turned every completed game on a team's
+ * schedule into `NaN-NaN` (and, since NaN compares false both ways, a tie).
+ * Anything that doesn't yield a real number comes back undefined so callers
+ * treat it as "no score" rather than rendering NaN.
+ */
+function parseScore(score: EspnCompetitor['score']): number | undefined {
+  if (score === undefined || score === null) return undefined
+  const raw = typeof score === 'object' ? (score.value ?? score.displayValue) : score
+  if (raw === undefined || raw === '') return undefined
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 function toGameState(state: string): GameState {
   if (state === 'in') return 'in'
   if (state === 'post') return 'post'
@@ -142,8 +158,8 @@ export function normalizeEvent(event: EspnEvent): Game | null {
     venue: competition.venue?.fullName,
     home: toTeam(home),
     away: toTeam(away),
-    homeScore: home.score !== undefined ? Number(home.score) : undefined,
-    awayScore: away.score !== undefined ? Number(away.score) : undefined,
+    homeScore: parseScore(home.score),
+    awayScore: parseScore(away.score),
     state: toGameState(status.type.state),
     statusDetail: status.type.shortDetail || status.type.detail,
     period: status.period,
@@ -1002,14 +1018,30 @@ export interface TeamProfileStat {
   rank?: string
 }
 
-/** ESPN's rank field is unconfirmed on this endpoint, so this reads it
- * defensively and returns undefined rather than inventing a placeholder —
- * a missing rank shows no rank, not "—" or a guess. */
-function statRank(map: Map<string, EspnTeamStatEntry>, name: string): string | undefined {
-  const stat = map.get(name)
-  if (!stat) return undefined
-  if (stat.rankDisplayValue) return stat.rankDisplayValue
-  return typeof stat.rank === 'number' && stat.rank > 0 ? ordinal(stat.rank) : undefined
+/**
+ * A stat's national rank, searched across every category rather than the
+ * deduped value map.
+ *
+ * flattenStatCategories keeps the *first* occurrence of a repeated stat
+ * name, deliberately, because the categories disagree on the value. But
+ * ranks aren't always on that first copy: a team's own stats came back with
+ * ranks only on the later duplicates, so reading through the map showed
+ * ranks for every defensive row (whose categories barely duplicate) and
+ * none at all on offense. Scanning every occurrence can only find a rank
+ * the map would have missed — it never changes the displayed value.
+ *
+ * Still returns undefined when no copy carries one, rather than inventing a
+ * placeholder that reads as data.
+ */
+function statRank(categories: EspnTeamStatCategory[] | undefined, name: string): string | undefined {
+  for (const category of categories ?? []) {
+    for (const stat of category.stats ?? []) {
+      if (stat.name !== name) continue
+      if (stat.rankDisplayValue) return stat.rankDisplayValue
+      if (typeof stat.rank === 'number' && stat.rank > 0) return ordinal(stat.rank)
+    }
+  }
+  return undefined
 }
 
 function ordinal(n: number): string {
@@ -1034,14 +1066,16 @@ export function normalizeTeamProfile(
   // worse than none.
   if (response.requestedSeason?.year !== expectedYear) return []
 
-  const own = flattenStatCategories(response.results?.stats?.categories)
-  const allowed = flattenStatCategories(response.results?.opponent)
+  const ownCategories = response.results?.stats?.categories
+  const allowedCategories = response.results?.opponent
+  const own = flattenStatCategories(ownCategories)
+  const allowed = flattenStatCategories(allowedCategories)
 
   const rows: TeamProfileStat[] = []
   for (const def of SEASON_STAT_DEFS) {
     const value = def.get(own, allowed)
     if (value === undefined) continue
-    const rank = def.rankKey ? statRank(def.section === 'defense' ? allowed : own, def.rankKey) : undefined
+    const rank = def.rankKey ? statRank(def.section === 'defense' ? allowedCategories : ownCategories, def.rankKey) : undefined
     rows.push({ label: def.label, value, section: def.section, rank })
   }
   return rows

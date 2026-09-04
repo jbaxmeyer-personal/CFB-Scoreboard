@@ -52,7 +52,10 @@ export interface EspnCompetitor {
   homeAway: 'home' | 'away'
   winner?: boolean
   team: EspnTeam
-  score?: string
+  /** The scoreboard sends a plain string; the team-schedule endpoint sends
+   * an object. Both are handled — reading only the string shape produced
+   * NaN scores on a team's schedule. */
+  score?: string | number | { value?: number; displayValue?: string }
   curatedRank?: EspnCurrentRank
   records?: EspnRecord[]
   leaders?: EspnLeaderCategory[]
