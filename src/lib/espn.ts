@@ -7,6 +7,7 @@ import type {
   EspnLogo,
   EspnPlay,
   EspnScoreboardResponse,
+  EspnSummaryLeadersEntry,
   EspnSummaryResponse,
   EspnTeamStatCategory,
   EspnTeamStatEntry,
@@ -480,6 +481,37 @@ function describeEntries(
   return entries.map((e) => `${e.team.id}/${e.team.abbreviation ?? '?'}:${e.statistics?.length ?? 0}`).join(' ')
 }
 
+/** Per-team player categories that actually carry athletes, e.g.
+ * "38/COLO: passing:1 rushing:4". A category list with no athletes in it is
+ * a skeleton ESPN sends whether or not it has data, so the athlete count —
+ * not the category count — is what says whether anything is recoverable. */
+function describePlayerEntries(entries: EspnBoxscorePlayerEntry[] | undefined): string {
+  if (!entries) return '(absent)'
+  if (entries.length === 0) return '0'
+  return entries
+    .map((entry) => {
+      const categories = entry.statistics ?? []
+      const label = `${entry.team.id}/${entry.team.abbreviation ?? '?'}`
+      const populated = categories.filter((c) => (c.athletes?.length ?? 0) > 0)
+      if (populated.length === 0) return `${label}: ${categories.length} cats, 0 athletes`
+      return `${label}: ${populated.map((c) => `${c.name}:${c.athletes.length}`).join(' ')}`
+    })
+    .join(' · ')
+}
+
+function describeLeaderEntries(entries: EspnSummaryLeadersEntry[] | undefined): string {
+  if (!entries) return '(absent)'
+  if (entries.length === 0) return '0'
+  return entries
+    .map((entry) => {
+      const categories = entry.leaders ?? []
+      const label = `${entry.team?.id ?? '?'}/${entry.team?.abbreviation ?? '?'}`
+      if (categories.length === 0) return `${label}: none`
+      return `${label}: ${categories.map((c) => `${c.name}:${c.leaders?.length ?? 0}`).join(' ')}`
+    })
+    .join(' · ')
+}
+
 export function summaryDiagnostics(
   response: EspnSummaryResponse,
   eventId: string,
@@ -495,13 +527,13 @@ export function summaryDiagnostics(
     plays: `${drives} drives, ${response.scoringPlays?.length ?? 0} scoring`,
     wantTeams: `${home.id}/${home.abbreviation ?? '?'} vs ${away.id}/${away.abbreviation ?? '?'}`,
     boxTeams: describeEntries(teams),
-    boxPlayers: describeEntries(response.boxscore?.players),
+    boxPlayers: describePlayerEntries(response.boxscore?.players),
     statNames:
       firstWithStats?.statistics
         ?.slice(0, 4)
         .map((st) => st.name)
         .join(', ') ?? '(no stats)',
-    leaders: String(response.leaders?.length ?? 0),
+    leaders: describeLeaderEntries(response.leaders),
     keys: Object.keys(response).join(', ') || '(none)',
   }
 }
