@@ -150,7 +150,7 @@ export interface EspnBoxscorePlayerCategory {
 }
 
 export interface EspnBoxscorePlayerEntry {
-  team: { id: string }
+  team: { id: string; abbreviation?: string }
   statistics: EspnBoxscorePlayerCategory[]
 }
 
@@ -213,6 +213,17 @@ export interface EspnSummaryResponse {
    * game whose drive data is missing can still show its scoring plays
    * rather than nothing at all. */
   scoringPlays?: EspnPlay[]
+  /** Top-level per-team leaders. Confirmed present on a real response that
+   * carried no drives at all (see the `keys` list a device reported back),
+   * so this is the fallback source for Game Leaders when the player box
+   * score doesn't resolve. Same category shape as the scoreboard's
+   * competitor.leaders. */
+  leaders?: EspnSummaryLeadersEntry[]
+}
+
+export interface EspnSummaryLeadersEntry {
+  team?: { id?: string; abbreviation?: string }
+  leaders?: EspnLeaderCategory[]
 }
 
 // Shape of the separate per-team season-statistics endpoint
