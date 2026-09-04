@@ -362,3 +362,36 @@
 .game-stats__notice-retry:active {
   background: rgba(255, 255, 255, 0.08);
 }
+
+.game-stats__notice-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* The response's actual shape, on tap — deliberately plain and monospaced:
+   it exists to be read back accurately, not to look good. */
+.game-stats__notice-details {
+  margin: 4px 0 0;
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.game-stats__notice-details > div {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.game-stats__notice-details dt {
+  flex: 0 0 42%;
+}
+
+.game-stats__notice-details dd {
+  margin: 0;
+  flex: 1 1 auto;
+  color: var(--text-secondary);
+  word-break: break-word;
+}

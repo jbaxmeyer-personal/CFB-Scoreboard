@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import './GameStats.css'
 import type { Game, GameBoxScore, GamePlay, StatLeader, Team, TeamStatLine } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
+import type { SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
 import { TeamLogo } from '../shared/TeamLogo'
@@ -483,51 +484,77 @@ function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
 }
 
 /**
- * Why this game's stats panel is empty, said out loud. Rendering nothing —
- * which is what this used to do — leaves a live game showing just a score
- * and a venue, with no way to tell "ESPN isn't covering this game" from
- * "Slate is broken". The three cases are genuinely different and only one
- * of them is worth retrying.
+ * Why this game's stats panel is empty. Rendering nothing leaves a live
+ * game showing just a score and a venue, with no way to tell a Slate bug
+ * from missing data — but the fix for that isn't to assert a reason either.
+ * ESPN's API can't be reached from where this is built, so this states only
+ * what's actually known ("nothing came back"), always offers a retry, and
+ * puts the response's real shape one tap away instead of guessing at it.
  */
 function SummaryNotice({
   isError,
-  hasPlayByPlay,
   state,
   onRetry,
+  diagnostics,
 }: {
   isError: boolean
-  hasPlayByPlay: boolean
   state: Game['state']
   onRetry: () => void
+  diagnostics?: SummaryDiagnostics
 }) {
-  if (isError) {
-    return (
-      <div className="game-stats__notice">
-        <p className="game-stats__hint">Couldn’t load stats for this game.</p>
+  const [showDetails, setShowDetails] = useState(false)
+
+  const message = isError
+    ? 'Couldn\u2019t load stats for this game.'
+    : state === 'in'
+      ? 'No play-by-play or team stats have come back for this game yet.'
+      : 'No play-by-play or team stats came back for this game.'
+
+  return (
+    <div className="game-stats__notice">
+      <p className="game-stats__hint">{message}</p>
+      <div className="game-stats__notice-actions">
         <button type="button" className="game-stats__notice-retry" onClick={onRetry}>
           Retry
         </button>
+        {diagnostics && (
+          <button type="button" className="game-stats__notice-retry" onClick={() => setShowDetails((open) => !open)}>
+            {showDetails ? 'Hide details' : 'What came back?'}
+          </button>
+        )}
       </div>
-    )
-  }
-  // ESPN's own playByPlaySource flag says it has no live feed for this
-  // game: it'll keep updating the score and clock by hand, but there will
-  // be no drives, no team stats and no down/distance for the whole game.
-  if (!hasPlayByPlay) {
-    return (
-      <div className="game-stats__notice">
-        <p className="game-stats__hint">ESPN isn’t carrying play-by-play or team stats for this game.</p>
-      </div>
-    )
-  }
-  return (
-    <div className="game-stats__notice">
-      <p className="game-stats__hint">
-        {state === 'in' ? 'Waiting on ESPN for this game’s first stats…' : 'ESPN hasn’t posted stats for this game.'}
-      </p>
-      <button type="button" className="game-stats__notice-retry" onClick={onRetry}>
-        Retry
-      </button>
+      {showDetails && diagnostics && (
+        <dl className="game-stats__notice-details">
+          <div>
+            <dt>event</dt>
+            <dd>{diagnostics.eventId}</dd>
+          </div>
+          <div>
+            <dt>playByPlaySource</dt>
+            <dd>{diagnostics.pbpSource}</dd>
+          </div>
+          <div>
+            <dt>drives</dt>
+            <dd>{diagnostics.drives}</dd>
+          </div>
+          <div>
+            <dt>scoringPlays</dt>
+            <dd>{diagnostics.scoringPlays}</dd>
+          </div>
+          <div>
+            <dt>boxscore.teams</dt>
+            <dd>{diagnostics.boxTeams}</dd>
+          </div>
+          <div>
+            <dt>boxscore.players</dt>
+            <dd>{diagnostics.boxPlayers}</dd>
+          </div>
+          <div>
+            <dt>keys</dt>
+            <dd>{diagnostics.keys}</dd>
+          </div>
+        </dl>
+      )}
     </div>
   )
 }
@@ -540,7 +567,7 @@ function SummaryNotice({
  * explanation instead of two components independently rendering nothing.
  */
 export function GameSummarySections({ game }: { game: Game }) {
-  const { plays, boxScore, isLoading, isError, hasPlayByPlay, refetch } = useGameSummary(
+  const { plays, boxScore, isLoading, isError, diagnostics, refetch } = useGameSummary(
     game.id,
     game.home.id,
     game.away.id,
@@ -554,7 +581,7 @@ export function GameSummarySections({ game }: { game: Game }) {
 
   if (isLoading) return <p className="game-stats__hint">Loading stats…</p>
   if (!hasPlays && !hasBoxScore) {
-    return <SummaryNotice isError={isError} hasPlayByPlay={hasPlayByPlay} state={game.state} onRetry={refetch} />
+    return <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
   }
 
   return (

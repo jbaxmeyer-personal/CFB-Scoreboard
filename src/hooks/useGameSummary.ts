@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchGameSummary, normalizeBoxScore, normalizePlays, summaryHasPlayByPlay } from '../lib/espn'
+import { fetchGameSummary, normalizeBoxScore, normalizePlays, summaryDiagnostics } from '../lib/espn'
+import type { SummaryDiagnostics } from '../lib/espn'
 import type { GameBoxScore, GamePlay } from '../types/game'
 
 export interface GameSummaryResult {
@@ -7,11 +8,9 @@ export interface GameSummaryResult {
   plays: GamePlay[]
   isLoading: boolean
   isError: boolean
-  /** False only when ESPN explicitly says it has no play-by-play feed for
-   * this game (playByPlaySource: "none") — the difference between "ESPN
-   * isn't covering this game" and "we couldn't load it", which is what the
-   * UI needs to explain an empty panel instead of rendering nothing. */
-  hasPlayByPlay: boolean
+  /** What the response actually contained, surfaced on demand when a panel
+   * comes up empty — reported rather than guessed at. */
+  diagnostics?: SummaryDiagnostics
   /** Lets the empty/error state offer a retry without a full page reload. */
   refetch: () => void
 }
@@ -42,7 +41,7 @@ export function useGameSummary(
     plays: query.data ? normalizePlays(query.data) : [],
     isLoading: query.isLoading,
     isError: query.isError,
-    hasPlayByPlay: query.data ? summaryHasPlayByPlay(query.data) : true,
+    diagnostics: query.data ? summaryDiagnostics(query.data, eventId) : undefined,
     refetch: () => void query.refetch(),
   }
 }
