@@ -131,7 +131,22 @@ export function laneCount(positioned: PositionedGame[]): number {
   return positioned.reduce((most, p) => Math.max(most, p.lane + 1), 1)
 }
 
-/** Games grouped by their first broadcast network, rows ordered by each network's earliest kickoff. */
+/**
+ * Networks that sort to the bottom of the grid regardless of kickoff time.
+ * ESPN+ is an overflow tier carrying many simultaneous lower-profile games,
+ * so its row stacks several lanes tall (see layoutRow). Left in kickoff
+ * order it would push the marquee rows down the screen; last, it can grow
+ * as tall as it needs to without displacing anything above it.
+ */
+const DEMOTED_NETWORKS = ['ESPN+']
+
+function isDemoted(network: string): boolean {
+  return DEMOTED_NETWORKS.includes(network.toUpperCase())
+}
+
+/** Games grouped by their first broadcast network. Rows are ordered by each
+ * network's earliest kickoff, except the demoted overflow tiers above,
+ * which always sort last. */
 export function groupByNetwork(games: Game[]): NetworkRow[] {
   const map = new Map<string, Game[]>()
   for (const game of games) {
@@ -145,5 +160,9 @@ export function groupByNetwork(games: Game[]): NetworkRow[] {
       network,
       games: gamesForNetwork.sort((a, b) => a.startDate.localeCompare(b.startDate)),
     }))
-    .sort((a, b) => a.games[0].startDate.localeCompare(b.games[0].startDate))
+    .sort((a, b) => {
+      const demotedDiff = Number(isDemoted(a.network)) - Number(isDemoted(b.network))
+      if (demotedDiff !== 0) return demotedDiff
+      return a.games[0].startDate.localeCompare(b.games[0].startDate)
+    })
 }
