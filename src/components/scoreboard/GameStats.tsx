@@ -492,11 +492,13 @@ function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
  * puts the response's real shape one tap away instead of guessing at it.
  */
 function SummaryNotice({
+  gameId,
   isError,
   state,
   onRetry,
   diagnostics,
 }: {
+  gameId: string
   isError: boolean
   state: Game['state']
   onRetry: () => void
@@ -517,6 +519,19 @@ function SummaryNotice({
         <button type="button" className="game-stats__notice-retry" onClick={onRetry}>
           Retry
         </button>
+        {/* Confirmed necessary: ESPN's summary endpoint can return every
+            container present and empty for a game — team statistics, player
+            categories and leaders all zero — with no drives at all. There's
+            nothing left for Slate to parse in that case, so the useful thing
+            is one tap to the source rather than a dead end. */}
+        <a
+          className="game-stats__notice-retry"
+          href={`https://www.espn.com/college-football/game/_/gameId/${gameId}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          View on ESPN
+        </a>
         {diagnostics && (
           <button type="button" className="game-stats__notice-retry" onClick={() => setShowDetails((open) => !open)}>
             {showDetails ? 'Hide details' : 'What came back?'}
@@ -558,6 +573,14 @@ function SummaryNotice({
             <dd>{diagnostics.leaders}</dd>
           </div>
           <div>
+            <dt>core stats</dt>
+            <dd>{diagnostics.coreStats ?? '(not fetched)'}</dd>
+          </div>
+          <div>
+            <dt>core plays</dt>
+            <dd>{diagnostics.corePlays ?? '(not fetched)'}</dd>
+          </div>
+          <div>
             <dt>keys</dt>
             <dd>{diagnostics.keys}</dd>
           </div>
@@ -589,7 +612,9 @@ export function GameSummarySections({ game }: { game: Game }) {
 
   if (isLoading) return <p className="game-stats__hint">Loading stats…</p>
   if (!hasPlays && !hasBoxScore) {
-    return <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
+    return (
+      <SummaryNotice gameId={game.id} isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
+    )
   }
 
   return (
