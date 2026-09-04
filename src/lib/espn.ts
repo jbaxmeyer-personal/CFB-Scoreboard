@@ -1,5 +1,7 @@
 import type {
   EspnBoxscorePlayerEntry,
+  EspnCoreCompetitor,
+  EspnCoreCompetitorsResponse,
   EspnCorePlaysResponse,
   EspnCoreStatCategory,
   EspnCoreStatisticsResponse,
@@ -465,6 +467,7 @@ export interface SummaryDiagnostics {
   competitionId: string
   /** Filled in by useGameSummary from the core-API fallback requests. */
   coreStats?: string
+  coreCompetitors?: string
   corePlays?: string
   pbpSource: string
   plays: string
@@ -562,20 +565,88 @@ function coreCompetitionPath(eventId: string, competitionId: string): string {
   return `${CORE_URL}/events/${eventId}/competitions/${competitionId}`
 }
 
+/** ESPN hands back `$ref` links as http://, which a page served over https
+ * refuses to load as mixed content. Upgrade them rather than silently
+ * losing every linked resource. */
+function upgradeRef(url: string): string {
+  return url.replace(/^http:\/\//, 'https://')
+}
+
+async function getCoreJson<T>(url: string, label: string): Promise<T> {
+  const res = await fetch(upgradeRef(url))
+  if (!res.ok) throw new Error(`${label} HTTP ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+/** Core `$ref` URLs end in the resource id, e.g. .../teams/59?lang=en. */
+function idFromRef(ref: string | undefined, resource: string): string | undefined {
+  return ref?.match(new RegExp(`/${resource}/(\\d+)`))?.[1]
+}
+
+function competitorTeamId(competitor: EspnCoreCompetitor): string | undefined {
+  return competitor.team?.id ?? idFromRef(competitor.team?.$ref, 'teams')
+}
+
+export interface CoreTeamStatsPair {
+  home?: EspnCoreStatisticsResponse
+  away?: EspnCoreStatisticsResponse
+  /** What the competitors collection actually contained, for the details
+   * panel — reported rather than inferred, same as everything else here. */
+  competitorSummary: string
+}
+
+/**
+ * Both teams' core statistics, resolved by following ESPN's own links
+ * instead of constructing a path.
+ *
+ * The previous version built `/competitors/{teamId}/statistics` directly,
+ * which assumes a competitor is addressed by its *team* id — a guess, and
+ * one that 404s while `/plays` on the same competition returns 200. The
+ * competitors collection gives each competitor's own id and a link to its
+ * statistics, so use those. Collection items are often `{$ref}` stubs, so
+ * unresolved ones are fetched. One call covers both teams, so the shared
+ * competitors request isn't made twice.
+ */
 export async function fetchCoreTeamStats(
   eventId: string,
   competitionId: string,
-  teamId: string,
-): Promise<EspnCoreStatisticsResponse> {
-  const res = await fetch(`${coreCompetitionPath(eventId, competitionId)}/competitors/${teamId}/statistics`)
-  if (!res.ok) throw new Error(`core statistics HTTP ${res.status}`)
-  return res.json() as Promise<EspnCoreStatisticsResponse>
+  homeTeamId: string,
+  awayTeamId: string,
+): Promise<CoreTeamStatsPair> {
+  const list = await getCoreJson<EspnCoreCompetitorsResponse>(
+    `${coreCompetitionPath(eventId, competitionId)}/competitors`,
+    'core competitors',
+  )
+  const items = list.items ?? []
+
+  const resolved = await Promise.all(
+    items.map(async (item) => {
+      if (item.statistics || item.team) return item
+      if (!item.$ref) return item
+      return getCoreJson<EspnCoreCompetitor>(item.$ref, 'core competitor').catch(() => item)
+    }),
+  )
+
+  const competitorSummary =
+    resolved.length === 0
+      ? 'no competitors'
+      : resolved
+          .map((c) => `${c.id ?? '?'}/team ${competitorTeamId(c) ?? '?'}${c.statistics?.$ref ? '' : ' (no stats link)'}`)
+          .join(' · ')
+
+  const statsFor = async (teamId: string): Promise<EspnCoreStatisticsResponse | undefined> => {
+    const match = resolved.find((c) => competitorTeamId(c) === teamId)
+    const ref = match?.statistics?.$ref
+    if (!ref) return undefined
+    return getCoreJson<EspnCoreStatisticsResponse>(ref, 'core statistics').catch(() => undefined)
+  }
+
+  const [home, away] = await Promise.all([statsFor(homeTeamId), statsFor(awayTeamId)])
+  return { home, away, competitorSummary }
 }
 
 export async function fetchCorePlays(eventId: string, competitionId: string): Promise<EspnCorePlaysResponse> {
-  const res = await fetch(`${coreCompetitionPath(eventId, competitionId)}/plays?limit=1000`)
-  if (!res.ok) throw new Error(`core plays HTTP ${res.status}`)
-  return res.json() as Promise<EspnCorePlaysResponse>
+  return getCoreJson<EspnCorePlaysResponse>(`${coreCompetitionPath(eventId, competitionId)}/plays?limit=1000`, 'core plays')
 }
 
 function coreCategories(response: EspnCoreStatisticsResponse | undefined): EspnCoreStatCategory[] {

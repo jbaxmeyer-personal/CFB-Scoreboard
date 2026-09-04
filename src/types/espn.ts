@@ -292,6 +292,27 @@ export interface EspnCoreStatisticsResponse {
   categories?: EspnCoreStatCategory[]
 }
 
+/** The core API is hypermedia: collection `items` are frequently just
+ * `{"$ref": url}` pointers, and objects link to their sub-resources the
+ * same way. sportsdataverse follows these links rather than constructing
+ * paths, and so does Slate — a hand-built path is a guess about ESPN's
+ * addressing scheme, and a wrong one 404s. */
+export interface EspnCoreRef {
+  $ref?: string
+}
+
+export interface EspnCoreCompetitor extends EspnCoreRef {
+  id?: string
+  homeAway?: string
+  /** Either an inline id or a `$ref` whose URL ends in /teams/{id}. */
+  team?: EspnCoreRef & { id?: string }
+  statistics?: EspnCoreRef
+}
+
+export interface EspnCoreCompetitorsResponse {
+  items?: EspnCoreCompetitor[]
+}
+
 /** Core plays are the same play objects the summary nests inside drives,
  * served as a flat paged list. */
 export interface EspnCorePlaysResponse {
