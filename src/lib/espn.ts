@@ -246,6 +246,15 @@ const BOX_SCORE_STAT_DEFS: BoxScoreStatDef[] = [
   // degrades to not shown, same as everywhere else in this file, if wrong.
   { label: 'Passing Yards/Play', get: (s) => statByName(s, 'yardsPerPass') },
   { label: 'Rushing Yards/Play', get: (s) => statByName(s, 'yardsPerRushAttempt') },
+  // thirdDownEff/redZoneEff are unverified field names for this endpoint
+  // (following the same "<situation>Eff" convention as fourthDownEff,
+  // which ESPN's box score is known to use) — displayValue for these comes
+  // as an "X-Y" attempts fraction (e.g. "1-3"), which parseStatMagnitude
+  // doesn't parse as a number, so they render as text with no comparison
+  // bar rather than a nonsensical one; degrades to not shown if the field
+  // name is wrong, same as everywhere else in this file.
+  { label: '3rd Down %', get: (s) => statByName(s, 'thirdDownEff') },
+  { label: 'Red Zone %', get: (s) => statByName(s, 'redZoneEff') },
   { label: 'Turnovers', invert: true, get: (s) => statByName(s, 'turnovers') },
   { label: 'Time of Possession', get: (s) => statByName(s, 'possessionTime') },
 ]
