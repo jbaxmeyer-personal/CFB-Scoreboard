@@ -166,6 +166,11 @@ export interface EspnBoxscore {
 // these keys from this endpoint — not guessed.
 export interface EspnPlay {
   id: string
+  /** ESPN's own ordering key. Plays do not arrive in chronological order —
+   * sportsdataverse sorts on this before any derived logic for the same
+   * reason Slate has to: scoring is detected from score *changes* between
+   * consecutive plays, so a misordered list invents scoring plays. */
+  sequenceNumber?: string
   text?: string
   type?: { text?: string }
   period?: { number: number }
