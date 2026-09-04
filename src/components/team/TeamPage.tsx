@@ -84,12 +84,13 @@ interface TeamPageProps {
 
 export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   const { settings } = useSettings()
-  const { stats, schedule, statsLoading, scheduleLoading, statsError, scheduleError, rankSource } = useTeamPage(team.id, year)
+  const { stats, schedule, statsLoading, scheduleLoading, statsError, scheduleError, rankSource, ranksApply } = useTeamPage(team.id, year)
   // Defensive ranks come from the site payload and always resolve, so "any
   // rank at all" would never flag an empty offense column. The core source
   // is what fills the non-defensive rows, so that's what this reports on.
   const coreBackedRows = stats.filter((s) => s.section !== 'defense')
-  const missingCoreRanks = coreBackedRows.length > 0 && !coreBackedRows.some((s) => s.rank)
+  // Withheld on purpose for an FCS team, so nothing to report there.
+  const missingCoreRanks = ranksApply && coreBackedRows.length > 0 && !coreBackedRows.some((s) => s.rank)
   const safeSchedule = useSpoilerSafeGames(schedule)
 
   return (
@@ -109,18 +110,6 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
       </div>
 
       <section className="team-page__section">
-        <h3 className="team-page__title">{year} Season Stats</h3>
-        {statsLoading && <LoadingState label="Loading season stats…" />}
-        {!statsLoading && stats.length === 0 && (
-          <p className="team-page__hint">{statsError ? 'Couldn’t load season stats.' : `No ${year} season stats posted yet.`}</p>
-        )}
-        {stats.length > 0 && <StatRows stats={stats} />}
-        {/* Only when the rank column is entirely empty: say what the rank
-            source actually returned instead of leaving it a mystery. */}
-        {missingCoreRanks && <p className="team-page__hint">Rank source: {rankSource}</p>}
-      </section>
-
-      <section className="team-page__section">
         <h3 className="team-page__title">{year} Schedule</h3>
         {scheduleLoading && <LoadingState label="Loading schedule…" />}
         {!scheduleLoading && safeSchedule.length === 0 && (
@@ -138,6 +127,18 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
           ))}
         </div>
       </section>
+      <section className="team-page__section">
+        <h3 className="team-page__title">{year} Season Stats</h3>
+        {statsLoading && <LoadingState label="Loading season stats…" />}
+        {!statsLoading && stats.length === 0 && (
+          <p className="team-page__hint">{statsError ? 'Couldn’t load season stats.' : `No ${year} season stats posted yet.`}</p>
+        )}
+        {stats.length > 0 && <StatRows stats={stats} />}
+        {/* Only when the rank column is entirely empty: say what the rank
+            source actually returned instead of leaving it a mystery. */}
+        {missingCoreRanks && <p className="team-page__hint">Rank source: {rankSource}</p>}
+      </section>
+
     </div>
   )
 }
