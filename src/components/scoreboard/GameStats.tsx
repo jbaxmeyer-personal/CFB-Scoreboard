@@ -541,8 +541,11 @@ function SummaryNotice({
       {showDetails && diagnostics && (
         <dl className="game-stats__notice-details">
           <div>
-            <dt>event</dt>
-            <dd>{diagnostics.eventId}</dd>
+            <dt>event / comp</dt>
+            <dd>
+              {diagnostics.eventId}
+              {diagnostics.competitionId !== diagnostics.eventId ? ` / ${diagnostics.competitionId}` : ' (same)'}
+            </dd>
           </div>
           <div>
             <dt>playByPlaySource</dt>
@@ -598,12 +601,7 @@ function SummaryNotice({
  * explanation instead of two components independently rendering nothing.
  */
 export function GameSummarySections({ game }: { game: Game }) {
-  const { plays, boxScore, isLoading, isError, diagnostics, refetch } = useGameSummary(
-    game.id,
-    game.home,
-    game.away,
-    game.state === 'in',
-  )
+  const { plays, boxScore, isLoading, isError, diagnostics, refetch } = useGameSummary(game, game.state === 'in')
 
   const hasPlays = plays.length > 0
   const hasBoxScore =

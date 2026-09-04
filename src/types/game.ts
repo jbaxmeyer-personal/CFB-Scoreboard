@@ -82,6 +82,12 @@ export interface WeekSelector {
 
 export interface Game {
   id: string
+  /** ESPN's competition id. Usually equal to the event id, but it is a
+   * distinct field and the core API addresses games by
+   * events/{eventId}/competitions/{competitionId} — so assuming they match
+   * is a guess, and a wrong one 404s the whole core fallback. Read from the
+   * payload instead; falls back to the event id only when absent. */
+  competitionId: string
   startDate: string // ISO 8601, UTC
   shortName: string
   venue?: string

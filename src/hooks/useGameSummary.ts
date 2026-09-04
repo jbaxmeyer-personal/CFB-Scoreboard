@@ -11,7 +11,7 @@ import {
   summaryDiagnostics,
 } from '../lib/espn'
 import type { SummaryDiagnostics } from '../lib/espn'
-import type { GameBoxScore, GamePlay, Team } from '../types/game'
+import type { Game, GameBoxScore, GamePlay } from '../types/game'
 
 export interface GameSummaryResult {
   boxScore?: GameBoxScore
@@ -39,7 +39,13 @@ function hasBoxScoreContent(boxScore: GameBoxScore | undefined): boolean {
  * returning every container present and with nothing in it — this falls back
  * to ESPN's core API, a different backing store. Those requests are gated on
  * the summary actually being empty, so a normal game never makes them. */
-export function useGameSummary(eventId: string, home: Team, away: Team, isLive: boolean, enabled = true): GameSummaryResult {
+export function useGameSummary(game: Game, isLive: boolean, enabled = true): GameSummaryResult {
+  const eventId = game.id
+  // Not assumed equal to the event id — that assumption is what the core
+  // fallback's paths hang on, and a wrong competition id 404s every one.
+  const competitionId = game.competitionId || game.id
+  const home = game.home
+  const away = game.away
   const query = useQuery({
     queryKey: ['gameSummary', eventId],
     queryFn: () => fetchGameSummary(eventId),
@@ -59,22 +65,22 @@ export function useGameSummary(eventId: string, home: Team, away: Team, isLive: 
   const needsCorePlays = summaryResolved && summaryPlays.length === 0
 
   const coreHome = useQuery({
-    queryKey: ['coreTeamStats', eventId, home.id],
-    queryFn: () => fetchCoreTeamStats(eventId, home.id),
+    queryKey: ['coreTeamStats', eventId, competitionId, home.id],
+    queryFn: () => fetchCoreTeamStats(eventId, competitionId, home.id),
     enabled: needsCoreStats,
     staleTime: 30_000,
     refetchInterval: isLive ? 30_000 : false,
   })
   const coreAway = useQuery({
-    queryKey: ['coreTeamStats', eventId, away.id],
-    queryFn: () => fetchCoreTeamStats(eventId, away.id),
+    queryKey: ['coreTeamStats', eventId, competitionId, away.id],
+    queryFn: () => fetchCoreTeamStats(eventId, competitionId, away.id),
     enabled: needsCoreStats,
     staleTime: 30_000,
     refetchInterval: isLive ? 30_000 : false,
   })
   const corePlays = useQuery({
-    queryKey: ['corePlays', eventId],
-    queryFn: () => fetchCorePlays(eventId),
+    queryKey: ['corePlays', eventId, competitionId],
+    queryFn: () => fetchCorePlays(eventId, competitionId),
     enabled: needsCorePlays,
     staleTime: 30_000,
     refetchInterval: isLive ? 30_000 : false,
@@ -92,11 +98,29 @@ export function useGameSummary(eventId: string, home: Team, away: Team, isLive: 
       : summaryBoxScore
   const plays = summaryPlays.length > 0 ? summaryPlays : normalizeCorePlays(corePlays.data)
 
+  // A CORS block and an HTTP 404 both land in `isError`, and collapsing them
+  // into one guess is what made the previous label ("blocked?") useless: a
+  // browser-blocked request rejects with a TypeError whose message is
+  // "Failed to fetch", while a request that reached ESPN and was refused
+  // carries the status code the fetch helpers put in the error. Report the
+  // message itself so those two are distinguishable, and never let a
+  // not-yet-fetched query read as an empty one.
+  function describeQuery(
+    q: { isError: boolean; error: Error | null; isSuccess: boolean; isFetching: boolean },
+    enabledForQuery: boolean,
+    describeSuccess: () => string,
+  ): string {
+    if (q.isError) return q.error?.message ?? 'request failed'
+    if (q.isSuccess) return describeSuccess()
+    if (!enabledForQuery) return '(not needed)'
+    return q.isFetching ? '(fetching…)' : '(not fetched)'
+  }
+
   const diagnostics = query.data
     ? {
-        ...summaryDiagnostics(query.data, eventId, home, away),
-        coreStats: coreHome.isError || coreAway.isError ? 'request failed (blocked?)' : describeCoreStats(coreHome.data ?? coreAway.data),
-        corePlays: corePlays.isError ? 'request failed (blocked?)' : `${corePlays.data?.items?.length ?? 0} items`,
+        ...summaryDiagnostics(query.data, eventId, competitionId, home, away),
+        coreStats: describeQuery(coreHome, needsCoreStats, () => describeCoreStats(coreHome.data ?? coreAway.data)),
+        corePlays: describeQuery(corePlays, needsCorePlays, () => `${corePlays.data?.items?.length ?? 0} items`),
       }
     : undefined
 
