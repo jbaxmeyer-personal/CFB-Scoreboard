@@ -333,3 +333,32 @@
   font-weight: 600;
   color: var(--text-primary);
 }
+
+/* The "here's why this panel is empty" state — deliberately quiet, but
+   present, so a game ESPN isn't covering doesn't look like a broken app. */
+.game-stats__notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px;
+}
+
+.game-stats__notice .game-stats__hint {
+  margin: 0;
+}
+
+.game-stats__notice-retry {
+  padding: 6px 16px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.game-stats__notice-retry:active {
+  background: rgba(255, 255, 255, 0.08);
+}
