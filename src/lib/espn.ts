@@ -401,6 +401,42 @@ function toGamePlay(play: EspnPlay): GamePlay | null {
  * play's actual content — period + clock + text — instead, keeping the
  * first (oldest) occurrence.
  */
+/** "12:04" / "0:37" -> seconds remaining in the period. */
+function clockSeconds(display: string | undefined): number | undefined {
+  const match = display?.match(/^(\d+):(\d{2})$/)
+  return match ? Number(match[1]) * 60 + Number(match[2]) : undefined
+}
+
+/**
+ * Chronological order, which everything downstream assumes and ESPN does
+ * not guarantee. Confirmed live: the core plays feed returned a Q4 timeout
+ * at 0:41 *after* the touchdown at 0:37, which made the running score step
+ * backwards (14-13 -> 7-13) and so registered as a scoring play — putting
+ * timeouts and touchbacks under the "Scoring" filter.
+ *
+ * Sorts on ESPN's own sequenceNumber when every play carries one, else on
+ * period ascending and game clock descending. When neither is fully
+ * available the original order is kept rather than half-sorted, and the
+ * sort is stable, so plays sharing a key keep their incoming order.
+ */
+function sortPlaysChronologically(plays: EspnPlay[]): EspnPlay[] {
+  if (plays.length < 2) return plays
+
+  if (plays.every((p) => Number.isFinite(Number(p.sequenceNumber)))) {
+    return [...plays].sort((a, b) => Number(a.sequenceNumber) - Number(b.sequenceNumber))
+  }
+
+  const byClock = plays.every((p) => p.period?.number !== undefined && clockSeconds(p.clock?.displayValue) !== undefined)
+  if (!byClock) return plays
+
+  return [...plays].sort((a, b) => {
+    const periodDiff = (a.period?.number ?? 0) - (b.period?.number ?? 0)
+    if (periodDiff !== 0) return periodDiff
+    // Later in a period means less time on the clock.
+    return (clockSeconds(b.clock?.displayValue) ?? 0) - (clockSeconds(a.clock?.displayValue) ?? 0)
+  })
+}
+
 export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   const previousPlays = (response.drives?.previous ?? []).flatMap((d) => d.plays ?? [])
   const currentPlays = response.drives?.current?.plays ?? []
@@ -413,7 +449,7 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   // are play objects like the ones inside drives, and everything below is
   // optional-chained, so a response without it just yields [] as before.
   const usingScoringPlaysOnly = fromDrives.length === 0 && (response.scoringPlays?.length ?? 0) > 0
-  const chronological = usingScoringPlaysOnly ? [...(response.scoringPlays ?? [])] : fromDrives
+  const chronological = sortPlaysChronologically(usingScoringPlaysOnly ? [...(response.scoringPlays ?? [])] : fromDrives)
 
   const seen = new Set<string>()
   const deduped = chronological.filter((p) => {
