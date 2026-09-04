@@ -57,10 +57,10 @@ function ScheduleRow({ game, teamId, zoneId, onSelect }: { game: Game; teamId: s
       <span className="team-page__game-side">{isHome ? 'vs' : '@'}</span>
       <TeamLogo team={opponent} size={22} rank={opponent.rank} />
       <span className="team-page__game-opponent">{opponent.shortName}</span>
-      <span className="team-page__game-outcome ticker">
+      <span className={`team-page__game-outcome ticker${result ? ` team-page__game-outcome--${result.toLowerCase()}` : ''}`}>
         {result ? (
           <>
-            <span className={`team-page__result team-page__result--${result.toLowerCase()}`}>{result}</span> {teamScore}–{oppScore}
+            <span className="team-page__result">{result}</span> {teamScore}–{oppScore}
           </>
         ) : game.state === 'in' ? (
           'LIVE'
