@@ -326,7 +326,6 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   )
 }
 
-
 function PlayRow({ play, reaction, onReact }: { play: GamePlay; reaction?: string; onReact: (emoji: string) => void }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   return (
