@@ -397,7 +397,17 @@ function toGamePlay(play: EspnPlay): GamePlay | null {
 export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   const previousPlays = (response.drives?.previous ?? []).flatMap((d) => d.plays ?? [])
   const currentPlays = response.drives?.current?.plays ?? []
-  const chronological = [...previousPlays, ...currentPlays]
+  const fromDrives = [...previousPlays, ...currentPlays]
+
+  // Fallback: some responses come back with no usable drive data even for a
+  // game that has plainly been scored in. The summary carries a separate
+  // top-level scoringPlays array, so rather than showing nothing, fall back
+  // to that — a scoring-plays-only feed beats an empty panel. Its entries
+  // are play objects like the ones inside drives, and everything below is
+  // optional-chained, so a response without it just yields [] as before.
+  const usingScoringPlaysOnly = fromDrives.length === 0 && (response.scoringPlays?.length ?? 0) > 0
+  const chronological = usingScoringPlaysOnly ? [...(response.scoringPlays ?? [])] : fromDrives
+
   const seen = new Set<string>()
   const deduped = chronological.filter((p) => {
     const key = `${p.period?.number ?? ''}|${p.clock?.displayValue ?? ''}|${p.text ?? ''}`
@@ -426,7 +436,45 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
     prevAwayScore = play.awayScore
   }
 
+  // The score-delta walk can't identify the *first* play in a list (there's
+  // nothing before it to differ from). That's the right call for a full
+  // feed, but when the list is the scoring-plays fallback, every entry in
+  // it scored by definition — including the first.
+  if (usingScoringPlaysOnly) {
+    for (const play of games) {
+      play.isScoringPlay = true
+      play.text = cleanPlayText(play.text, true)
+    }
+  }
+
   return games.reverse()
+}
+
+/** What the summary response actually contained, for the "what came back?"
+ * detail in an empty stats panel. ESPN's API isn't reachable from the build
+ * environment, so this is how a real payload's shape gets reported from the
+ * device that can reach it — facts instead of a guess about why a panel is
+ * empty. */
+export interface SummaryDiagnostics {
+  eventId: string
+  pbpSource: string
+  drives: number
+  scoringPlays: number
+  boxTeams: number
+  boxPlayers: number
+  keys: string
+}
+
+export function summaryDiagnostics(response: EspnSummaryResponse, eventId: string): SummaryDiagnostics {
+  return {
+    eventId,
+    pbpSource: response.header?.competitions?.[0]?.playByPlaySource ?? '(absent)',
+    drives: (response.drives?.previous?.length ?? 0) + (response.drives?.current ? 1 : 0),
+    scoringPlays: response.scoringPlays?.length ?? 0,
+    boxTeams: response.boxscore?.teams?.length ?? 0,
+    boxPlayers: response.boxscore?.players?.length ?? 0,
+    keys: Object.keys(response).join(', ') || '(none)',
+  }
 }
 
 // --- Season-long team stats (pre-game only) --------------------------------

@@ -207,6 +207,12 @@ export interface EspnSummaryResponse {
   boxscore?: EspnBoxscore
   drives?: EspnDrives
   header?: { competitions?: EspnSummaryHeaderCompetition[] }
+  /** Top-level scoring-plays array — a separate section from `drives`, and
+   * one of the keys sportsdataverse's CFB parser expects on every summary
+   * response. Used as a fallback feed when `drives` comes back empty, so a
+   * game whose drive data is missing can still show its scoring plays
+   * rather than nothing at all. */
+  scoringPlays?: EspnPlay[]
 }
 
 // Shape of the separate per-team season-statistics endpoint
