@@ -216,14 +216,30 @@ function statByName(stats: { name: string; displayValue: string }[] | undefined,
   return stats?.find((s) => s.name === name)?.displayValue
 }
 
-/** The per-game box score doesn't expose a raw "yards per play" field
- * either (same gap as the season stats endpoint — see yardsPerPlay above),
- * so derive it the same way from this game's totals. displayValue strings
- * have to be parsed by hand here since, unlike the season endpoint, the
- * box score's stat entries don't also carry a numeric `value`. */
+/** Looks up the first of several candidate stat names that's actually
+ * present. ESPN's exact key for a given stat varies by endpoint and isn't
+ * documented, and a single wrong guess silently drops the whole row (which
+ * is what happened to yards/play and red zone), so the stats whose key
+ * isn't confirmed list every plausible spelling instead of betting on one. */
+function statByAnyName(stats: { name: string; displayValue: string }[] | undefined, ...names: string[]): string | undefined {
+  for (const name of names) {
+    const value = statByName(stats, name)
+    if (value !== undefined) return value
+  }
+  return undefined
+}
+
+/** Yards per play, preferring a directly-reported field if this endpoint
+ * has one and otherwise deriving it from this game's totals (the season
+ * stats endpoint has no such field either — see yardsPerPlay above).
+ * displayValue strings have to be parsed by hand here since, unlike the
+ * season endpoint, the box score's stat entries don't carry a numeric
+ * `value`. */
 function boxYardsPerPlay(stats: { name: string; displayValue: string }[] | undefined): string | undefined {
+  const direct = statByAnyName(stats, 'yardsPerPlay', 'yardsPerGame')
+  if (direct !== undefined) return direct
   const yards = Number(statByName(stats, 'totalYards'))
-  const plays = Number(statByName(stats, 'totalOffensivePlays'))
+  const plays = Number(statByAnyName(stats, 'totalOffensivePlays', 'totalPlays', 'offensivePlays'))
   if (!Number.isFinite(yards) || !Number.isFinite(plays) || plays === 0) return undefined
   return (yards / plays).toFixed(1)
 }
@@ -246,15 +262,16 @@ const BOX_SCORE_STAT_DEFS: BoxScoreStatDef[] = [
   // degrades to not shown, same as everywhere else in this file, if wrong.
   { label: 'Passing Yards/Play', get: (s) => statByName(s, 'yardsPerPass') },
   { label: 'Rushing Yards/Play', get: (s) => statByName(s, 'yardsPerRushAttempt') },
-  // thirdDownEff/redZoneEff are unverified field names for this endpoint
-  // (following the same "<situation>Eff" convention as fourthDownEff,
-  // which ESPN's box score is known to use) — displayValue for these comes
-  // as an "X-Y" attempts fraction (e.g. "1-3"), which parseStatMagnitude
-  // doesn't parse as a number, so they render as text with no comparison
-  // bar rather than a nonsensical one; degrades to not shown if the field
-  // name is wrong, same as everywhere else in this file.
+  // thirdDownEff is confirmed live. redZoneEff was a wrong guess (the row
+  // never appeared), so red zone tries every plausible spelling rather
+  // than betting on one; still degrades to not shown if none match.
+  // Both come as an "X-Y" attempts fraction (e.g. "1-3"), which the bar
+  // compares as a success *rate* — see parseStatMagnitude.
   { label: '3rd Down %', get: (s) => statByName(s, 'thirdDownEff') },
-  { label: 'Red Zone %', get: (s) => statByName(s, 'redZoneEff') },
+  {
+    label: 'Red Zone %',
+    get: (s) => statByAnyName(s, 'redZoneEff', 'redZoneAttempts', 'redZoneScoringPct', 'redZoneEfficiency', 'redzoneEff'),
+  },
   { label: 'Turnovers', invert: true, get: (s) => statByName(s, 'turnovers') },
   { label: 'Time of Possession', get: (s) => statByName(s, 'possessionTime') },
 ]

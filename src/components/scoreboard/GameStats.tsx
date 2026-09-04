@@ -66,7 +66,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
   if (isError || stats.length === 0) return null
 
-  const awayColor = resolveAwayBarColor(home.color, away.color)
+  const awayColor = resolveAwayBarColor(home, away)
   let lastSection: TeamStatLine['section'] | undefined
   return (
     <div className="game-stats">
@@ -149,13 +149,21 @@ export function FieldPositionBar({ game }: { game: Game }) {
   )
 }
 
-/** Parses "180", "9.5", "-3", "18:22" (mm:ss), or "0:18:22" (hh:mm:ss —
- * some duration stats like time of possession come zero-padded with an
- * hours component) into a comparable number of seconds; anything else
- * (e.g. an already-formatted "48.15%") opts out of the comparison bar. */
+/** Parses "180", "9.5", "-3", "18:22" (mm:ss), "0:18:22" (hh:mm:ss — some
+ * duration stats like time of possession come zero-padded with an hours
+ * component), or "3-7" (a converted-of-attempted efficiency like 3rd down
+ * and red zone, compared as its success *rate* so the bigger segment goes
+ * to the better percentage rather than to whoever simply had more
+ * attempts) into a comparable number; anything else (e.g. an
+ * already-formatted "48.15%") opts out of the comparison bar. */
 function parseStatMagnitude(value: string): number | null {
   if (/^\d+(:\d{2}){1,2}$/.test(value)) {
     return value.split(':').reduce((total, part) => total * 60 + Number(part), 0)
+  }
+  const eff = value.match(/^(\d+)-(\d+)$/)
+  if (eff) {
+    const attempts = Number(eff[2])
+    return attempts === 0 ? 0 : (Number(eff[1]) / attempts) * 100
   }
   if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value)
   return null
@@ -200,29 +208,48 @@ function hueDistance(a: number, b: number): number {
   return diff > 180 ? 360 - diff : diff
 }
 
-/** When both teams read as the same color family — not just near-identical
- * RGB values, but the same hue at a different shade (e.g. UMass maroon vs.
- * Rutgers scarlet: both plainly "red" to the eye despite an RGB distance
- * over 75) — a solid-color comparison bar becomes unreadable at a glance.
- * Lightens the away team's segment so the two stay visually distinct
- * without introducing an unrelated third color. Falls back to plain RGB
- * distance for near-grayscale colors, where hue isn't meaningful. */
-function resolveAwayBarColor(homeColor: string | undefined, awayColor: string | undefined): string | undefined {
-  if (!homeColor || !awayColor) return awayColor
-  const homeHsl = hexToHsl(homeColor)
-  const awayHsl = hexToHsl(awayColor)
-  const tooSimilar =
-    homeHsl && awayHsl && homeHsl.s > 0.15 && awayHsl.s > 0.15
-      ? hueDistance(homeHsl.h, awayHsl.h) < 30
-      : colorDistance(homeColor, awayColor) < 60
-  return tooSimilar ? lighten(awayColor, 0.45) : awayColor
+/** Do these two colors read as the same color family? Not just
+ * near-identical RGB values, but the same hue at a different shade (e.g.
+ * UMass maroon vs. Rutgers scarlet: both plainly "red" to the eye despite
+ * an RGB distance over 75). Falls back to plain RGB distance for
+ * near-grayscale colors, where hue isn't meaningful. */
+function readsAsSameColor(a: string, b: string): boolean {
+  const aHsl = hexToHsl(a)
+  const bHsl = hexToHsl(b)
+  if (aHsl && bHsl && aHsl.s > 0.15 && bHsl.s > 0.15) return hueDistance(aHsl.h, bHsl.h) < 30
+  return colorDistance(a, b) < 60
 }
 
-function lighten(hex: string, amount: number): string {
-  const rgb = hexToRgb(hex)
-  if (!rgb) return hex
-  const mix = (c: number) => Math.round(c + (255 - c) * amount)
-  return `#${[mix(rgb.r), mix(rgb.g), mix(rgb.b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+/** A near-black team color (several schools list black as their alternate)
+ * disappears against this app's dark panels, so it can't stand in as the
+ * away team's bar color no matter how distinct it is from the home team. */
+function isVisibleOnDarkPanel(hex: string): boolean {
+  const hsl = hexToHsl(hex)
+  return hsl !== null && hsl.l > 0.22
+}
+
+/** Neutral stand-in for when a team has no usable distinct color left —
+ * deliberately not a tint of their own color, which reads as a *wrong*
+ * team color (a lightened maroon looks pink, which is nobody's color). */
+const NEUTRAL_BAR_COLOR = '#c6cede'
+
+/** Two solid bar segments in the same color family are unreadable at a
+ * glance, so when the primaries clash the away team falls back to its own
+ * secondary (alternate) color — a real color that team actually wears —
+ * rather than a lightened tint of its primary. If the secondary is also
+ * too close to the home color, or is too dark to show up on a dark panel
+ * at all, a neutral light slate stands in instead. */
+function resolveAwayBarColor(home: Team, away: Team): string | undefined {
+  const homeColor = home.color
+  const awayColor = away.color
+  if (!homeColor || !awayColor) return awayColor
+  if (!readsAsSameColor(homeColor, awayColor)) return awayColor
+
+  const awayAlternate = away.alternateColor
+  if (awayAlternate && isVisibleOnDarkPanel(awayAlternate) && !readsAsSameColor(homeColor, awayAlternate)) {
+    return awayAlternate
+  }
+  return NEUTRAL_BAR_COLOR
 }
 
 function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor?: string; homeColor?: string }) {
@@ -265,7 +292,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   const hasLeaders = boxScore.homeLeaders.length > 0 || boxScore.awayLeaders.length > 0
   if (!hasStats && !hasLeaders) return null
 
-  const awayColor = resolveAwayBarColor(home.color, away.color)
+  const awayColor = resolveAwayBarColor(home, away)
   return (
     <div className="game-stats">
       {hasStats && (
