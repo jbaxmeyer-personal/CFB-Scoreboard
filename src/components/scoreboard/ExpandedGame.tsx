@@ -7,17 +7,35 @@ import { SeasonLeaders, SeasonTeamComparison, GameSummarySections, FieldPosition
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 import { seasonYearFromDate } from '../../lib/espn'
 import { useGameSummary } from '../../hooks/useGameSummary'
+import { useViewState } from '../../context/ViewStateContext'
+import { TeamPage } from '../team/TeamPage'
 
 /** Logo above name (not side by side) so a long team name gets the
  * identity column's full width instead of being squeezed to the right of
  * the logo, where it was clipping (e.g. "North Caroli…"). */
-function TeamIdentity({ team, showRecord, role }: { team: Team; showRecord: boolean; role: 'home' | 'away' }) {
+function TeamIdentity({
+  team,
+  showRecord,
+  role,
+  onOpenTeam,
+}: {
+  team: Team
+  showRecord: boolean
+  role: 'home' | 'away'
+  onOpenTeam?: () => void
+}) {
   // The role-specific split (this team's home record if they're playing at
   // home here, their road record if they're the visitor) — not both splits
   // for both teams, matching how this is normally shown alongside a matchup.
   const splitRecord = role === 'home' ? team.homeRecord : team.awayRecord
   return (
-    <div className="expanded-game__identity">
+    <button
+      type="button"
+      className="expanded-game__identity expanded-game__identity--tappable"
+      onClick={onOpenTeam}
+      disabled={!onOpenTeam}
+      aria-label={onOpenTeam ? `${team.name} team page` : undefined}
+    >
       <TeamLogo team={team} size={40} rank={team.rank} />
       <div className="expanded-game__name">
         <span>{team.shortName}</span>
@@ -30,7 +48,7 @@ function TeamIdentity({ team, showRecord, role }: { team: Team; showRecord: bool
           </span>
         )}
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -104,15 +122,30 @@ interface ExpandedGameProps {
 
 export function ExpandedGame({ game, zoneId, isProtected }: ExpandedGameProps) {
   const hasHideableResult = isProtected && game.state !== 'pre'
+  const { teamPageId, setTeamPageId } = useViewState()
+
+  // The team page replaces the game detail in place rather than pushing a
+  // new screen, so you stay in the day you were browsing and one Back
+  // returns you to the same expanded game.
+  const openTeam = teamPageId === game.home.id ? game.home : teamPageId === game.away.id ? game.away : null
+  if (openTeam) {
+    return (
+      <div className="expanded-game">
+        <div className="expanded-game__panel">
+          <TeamPage team={openTeam} year={seasonYearFromDate(game.startDate)} onBack={() => setTeamPageId(null)} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="expanded-game">
       <div className="expanded-game__panel">
         <div className="expanded-game__bezel">
           <div className="expanded-game__matchup">
-            <TeamIdentity team={game.away} showRecord={game.state === 'pre'} role="away" />
+            <TeamIdentity team={game.away} showRecord={game.state === 'pre'} role="away" onOpenTeam={() => setTeamPageId(game.away.id)} />
             <span className="expanded-game__at">@</span>
-            <TeamIdentity team={game.home} showRecord={game.state === 'pre'} role="home" />
+            <TeamIdentity team={game.home} showRecord={game.state === 'pre'} role="home" onOpenTeam={() => setTeamPageId(game.home.id)} />
           </div>
 
           <div className={`expanded-game__live-area${hasHideableResult ? ' expanded-game__live-area--gated' : ''}`}>

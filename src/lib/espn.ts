@@ -14,6 +14,7 @@ import type {
   EspnScoreboardResponse,
   EspnSummaryLeadersEntry,
   EspnSummaryResponse,
+  EspnTeamScheduleResponse,
   EspnTeamStatCategory,
   EspnTeamStatEntry,
   EspnTeamStatisticsResponse,
@@ -791,6 +792,10 @@ function yardsPerPlay(map: Map<string, EspnTeamStatEntry>): string | undefined {
 interface SeasonStatDef {
   label: string
   section: 'offense' | 'defense' | 'turnovers'
+  /** The ESPN stat this row reads, used to look up a national rank on the
+   * team page. Absent for derived rows (yards per play), which have no
+   * single underlying stat and so no rank. */
+  rankKey?: string
   // Lower is better for allowed/defense stats (and for turnovers) — flips
   // which team's bar segment reads as "ahead" rather than just "bigger".
   invert?: boolean
@@ -799,28 +804,28 @@ interface SeasonStatDef {
 
 const SEASON_STAT_DEFS: SeasonStatDef[] = [
   // Offense
-  { label: 'Points Per Game', section: 'offense', get: (own) => statDisplay(own, 'totalPointsPerGame', false) },
+  { label: 'Points Per Game', section: 'offense', rankKey: 'totalPointsPerGame', get: (own) => statDisplay(own, 'totalPointsPerGame', false) },
   // "yardsPerGame" lives inside ESPN's passing category despite meaning
   // total offensive yards per game — confirmed against the real payload.
-  { label: 'Total Yards Per Game', section: 'offense', get: (own) => statDisplay(own, 'yardsPerGame', false) },
-  { label: 'Passing Yards Per Game', section: 'offense', get: (own) => statDisplay(own, 'passingYardsPerGame', false) },
-  { label: 'Rushing Yards Per Game', section: 'offense', get: (own) => statDisplay(own, 'rushingYardsPerGame', false) },
-  { label: 'First Downs Per Game', section: 'offense', get: (own) => statDisplay(own, 'firstDowns', true) },
+  { label: 'Total Yards Per Game', section: 'offense', rankKey: 'yardsPerGame', get: (own) => statDisplay(own, 'yardsPerGame', false) },
+  { label: 'Passing Yards Per Game', section: 'offense', rankKey: 'passingYardsPerGame', get: (own) => statDisplay(own, 'passingYardsPerGame', false) },
+  { label: 'Rushing Yards Per Game', section: 'offense', rankKey: 'rushingYardsPerGame', get: (own) => statDisplay(own, 'rushingYardsPerGame', false) },
+  { label: 'First Downs Per Game', section: 'offense', rankKey: 'firstDowns', get: (own) => statDisplay(own, 'firstDowns', true) },
   { label: 'Yards Per Play', section: 'offense', get: (own) => yardsPerPlay(own) },
-  { label: 'Passing Yards Per Play', section: 'offense', get: (own) => statDisplay(own, 'yardsPerPassAttempt', false) },
-  { label: 'Rushing Yards Per Play', section: 'offense', get: (own) => statDisplay(own, 'yardsPerRushAttempt', false) },
+  { label: 'Passing Yards Per Play', section: 'offense', rankKey: 'yardsPerPassAttempt', get: (own) => statDisplay(own, 'yardsPerPassAttempt', false) },
+  { label: 'Rushing Yards Per Play', section: 'offense', rankKey: 'yardsPerRushAttempt', get: (own) => statDisplay(own, 'yardsPerRushAttempt', false) },
   // Defense (all "allowed" — lower is better, so bars invert)
-  { label: 'Points Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'totalPointsPerGame', false) },
-  { label: 'Total Yards Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'yardsPerGame', false) },
-  { label: 'Passing Yards Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'passingYardsPerGame', false) },
-  { label: 'Rushing Yards Allowed Per Game', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'rushingYardsPerGame', false) },
+  { label: 'Points Allowed Per Game', section: 'defense', invert: true, rankKey: 'totalPointsPerGame', get: (_own, allowed) => statDisplay(allowed, 'totalPointsPerGame', false) },
+  { label: 'Total Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'yardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'yardsPerGame', false) },
+  { label: 'Passing Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'passingYardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'passingYardsPerGame', false) },
+  { label: 'Rushing Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'rushingYardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'rushingYardsPerGame', false) },
   { label: 'Yards Allowed Per Play', section: 'defense', invert: true, get: (_own, allowed) => yardsPerPlay(allowed) },
-  { label: 'Passing Yards Allowed Per Play', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'yardsPerPassAttempt', false) },
-  { label: 'Rushing Yards Allowed Per Play', section: 'defense', invert: true, get: (_own, allowed) => statDisplay(allowed, 'yardsPerRushAttempt', false) },
+  { label: 'Passing Yards Allowed Per Play', section: 'defense', invert: true, rankKey: 'yardsPerPassAttempt', get: (_own, allowed) => statDisplay(allowed, 'yardsPerPassAttempt', false) },
+  { label: 'Rushing Yards Allowed Per Play', section: 'defense', invert: true, rankKey: 'yardsPerRushAttempt', get: (_own, allowed) => statDisplay(allowed, 'yardsPerRushAttempt', false) },
   // Turnovers — giving the ball away is bad (fewer is better), taking it
   // away is good (more is better), so only Turnovers inverts.
-  { label: 'Turnovers', section: 'turnovers', invert: true, get: (own) => statDisplay(own, 'totalGiveaways', false) },
-  { label: 'Takeaways', section: 'turnovers', get: (own) => statDisplay(own, 'totalTakeaways', false) },
+  { label: 'Turnovers', section: 'turnovers', invert: true, rankKey: 'totalGiveaways', get: (own) => statDisplay(own, 'totalGiveaways', false) },
+  { label: 'Takeaways', section: 'turnovers', rankKey: 'totalTakeaways', get: (own) => statDisplay(own, 'totalTakeaways', false) },
 ]
 
 /** The response echoes back which season it actually served under
@@ -965,4 +970,79 @@ export function normalizeBoxScore(response: EspnSummaryResponse, home: TeamIdent
     homeLeaders: homeLeaders.length > 0 ? homeLeaders : leadersFromSummary(response, home, away),
     awayLeaders: awayLeaders.length > 0 ? awayLeaders : leadersFromSummary(response, away, home),
   }
+}
+
+// --- Team page: schedule + single-team season profile ----------------------
+
+/**
+ * A team's full season schedule. The events come back in the same shape the
+ * scoreboard uses — competitions with competitors, status, broadcasts and a
+ * venue — so normalizeEvent handles them unchanged rather than needing a
+ * second parser that could drift from the first.
+ */
+export async function fetchTeamSchedule(teamId: string, year: number): Promise<EspnTeamScheduleResponse> {
+  const res = await fetch(`${TEAMS_URL}/${teamId}/schedule?season=${year}`)
+  if (!res.ok) throw new Error(`ESPN team schedule request failed: ${res.status}`)
+  return res.json() as Promise<EspnTeamScheduleResponse>
+}
+
+export function normalizeTeamSchedule(response: EspnTeamScheduleResponse | undefined): Game[] {
+  return (response?.events ?? [])
+    .map(normalizeEvent)
+    .filter((g): g is Game => g !== null)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+}
+
+/** One row on a team's own season profile: the value, and its national rank
+ * when ESPN actually supplies one. */
+export interface TeamProfileStat {
+  label: string
+  value: string
+  section: 'offense' | 'defense' | 'turnovers'
+  rank?: string
+}
+
+/** ESPN's rank field is unconfirmed on this endpoint, so this reads it
+ * defensively and returns undefined rather than inventing a placeholder —
+ * a missing rank shows no rank, not "—" or a guess. */
+function statRank(map: Map<string, EspnTeamStatEntry>, name: string): string | undefined {
+  const stat = map.get(name)
+  if (!stat) return undefined
+  if (stat.rankDisplayValue) return stat.rankDisplayValue
+  return typeof stat.rank === 'number' && stat.rank > 0 ? ordinal(stat.rank) : undefined
+}
+
+function ordinal(n: number): string {
+  const rem100 = n % 100
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`
+  const suffix = ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'
+  return `${n}${n % 10 <= 3 ? suffix : 'th'}`
+}
+
+/**
+ * The same stat set the pre-game comparison uses, rendered for one team on
+ * its own. Reusing SEASON_STAT_DEFS keeps the two surfaces from drifting —
+ * a stat added to the matchup comparison shows up here too.
+ */
+export function normalizeTeamProfile(
+  response: EspnTeamStatisticsResponse | undefined,
+  expectedYear: number,
+): TeamProfileStat[] {
+  if (!response) return []
+  // Same guard as the comparison: this endpoint silently serves a completed
+  // season when the requested one has no data yet, and stale numbers are
+  // worse than none.
+  if (response.requestedSeason?.year !== expectedYear) return []
+
+  const own = flattenStatCategories(response.results?.stats?.categories)
+  const allowed = flattenStatCategories(response.results?.opponent)
+
+  const rows: TeamProfileStat[] = []
+  for (const def of SEASON_STAT_DEFS) {
+    const value = def.get(own, allowed)
+    if (value === undefined) continue
+    const rank = def.rankKey ? statRank(def.section === 'defense' ? allowed : own, def.rankKey) : undefined
+    rows.push({ label: def.label, value, section: def.section, rank })
+  }
+  return rows
 }

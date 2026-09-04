@@ -243,6 +243,12 @@ export interface EspnTeamStatEntry {
   displayValue: string
   perGameValue?: number
   perGameDisplayValue?: string
+  /** National rank for this stat. Not confirmed present on this endpoint —
+   * the archived schema doesn't enumerate the stat fields and no parser
+   * reads one — so it is rendered only when it actually arrives, never
+   * fabricated. */
+  rank?: number
+  rankDisplayValue?: string
 }
 
 export interface EspnTeamStatCategory {
@@ -324,4 +330,15 @@ export interface EspnCorePlaysResponse {
   items?: EspnPlay[]
   pageCount?: number
   pageIndex?: number
+}
+
+/** Shape of the per-team schedule endpoint
+ * (.../teams/{id}/schedule?season={year}). `events` carries the same
+ * event/competition shape as the scoreboard, which is why the schedule can
+ * reuse normalizeEvent wholesale. Confirmed via sportsdataverse's
+ * parse_team_schedule, which documents the payload as
+ * {"events": [...], "season": {...}, "team": {...}, "requestedSeason": {...}}. */
+export interface EspnTeamScheduleResponse {
+  events?: EspnEvent[]
+  requestedSeason?: { year: number; type: number }
 }

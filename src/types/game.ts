@@ -29,6 +29,10 @@ export interface StatLeader {
   displayValue: string
 }
 
+/** Which block of a team's season profile a stat belongs to. Shared by the
+ * matchup comparison and the team page so the two can't drift apart. */
+export type TeamProfileSection = 'offense' | 'defense' | 'turnovers'
+
 export interface TeamStatLine {
   label: string
   homeValue: string
@@ -36,7 +40,7 @@ export interface TeamStatLine {
   /** Season-comparison-only: groups the row under an Offense/Defense/
    * Turnovers subheader, and (for allowed/defense stats, where a lower
    * value is better) flips which team's bar segment reads as "ahead". */
-  section?: 'offense' | 'defense' | 'turnovers'
+  section?: TeamProfileSection
   invert?: boolean
 }
 
