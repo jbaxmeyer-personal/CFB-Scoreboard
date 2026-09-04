@@ -1,6 +1,6 @@
-import { Fragment, useEffect } from 'react'
+import { Fragment, useEffect, useMemo } from 'react'
 import './ScoreboardOverview.css'
-import { useSeasonScoreboard } from '../../hooks/useSeasonScoreboard'
+import { DAYS_BEFORE, useScoreboardDays } from '../../hooks/useScoreboardDays'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
 import { useSpoilerSafeGames } from '../../hooks/useSpoilerSafeGames'
 import { useSettings } from '../../context/SettingsContext'
@@ -8,20 +8,36 @@ import { useViewState } from '../../context/ViewStateContext'
 import { DayTabs } from '../shared/DayTabs'
 import { GameCard } from './GameCard'
 import { GameDetailPanel } from '../shared/GameDetailPanel'
-import { WeekNav } from './WeekNav'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 
 export function ScoreboardOverview() {
-  const { games, weekLabel, isLoading, isError, goToPrevWeek, goToNextWeek, refetch } = useSeasonScoreboard()
   const { settings } = useSettings()
-  const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame } = useViewState()
-  const days = useGamesByDay(games, settings.timezoneId)
+  const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame, scoreboardAnchorDate, setScoreboardAnchorDate } =
+    useViewState()
+  const { games, dateKeys, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
+  const grouped = useGamesByDay(games, settings.timezoneId)
 
-  const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : days[0]?.dateKey
+  // Every day in the window gets a tab, whether or not it has games, so the
+  // strip is a stable ten-day ruler instead of reflowing as midweek thins
+  // out. Days outside the window (a late kickoff filed under the next day)
+  // are dropped rather than appended, which would push the ruler around.
+  const days = useMemo(() => {
+    const byKey = new Map(grouped.map((d) => [d.dateKey, d]))
+    return dateKeys.map((dateKey) => byKey.get(dateKey) ?? { dateKey, games: [] })
+  }, [grouped, dateKeys])
+
+  const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : dateKeys[DAYS_BEFORE]
 
   useEffect(() => {
-    if (!selectedDateKey && days[0]) setSelectedDateKey(days[0].dateKey)
-  }, [days, selectedDateKey, setSelectedDateKey])
+    if (!selectedDateKey && activeDateKey) setSelectedDateKey(activeDateKey)
+  }, [activeDateKey, selectedDateKey, setSelectedDateKey])
+
+  // Picking a date re-centres the window on it, so you can keep browsing
+  // outward from wherever you landed.
+  const pickDate = (dateKey: string) => {
+    setScoreboardAnchorDate(dateKey)
+    setSelectedDateKey(dateKey)
+  }
 
   const activeDay = days.find((d) => d.dateKey === activeDateKey)
   const safeGames = useSpoilerSafeGames(activeDay?.games ?? [])
@@ -32,18 +48,22 @@ export function ScoreboardOverview() {
         <h1 className="scoreboard-overview__title">Scoreboard</h1>
       </div>
 
-      {weekLabel && <WeekNav label={weekLabel} onPrev={goToPrevWeek} onNext={goToNextWeek} />}
-
       {isLoading && <LoadingState label="Loading the scoreboard…" />}
       {isError && <ErrorState onRetry={refetch} />}
 
-      {!isLoading && !isError && days.length > 0 && (
-        <DayTabs days={days} selectedDateKey={activeDateKey ?? ''} onSelect={setSelectedDateKey} zoneId={settings.timezoneId} />
+      {!isLoading && !isError && (
+        <DayTabs
+          days={days}
+          selectedDateKey={activeDateKey ?? ''}
+          onSelect={setSelectedDateKey}
+          zoneId={settings.timezoneId}
+          onPickDate={pickDate}
+        />
       )}
 
-      {!isLoading && !isError && days.length === 0 && <EmptyState />}
+      {!isLoading && !isError && (activeDay?.games.length ?? 0) === 0 && <EmptyState />}
 
-      {!isLoading && !isError && activeDay && (
+      {!isLoading && !isError && activeDay && activeDay.games.length > 0 && (
         <div className="scoreboard-overview__grid">
           {chunkIntoRows(safeGames, 2).map((row) => (
             <Fragment key={row[0].game.id}>

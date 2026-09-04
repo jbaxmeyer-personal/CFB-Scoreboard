@@ -1,12 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { WeekSelector } from '../types/game'
 
 export type Tab = 'schedule' | 'scoreboard' | 'settings'
 
 const TAB_STORAGE_KEY = 'slate.tab.v1'
 const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v1'
 const EXPANDED_GAME_STORAGE_KEY = 'slate.expandedGame.v1'
-const SCOREBOARD_WEEK_STORAGE_KEY = 'slate.scoreboardWeek.v1'
+const SCOREBOARD_ANCHOR_STORAGE_KEY = 'slate.scoreboardAnchor.v1'
 const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'settings']
 
 function readStoredTab(): Tab {
@@ -21,20 +20,6 @@ function readStoredTab(): Tab {
 function readStoredString(key: string): string | null {
   try {
     return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function readStoredWeek(): WeekSelector | null {
-  try {
-    const raw = localStorage.getItem(SCOREBOARD_WEEK_STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (typeof parsed?.year === 'number' && typeof parsed?.seasonType === 'number' && typeof parsed?.week === 'number') {
-      return parsed as WeekSelector
-    }
-    return null
   } catch {
     return null
   }
@@ -61,11 +46,12 @@ interface ViewStateValue {
   expandedGameId: string | null
   setExpandedGameId: (id: string | null) => void
   toggleExpandedGame: (gameId: string) => void
-  /** Which season week Scoreboard is currently browsing — null until the
-   * "current week" bootstrap fetch resolves it. Lives here (not local state
-   * in the hook) so it survives Scoreboard unmounting when you switch tabs. */
-  scoreboardWeek: WeekSelector | null
-  setScoreboardWeek: (week: WeekSelector | null) => void
+  /** The day Scoreboard's ten-day window is centred on (yyyy-MM-dd), or
+   * null for "anchored on today". Set by the date picker when you jump to a
+   * specific date. Lives here (not local state in the hook) so it survives
+   * Scoreboard unmounting when you switch tabs. */
+  scoreboardAnchorDate: string | null
+  setScoreboardAnchorDate: (dateKey: string | null) => void
 }
 
 const ViewStateContext = createContext<ViewStateValue | null>(null)
@@ -74,7 +60,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>(readStoredTab)
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
   const [expandedGameId, setExpandedGameId] = useState<string | null>(() => readStoredString(EXPANDED_GAME_STORAGE_KEY))
-  const [scoreboardWeek, setScoreboardWeek] = useState<WeekSelector | null>(readStoredWeek)
+  const [scoreboardAnchorDate, setScoreboardAnchorDate] = useState<string | null>(() => readStoredString(SCOREBOARD_ANCHOR_STORAGE_KEY))
 
   useEffect(() => {
     writeStoredValue(TAB_STORAGE_KEY, tab)
@@ -89,8 +75,8 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   }, [expandedGameId])
 
   useEffect(() => {
-    writeStoredValue(SCOREBOARD_WEEK_STORAGE_KEY, scoreboardWeek ? JSON.stringify(scoreboardWeek) : null)
-  }, [scoreboardWeek])
+    writeStoredValue(SCOREBOARD_ANCHOR_STORAGE_KEY, scoreboardAnchorDate)
+  }, [scoreboardAnchorDate])
 
   const value = useMemo<ViewStateValue>(
     () => ({
@@ -101,10 +87,10 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       expandedGameId,
       setExpandedGameId,
       toggleExpandedGame: (gameId) => setExpandedGameId((cur) => (cur === gameId ? null : gameId)),
-      scoreboardWeek,
-      setScoreboardWeek,
+      scoreboardAnchorDate,
+      setScoreboardAnchorDate,
     }),
-    [tab, selectedDateKey, expandedGameId, scoreboardWeek],
+    [tab, selectedDateKey, expandedGameId, scoreboardAnchorDate],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>
