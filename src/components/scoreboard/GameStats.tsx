@@ -534,12 +534,12 @@ function SummaryNotice({
             <dd>{diagnostics.pbpSource}</dd>
           </div>
           <div>
-            <dt>drives</dt>
-            <dd>{diagnostics.drives}</dd>
+            <dt>plays</dt>
+            <dd>{diagnostics.plays}</dd>
           </div>
           <div>
-            <dt>scoringPlays</dt>
-            <dd>{diagnostics.scoringPlays}</dd>
+            <dt>matching on</dt>
+            <dd>{diagnostics.wantTeams}</dd>
           </div>
           <div>
             <dt>boxscore.teams</dt>
@@ -548,6 +548,14 @@ function SummaryNotice({
           <div>
             <dt>boxscore.players</dt>
             <dd>{diagnostics.boxPlayers}</dd>
+          </div>
+          <div>
+            <dt>first stat names</dt>
+            <dd>{diagnostics.statNames}</dd>
+          </div>
+          <div>
+            <dt>leaders</dt>
+            <dd>{diagnostics.leaders}</dd>
           </div>
           <div>
             <dt>keys</dt>
@@ -569,8 +577,8 @@ function SummaryNotice({
 export function GameSummarySections({ game }: { game: Game }) {
   const { plays, boxScore, isLoading, isError, diagnostics, refetch } = useGameSummary(
     game.id,
-    game.home.id,
-    game.away.id,
+    game.home,
+    game.away,
     game.state === 'in',
   )
 

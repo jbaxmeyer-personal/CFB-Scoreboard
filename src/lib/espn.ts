@@ -458,21 +458,50 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
 export interface SummaryDiagnostics {
   eventId: string
   pbpSource: string
-  drives: number
-  scoringPlays: number
-  boxTeams: number
-  boxPlayers: number
+  plays: string
+  wantTeams: string
+  boxTeams: string
+  boxPlayers: string
+  statNames: string
+  leaders: string
   keys: string
 }
 
-export function summaryDiagnostics(response: EspnSummaryResponse, eventId: string): SummaryDiagnostics {
+/** "59/GT:14" — how a section identifies a team, and how much it carries.
+ * Reported side by side with the ids Slate is matching on, because a
+ * section that has two entries while the panel renders nothing is either a
+ * failed match or genuinely empty statistics, and only these two lines
+ * together tell them apart. */
+function describeEntries(
+  entries: { team: { id: string; abbreviation?: string }; statistics?: unknown[] }[] | undefined,
+): string {
+  if (!entries) return '(absent)'
+  if (entries.length === 0) return '0'
+  return entries.map((e) => `${e.team.id}/${e.team.abbreviation ?? '?'}:${e.statistics?.length ?? 0}`).join(' ')
+}
+
+export function summaryDiagnostics(
+  response: EspnSummaryResponse,
+  eventId: string,
+  home: TeamIdentity,
+  away: TeamIdentity,
+): SummaryDiagnostics {
+  const drives = (response.drives?.previous?.length ?? 0) + (response.drives?.current ? 1 : 0)
+  const teams = response.boxscore?.teams
+  const firstWithStats = teams?.find((t) => (t.statistics?.length ?? 0) > 0)
   return {
     eventId,
     pbpSource: response.header?.competitions?.[0]?.playByPlaySource ?? '(absent)',
-    drives: (response.drives?.previous?.length ?? 0) + (response.drives?.current ? 1 : 0),
-    scoringPlays: response.scoringPlays?.length ?? 0,
-    boxTeams: response.boxscore?.teams?.length ?? 0,
-    boxPlayers: response.boxscore?.players?.length ?? 0,
+    plays: `${drives} drives, ${response.scoringPlays?.length ?? 0} scoring`,
+    wantTeams: `${home.id}/${home.abbreviation ?? '?'} vs ${away.id}/${away.abbreviation ?? '?'}`,
+    boxTeams: describeEntries(teams),
+    boxPlayers: describeEntries(response.boxscore?.players),
+    statNames:
+      firstWithStats?.statistics
+        ?.slice(0, 4)
+        .map((st) => st.name)
+        .join(', ') ?? '(no stats)',
+    leaders: String(response.leaders?.length ?? 0),
     keys: Object.keys(response).join(', ') || '(none)',
   }
 }
@@ -628,23 +657,63 @@ export function summaryHasPlayByPlay(response: EspnSummaryResponse): boolean {
  * team's stats under the other team's column would be worse than showing
  * none, and the UI now says so explicitly instead of rendering nothing.
  */
-function findTeamEntry<T extends { team: { id: string } }>(
+function findTeamEntry<T extends { team: { id: string; abbreviation?: string } }>(
   entries: T[] | undefined,
-  teamId: string,
-  otherTeamId: string,
+  team: TeamIdentity,
+  otherTeam: TeamIdentity,
 ): T | undefined {
   if (!entries) return undefined
-  const byId = entries.find((e) => e.team.id === teamId)
+
+  const byId = entries.find((e) => e.team.id === team.id)
   if (byId) return byId
+
+  // Abbreviation is a real identifier, not a positional guess, so it can't
+  // silently swap the two columns the way an index would.
+  const wantAbbreviation = team.abbreviation?.toUpperCase()
+  const byAbbreviation = wantAbbreviation
+    ? entries.find((e) => e.team.abbreviation?.toUpperCase() === wantAbbreviation)
+    : undefined
+  if (byAbbreviation) return byAbbreviation
+
   if (entries.length !== 2) return undefined
-  const otherIndex = entries.findIndex((e) => e.team.id === otherTeamId)
+  const otherAbbreviation = otherTeam.abbreviation?.toUpperCase()
+  const otherIndex = entries.findIndex(
+    (e) => e.team.id === otherTeam.id || (otherAbbreviation !== undefined && e.team.abbreviation?.toUpperCase() === otherAbbreviation),
+  )
   return otherIndex === -1 ? undefined : entries[1 - otherIndex]
 }
 
-export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: string, awayTeamId: string): GameBoxScore {
+/** Enough of a team to be recognised in a summary section — the id ESPN
+ * usually keys on, plus the abbreviation to fall back to when it doesn't. */
+export interface TeamIdentity {
+  id: string
+  abbreviation?: string
+}
+
+/** Game leaders from the summary's own top-level `leaders` array, used when
+ * the player box score doesn't yield any — a real response was confirmed to
+ * carry `leaders` while carrying no drives at all. */
+function leadersFromSummary(response: EspnSummaryResponse, team: TeamIdentity, otherTeam: TeamIdentity): StatLeader[] {
+  const entries = response.leaders
+  if (!entries) return []
+  const wantAbbreviation = team.abbreviation?.toUpperCase()
+  const otherAbbreviation = otherTeam.abbreviation?.toUpperCase()
+  const otherIndex = entries.findIndex(
+    (e) => e.team?.id === otherTeam.id || (otherAbbreviation !== undefined && e.team?.abbreviation?.toUpperCase() === otherAbbreviation),
+  )
+  const match =
+    entries.find((e) => e.team?.id === team.id) ??
+    (wantAbbreviation ? entries.find((e) => e.team?.abbreviation?.toUpperCase() === wantAbbreviation) : undefined) ??
+    (entries.length === 2 && otherIndex !== -1 ? entries[1 - otherIndex] : undefined)
+  return parseSeasonLeaders(match?.leaders)
+}
+
+export function normalizeBoxScore(response: EspnSummaryResponse, home: TeamIdentity, away: TeamIdentity): GameBoxScore {
+  const homeTeamId = home.id
+  const awayTeamId = away.id
   const teams = response.boxscore?.teams
-  const homeEntry = findTeamEntry<EspnBoxscoreTeamEntry>(teams, homeTeamId, awayTeamId)
-  const awayEntry = findTeamEntry<EspnBoxscoreTeamEntry>(teams, awayTeamId, homeTeamId)
+  const homeEntry = findTeamEntry<EspnBoxscoreTeamEntry>(teams, home, away)
+  const awayEntry = findTeamEntry<EspnBoxscoreTeamEntry>(teams, away, home)
 
   const teamStats: TeamStatLine[] = []
   for (const def of BOX_SCORE_STAT_DEFS) {
@@ -666,12 +735,18 @@ export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: str
   }
 
   const players = response.boxscore?.players
-  const homePlayers = findTeamEntry<EspnBoxscorePlayerEntry>(players, homeTeamId, awayTeamId)
-  const awayPlayers = findTeamEntry<EspnBoxscorePlayerEntry>(players, awayTeamId, homeTeamId)
+  const homePlayers = findTeamEntry<EspnBoxscorePlayerEntry>(players, home, away)
+  const awayPlayers = findTeamEntry<EspnBoxscorePlayerEntry>(players, away, home)
+
+  // The player box score is the richer source (it carries stat lines), so
+  // it wins; the summary's own leaders array is the fallback for a response
+  // that has one and not the other.
+  const homeLeaders = parseGameLeaders(homePlayers)
+  const awayLeaders = parseGameLeaders(awayPlayers)
 
   return {
     teamStats,
-    homeLeaders: parseGameLeaders(homePlayers),
-    awayLeaders: parseGameLeaders(awayPlayers),
+    homeLeaders: homeLeaders.length > 0 ? homeLeaders : leadersFromSummary(response, home, away),
+    awayLeaders: awayLeaders.length > 0 ? awayLeaders : leadersFromSummary(response, away, home),
   }
 }

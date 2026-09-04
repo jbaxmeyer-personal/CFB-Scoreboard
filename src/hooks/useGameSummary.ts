@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchGameSummary, normalizeBoxScore, normalizePlays, summaryDiagnostics } from '../lib/espn'
 import type { SummaryDiagnostics } from '../lib/espn'
-import type { GameBoxScore, GamePlay } from '../types/game'
+import type { GameBoxScore, GamePlay, Team } from '../types/game'
 
 export interface GameSummaryResult {
   boxScore?: GameBoxScore
@@ -21,8 +21,8 @@ export interface GameSummaryResult {
  * for every game in a list. */
 export function useGameSummary(
   eventId: string,
-  homeTeamId: string,
-  awayTeamId: string,
+  home: Team,
+  away: Team,
   isLive: boolean,
   enabled = true,
 ): GameSummaryResult {
@@ -37,11 +37,11 @@ export function useGameSummary(
   })
 
   return {
-    boxScore: query.data ? normalizeBoxScore(query.data, homeTeamId, awayTeamId) : undefined,
+    boxScore: query.data ? normalizeBoxScore(query.data, home, away) : undefined,
     plays: query.data ? normalizePlays(query.data) : [],
     isLoading: query.isLoading,
     isError: query.isError,
-    diagnostics: query.data ? summaryDiagnostics(query.data, eventId) : undefined,
+    diagnostics: query.data ? summaryDiagnostics(query.data, eventId, home, away) : undefined,
     refetch: () => void query.refetch(),
   }
 }
