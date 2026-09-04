@@ -177,6 +177,7 @@ export function normalizeEvent(event: EspnEvent): Game | null {
 
   return {
     id: event.id,
+    competitionId: competition.id ?? event.id,
     startDate: event.date,
     shortName: event.shortName,
     venue: competition.venue?.fullName,
@@ -461,6 +462,7 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
  * empty. */
 export interface SummaryDiagnostics {
   eventId: string
+  competitionId: string
   /** Filled in by useGameSummary from the core-API fallback requests. */
   coreStats?: string
   corePlays?: string
@@ -521,6 +523,7 @@ function describeLeaderEntries(entries: EspnSummaryLeadersEntry[] | undefined): 
 export function summaryDiagnostics(
   response: EspnSummaryResponse,
   eventId: string,
+  competitionId: string,
   home: TeamIdentity,
   away: TeamIdentity,
 ): SummaryDiagnostics {
@@ -529,6 +532,7 @@ export function summaryDiagnostics(
   const firstWithStats = teams?.find((t) => (t.statistics?.length ?? 0) > 0)
   return {
     eventId,
+    competitionId,
     pbpSource: response.header?.competitions?.[0]?.playByPlaySource ?? '(absent)',
     plays: `${drives} drives, ${response.scoringPlays?.length ?? 0} scoring`,
     wantTeams: `${home.id}/${home.abbreviation ?? '?'} vs ${away.id}/${away.abbreviation ?? '?'}`,
@@ -554,19 +558,23 @@ const CORE_URL = 'https://sports.core.api.espn.com/v2/sports/football/leagues/co
 
 /** The competition id equals the event id for CFB (sportsdataverse defaults
  * `cid` to `event_id` for exactly this reason). */
-function coreCompetitionPath(eventId: string): string {
-  return `${CORE_URL}/events/${eventId}/competitions/${eventId}`
+function coreCompetitionPath(eventId: string, competitionId: string): string {
+  return `${CORE_URL}/events/${eventId}/competitions/${competitionId}`
 }
 
-export async function fetchCoreTeamStats(eventId: string, teamId: string): Promise<EspnCoreStatisticsResponse> {
-  const res = await fetch(`${coreCompetitionPath(eventId)}/competitors/${teamId}/statistics`)
-  if (!res.ok) throw new Error(`ESPN core team statistics failed: ${res.status}`)
+export async function fetchCoreTeamStats(
+  eventId: string,
+  competitionId: string,
+  teamId: string,
+): Promise<EspnCoreStatisticsResponse> {
+  const res = await fetch(`${coreCompetitionPath(eventId, competitionId)}/competitors/${teamId}/statistics`)
+  if (!res.ok) throw new Error(`core statistics HTTP ${res.status}`)
   return res.json() as Promise<EspnCoreStatisticsResponse>
 }
 
-export async function fetchCorePlays(eventId: string): Promise<EspnCorePlaysResponse> {
-  const res = await fetch(`${coreCompetitionPath(eventId)}/plays?limit=1000`)
-  if (!res.ok) throw new Error(`ESPN core plays failed: ${res.status}`)
+export async function fetchCorePlays(eventId: string, competitionId: string): Promise<EspnCorePlaysResponse> {
+  const res = await fetch(`${coreCompetitionPath(eventId, competitionId)}/plays?limit=1000`)
+  if (!res.ok) throw new Error(`core plays HTTP ${res.status}`)
   return res.json() as Promise<EspnCorePlaysResponse>
 }
 
