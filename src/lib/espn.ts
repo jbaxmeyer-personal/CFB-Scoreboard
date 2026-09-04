@@ -216,32 +216,83 @@ function statByName(stats: { name: string; displayValue: string }[] | undefined,
   return stats?.find((s) => s.name === name)?.displayValue
 }
 
-/** Looks up the first of several candidate stat names that's actually
- * present. ESPN's exact key for a given stat varies by endpoint and isn't
- * documented, and a single wrong guess silently drops the whole row (which
- * is what happened to yards/play and red zone), so the stats whose key
- * isn't confirmed list every plausible spelling instead of betting on one. */
-function statByAnyName(stats: { name: string; displayValue: string }[] | undefined, ...names: string[]): string | undefined {
-  for (const name of names) {
-    const value = statByName(stats, name)
-    if (value !== undefined) return value
-  }
-  return undefined
+/**
+ * The full set of stat names ESPN's CFB *team* box score actually carries
+ * (per sportsdataverse's espn_cfb_team_box schema, which this endpoint
+ * feeds): firstDowns, thirdDownEff, fourthDownEff, totalYards,
+ * netPassingYards, completionAttempts, yardsPerPass, rushingYards,
+ * rushingAttempts, yardsPerRushAttempt, totalPenaltiesYards, turnovers,
+ * fumblesLost, interceptions, possessionTime.
+ *
+ * Notably absent, which is why guessing at their names never worked:
+ * there is no total-plays or yards-per-play field, and no red zone field
+ * at all. Both are derived below instead — yards/play from the attempt
+ * counts that *are* here, red zone from the drive data in the same
+ * response (see redZoneEfficiency).
+ */
+
+/** The trailing half of an "X-Y" pair, e.g. completionAttempts "18-25" →
+ * 25 attempts. */
+function attemptsFromPair(value: string | undefined): number | undefined {
+  const match = value?.match(/^(\d+)-(\d+)$/)
+  return match ? Number(match[2]) : undefined
 }
 
-/** Yards per play, preferring a directly-reported field if this endpoint
- * has one and otherwise deriving it from this game's totals (the season
- * stats endpoint has no such field either — see yardsPerPlay above).
- * displayValue strings have to be parsed by hand here since, unlike the
- * season endpoint, the box score's stat entries don't carry a numeric
- * `value`. */
+/** Yards per play, derived from the attempt counts the box score does
+ * carry: pass attempts (the back half of completionAttempts) plus rushing
+ * attempts. That matches the NCAA convention, where a sack counts as a
+ * rushing attempt rather than a pass play. */
 function boxYardsPerPlay(stats: { name: string; displayValue: string }[] | undefined): string | undefined {
-  const direct = statByAnyName(stats, 'yardsPerPlay', 'yardsPerGame')
-  if (direct !== undefined) return direct
   const yards = Number(statByName(stats, 'totalYards'))
-  const plays = Number(statByAnyName(stats, 'totalOffensivePlays', 'totalPlays', 'offensivePlays'))
-  if (!Number.isFinite(yards) || !Number.isFinite(plays) || plays === 0) return undefined
+  const passAttempts = attemptsFromPair(statByName(stats, 'completionAttempts'))
+  const rushAttempts = Number(statByName(stats, 'rushingAttempts'))
+  if (!Number.isFinite(yards) || passAttempts === undefined || !Number.isFinite(rushAttempts)) return undefined
+  const plays = passAttempts + rushAttempts
+  if (plays === 0) return undefined
   return (yards / plays).toFixed(1)
+}
+
+/**
+ * Red zone scoring as "made-trips", counted off the drive data in this
+ * same response since the team box score has no red zone stat of its own.
+ * A drive counts as a trip once any of its snaps starts inside the
+ * opponent's 20 (start.yardsToEndzone), and as a score when the drive
+ * ended in points (isScore) — so a 60-yard touchdown that never ran a
+ * play inside the 20 correctly counts as neither.
+ */
+function redZoneEfficiency(response: EspnSummaryResponse, teamId: string, teamAbbreviation: string): string | undefined {
+  const drives = [...(response.drives?.previous ?? []), ...(response.drives?.current ? [response.drives.current] : [])]
+  if (drives.length === 0) return undefined
+
+  let trips = 0
+  let scores = 0
+  for (const drive of drives) {
+    const driveTeam = drive.team
+    const isThisTeam = driveTeam?.id !== undefined ? driveTeam.id === teamId : driveTeam?.abbreviation === teamAbbreviation
+    if (!isThisTeam) continue
+    const reachedRedZone = (drive.plays ?? []).some((p) => {
+      const toGoal = p.start?.yardsToEndzone
+      return toGoal !== undefined && toGoal <= 20
+    })
+    if (!reachedRedZone) continue
+    trips += 1
+    if (drive.isScore) scores += 1
+  }
+
+  // A team that simply hasn't reached the red zone yet is 0-0, not missing
+  // data — returning undefined there would drop the row for *both* teams
+  // until each had been inside the 20, so it would blink in and out during
+  // a game. Only a response with no drive data at all hides the row.
+  return `${scores}-${trips}`
+}
+
+/** One team's slice of the summary response, for stats that need more
+ * than the flat statistics array (red zone reads the drive data). */
+interface BoxScoreTeamContext {
+  stats: { name: string; displayValue: string }[] | undefined
+  response: EspnSummaryResponse
+  teamId: string
+  teamAbbreviation: string
 }
 
 interface BoxScoreStatDef {
@@ -249,31 +300,25 @@ interface BoxScoreStatDef {
   // Turnovers is the one box-score row where fewer is better — flips
   // which team's bar segment reads as "ahead", same as the season stats.
   invert?: boolean
-  get: (stats: { name: string; displayValue: string }[] | undefined) => string | undefined
+  get: (ctx: BoxScoreTeamContext) => string | undefined
 }
 
+// Every name below is a real key from ESPN's CFB team box score (see the
+// schema note above boxYardsPerPlay); the two rows with no such key —
+// Yards/Play and Red Zone % — are derived rather than looked up.
+// 3rd Down % and Red Zone % both come as an "X-Y" pair, which the bar
+// compares as a success *rate* — see parseStatMagnitude.
 const BOX_SCORE_STAT_DEFS: BoxScoreStatDef[] = [
-  { label: 'Total Yards', get: (s) => statByName(s, 'totalYards') },
-  { label: 'Passing Yards', get: (s) => statByName(s, 'netPassingYards') },
-  { label: 'Rushing Yards', get: (s) => statByName(s, 'rushingYards') },
-  { label: 'Yards/Play', get: (s) => boxYardsPerPlay(s) },
-  // yardsPerPass/yardsPerRushAttempt are unverified field names for this
-  // endpoint specifically (confirmed only on the season stats endpoint) —
-  // degrades to not shown, same as everywhere else in this file, if wrong.
-  { label: 'Passing Yards/Play', get: (s) => statByName(s, 'yardsPerPass') },
-  { label: 'Rushing Yards/Play', get: (s) => statByName(s, 'yardsPerRushAttempt') },
-  // thirdDownEff is confirmed live. redZoneEff was a wrong guess (the row
-  // never appeared), so red zone tries every plausible spelling rather
-  // than betting on one; still degrades to not shown if none match.
-  // Both come as an "X-Y" attempts fraction (e.g. "1-3"), which the bar
-  // compares as a success *rate* — see parseStatMagnitude.
-  { label: '3rd Down %', get: (s) => statByName(s, 'thirdDownEff') },
-  {
-    label: 'Red Zone %',
-    get: (s) => statByAnyName(s, 'redZoneEff', 'redZoneAttempts', 'redZoneScoringPct', 'redZoneEfficiency', 'redzoneEff'),
-  },
-  { label: 'Turnovers', invert: true, get: (s) => statByName(s, 'turnovers') },
-  { label: 'Time of Possession', get: (s) => statByName(s, 'possessionTime') },
+  { label: 'Total Yards', get: ({ stats }) => statByName(stats, 'totalYards') },
+  { label: 'Passing Yards', get: ({ stats }) => statByName(stats, 'netPassingYards') },
+  { label: 'Rushing Yards', get: ({ stats }) => statByName(stats, 'rushingYards') },
+  { label: 'Yards/Play', get: ({ stats }) => boxYardsPerPlay(stats) },
+  { label: 'Passing Yards/Play', get: ({ stats }) => statByName(stats, 'yardsPerPass') },
+  { label: 'Rushing Yards/Play', get: ({ stats }) => statByName(stats, 'yardsPerRushAttempt') },
+  { label: '3rd Down %', get: ({ stats }) => statByName(stats, 'thirdDownEff') },
+  { label: 'Red Zone %', get: (ctx) => redZoneEfficiency(ctx.response, ctx.teamId, ctx.teamAbbreviation) },
+  { label: 'Turnovers', invert: true, get: ({ stats }) => statByName(stats, 'turnovers') },
+  { label: 'Time of Possession', get: ({ stats }) => statByName(stats, 'possessionTime') },
 ]
 
 function statValue(labels: string[], stats: string[], label: string): string | undefined {
@@ -519,8 +564,18 @@ export function normalizeBoxScore(response: EspnSummaryResponse, homeTeamId: str
 
   const teamStats: TeamStatLine[] = []
   for (const def of BOX_SCORE_STAT_DEFS) {
-    const homeValue = def.get(homeEntry?.statistics)
-    const awayValue = def.get(awayEntry?.statistics)
+    const homeValue = def.get({
+      stats: homeEntry?.statistics,
+      response,
+      teamId: homeTeamId,
+      teamAbbreviation: homeEntry?.team.abbreviation ?? '',
+    })
+    const awayValue = def.get({
+      stats: awayEntry?.statistics,
+      response,
+      teamId: awayTeamId,
+      teamAbbreviation: awayEntry?.team.abbreviation ?? '',
+    })
     if (homeValue !== undefined && awayValue !== undefined) {
       teamStats.push({ label: def.label, homeValue, awayValue, invert: def.invert })
     }
