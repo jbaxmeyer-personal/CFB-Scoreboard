@@ -285,6 +285,11 @@ export interface EspnCoreStat {
   abbreviation?: string
   value?: number
   displayValue?: string
+  /** Season-level core stats are the rank source for the team page — the
+   * site endpoint's own-team categories carry no rank on any copy of any
+   * stat. Optional because the event-level core stats don't carry one. */
+  rank?: number
+  rankDisplayValue?: string
 }
 
 export interface EspnCoreStatCategory {

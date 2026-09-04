@@ -1,6 +1,7 @@
 import type {
   EspnBoxscorePlayerEntry,
   EspnCoreCompetitor,
+  EspnCoreRef,
   EspnCoreCompetitorsResponse,
   EspnCorePlaysResponse,
   EspnCoreStatCategory,
@@ -991,6 +992,61 @@ export function normalizeBoxScore(response: EspnSummaryResponse, home: TeamIdent
 // --- Team page: schedule + single-team season profile ----------------------
 
 /**
+ * A team's season statistics from the core API, used purely as a rank
+ * source. The site endpoint's own-team categories carry no rank on any
+ * copy of any stat — established by scanning every occurrence and finding
+ * none — while its opponent categories do, which is why defensive rows had
+ * ranks and offensive ones never could.
+ *
+ * Resolved by following links rather than composing a path, the same way
+ * the in-game core fallback does: fetch the season team object, then its
+ * statistics.$ref. Constructing the sub-path directly is what 404'd the
+ * first time that API was used here.
+ */
+export async function fetchCoreTeamSeasonStats(teamId: string, year: number): Promise<EspnCoreStatisticsResponse> {
+  const team = await getCoreJson<{ statistics?: EspnCoreRef }>(
+    `${CORE_URL}/seasons/${year}/types/2/teams/${teamId}`,
+    'core season team',
+  )
+  const ref = team.statistics?.$ref
+  if (!ref) throw new Error('core season team has no statistics link')
+  return getCoreJson<EspnCoreStatisticsResponse>(ref, 'core season statistics')
+}
+
+/**
+ * name -> rank, for every core stat that carries one. Values are ignored
+ * here: the site endpoint remains the source of truth for what's displayed,
+ * so the two can't disagree on a number. This only fills in the rank column.
+ */
+export function coreRankMap(response: EspnCoreStatisticsResponse | undefined): Map<string, string> {
+  const ranks = new Map<string, string>()
+  if (!response) return ranks
+  const splitCategories = (response.splits ?? []).flatMap((split) => split.categories ?? [])
+  const categories = splitCategories.length > 0 ? splitCategories : (response.categories ?? [])
+  for (const category of categories) {
+    for (const stat of category.stats ?? []) {
+      if (!stat.name || ranks.has(stat.name)) continue
+      if (stat.rankDisplayValue) ranks.set(stat.name, stat.rankDisplayValue)
+      else if (typeof stat.rank === 'number' && stat.rank > 0) ranks.set(stat.name, ordinal(stat.rank))
+    }
+  }
+  return ranks
+}
+
+/** What the core rank source actually returned, so a still-empty rank
+ * column reports itself instead of being guessed at a fourth time. */
+export function describeRankSource(response: EspnCoreStatisticsResponse | undefined, error: string | undefined): string {
+  if (error) return error
+  if (!response) return '(not fetched)'
+  const ranks = coreRankMap(response)
+  if (ranks.size > 0) return `${ranks.size} ranks`
+  const splitCategories = (response.splits ?? []).flatMap((split) => split.categories ?? [])
+  const categories = splitCategories.length > 0 ? splitCategories : (response.categories ?? [])
+  const names = categories.flatMap((c) => (c.stats ?? []).map((st) => st.name ?? '?')).slice(0, 6)
+  return categories.length === 0 ? 'no categories' : `0 ranks in ${categories.length} cats: ${names.join(', ')}`
+}
+
+/**
  * A team's full season schedule. The events come back in the same shape the
  * scoreboard uses — competitions with competitors, status, broadcasts and a
  * venue — so normalizeEvent handles them unchanged rather than needing a
@@ -1059,6 +1115,7 @@ function ordinal(n: number): string {
 export function normalizeTeamProfile(
   response: EspnTeamStatisticsResponse | undefined,
   expectedYear: number,
+  coreRanks?: Map<string, string>,
 ): TeamProfileStat[] {
   if (!response) return []
   // Same guard as the comparison: this endpoint silently serves a completed
@@ -1075,7 +1132,14 @@ export function normalizeTeamProfile(
   for (const def of SEASON_STAT_DEFS) {
     const value = def.get(own, allowed)
     if (value === undefined) continue
-    const rank = def.rankKey ? statRank(def.section === 'defense' ? allowedCategories : ownCategories, def.rankKey) : undefined
+    // The site payload's own-team categories carry no ranks, so an offensive
+    // or turnover row falls back to the core API's season ranks. Defensive
+    // rows keep reading the opponent side, which does carry them and which
+    // the core source has no equivalent of.
+    const rank = def.rankKey
+      ? (statRank(def.section === 'defense' ? allowedCategories : ownCategories, def.rankKey) ??
+        (def.section === 'defense' ? undefined : coreRanks?.get(def.rankKey)))
+      : undefined
     rows.push({ label: def.label, value, section: def.section, rank })
   }
   return rows
