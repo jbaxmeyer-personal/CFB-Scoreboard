@@ -3,6 +3,7 @@ import {
   coreRankMap,
   describeRankSource,
   fetchCoreTeamSeasonStats,
+  fetchFbsTeamIds,
   fetchTeamSchedule,
   fetchTeamSeasonStats,
   normalizeTeamProfile,
@@ -22,6 +23,9 @@ export interface TeamPageResult {
    * came up empty — so a missing rank reports itself rather than being
    * guessed at again. */
   rankSource: string
+  /** False for an FCS team, where ranks are deliberately withheld rather
+   * than missing — the UI shouldn't then report a rank source. */
+  ranksApply: boolean
 }
 
 /** Everything a team's page needs: its season profile and its full
@@ -34,6 +38,16 @@ export function useTeamPage(teamId: string, year: number): TeamPageResult {
     queryKey: ['teamSeasonStats', teamId, year],
     queryFn: () => fetchTeamSeasonStats(teamId, year),
     staleTime: 60 * 60_000,
+  })
+
+  // FBS membership decides whether ranks apply at all. Cached for the day:
+  // a season's membership doesn't change, and this is shared across every
+  // team page rather than re-fetched per team.
+  const fbsQuery = useQuery({
+    queryKey: ['fbsTeamIds', year],
+    queryFn: () => fetchFbsTeamIds(year),
+    staleTime: 24 * 60 * 60_000,
+    retry: 1,
   })
 
   // Rank source. The site endpoint carries ranks only on its opponent
@@ -52,8 +66,12 @@ export function useTeamPage(teamId: string, year: number): TeamPageResult {
     staleTime: 60 * 60_000,
   })
 
+  // Only withhold ranks when membership is actually known and excludes this
+  // team. If the lookup fails we can't tell, and hiding real FBS ranks on a
+  // network hiccup is worse than the alternative.
+  const ranksApply = !fbsQuery.data || fbsQuery.data.has(teamId)
   const coreRanks = coreRankMap(coreQuery.data)
-  const stats = statsQuery.data ? normalizeTeamProfile(statsQuery.data, year, coreRanks) : []
+  const stats = statsQuery.data ? normalizeTeamProfile(statsQuery.data, year, coreRanks, ranksApply) : []
   const schedule = normalizeTeamSchedule(scheduleQuery.data)
 
   return {
@@ -64,5 +82,6 @@ export function useTeamPage(teamId: string, year: number): TeamPageResult {
     statsError: statsQuery.isError,
     scheduleError: scheduleQuery.isError,
     rankSource: describeRankSource(coreQuery.data, coreQuery.isError ? (coreQuery.error?.message ?? 'request failed') : undefined),
+    ranksApply,
   }
 }

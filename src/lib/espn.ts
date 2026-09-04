@@ -992,6 +992,39 @@ export function normalizeBoxScore(response: EspnSummaryResponse, home: TeamIdent
 // --- Team page: schedule + single-team season profile ----------------------
 
 /**
+ * The set of FBS team ids for a season, read from the core API's group-80
+ * membership (80 is FBS — the same group the scoreboard already filters
+ * on). Collection items are `$ref` pointers, and the team id is the
+ * trailing path segment, so membership is established without fetching
+ * each team.
+ *
+ * Used to suppress national ranks on FCS team pages: those ranks are
+ * computed over FBS, so showing one next to an FCS team's numbers implies
+ * a comparison that wasn't made.
+ */
+export async function fetchFbsTeamIds(year: number): Promise<Set<string>> {
+  const ids = new Set<string>()
+  let page = 1
+  // Bounded rather than while(true): one page covers FBS at limit=500, and
+  // a malformed pageCount shouldn't spin.
+  for (let guard = 0; guard < 5; guard++) {
+    const body = await getCoreJson<{ items?: (EspnCoreRef & { id?: string })[]; pageCount?: number; pageIndex?: number }>(
+      `${CORE_URL}/seasons/${year}/types/2/groups/${FBS_GROUP}/teams?limit=500&page=${page}`,
+      'core FBS teams',
+    )
+    for (const item of body.items ?? []) {
+      const id = item.id ?? idFromRef(item.$ref, 'teams')
+      if (id) ids.add(id)
+    }
+    const pageCount = body.pageCount ?? 1
+    const pageIndex = body.pageIndex ?? page
+    if (pageIndex >= pageCount || (body.items ?? []).length === 0) break
+    page = pageIndex + 1
+  }
+  return ids
+}
+
+/**
  * A team's season statistics from the core API, used purely as a rank
  * source. The site endpoint's own-team categories carry no rank on any
  * copy of any stat — established by scanning every occurrence and finding
@@ -1116,6 +1149,9 @@ export function normalizeTeamProfile(
   response: EspnTeamStatisticsResponse | undefined,
   expectedYear: number,
   coreRanks?: Map<string, string>,
+  /** National ranks are computed over FBS, so an FCS team gets none at all
+   * — a rank beside its numbers would imply a comparison nobody made. */
+  showRanks = true,
 ): TeamProfileStat[] {
   if (!response) return []
   // Same guard as the comparison: this endpoint silently serves a completed
@@ -1136,10 +1172,11 @@ export function normalizeTeamProfile(
     // or turnover row falls back to the core API's season ranks. Defensive
     // rows keep reading the opponent side, which does carry them and which
     // the core source has no equivalent of.
-    const rank = def.rankKey
-      ? (statRank(def.section === 'defense' ? allowedCategories : ownCategories, def.rankKey) ??
-        (def.section === 'defense' ? undefined : coreRanks?.get(def.rankKey)))
-      : undefined
+    const rank =
+      showRanks && def.rankKey
+        ? (statRank(def.section === 'defense' ? allowedCategories : ownCategories, def.rankKey) ??
+          (def.section === 'defense' ? undefined : coreRanks?.get(def.rankKey)))
+        : undefined
     rows.push({ label: def.label, value, section: def.section, rank })
   }
   return rows
