@@ -131,7 +131,9 @@ export interface EspnBoxscoreStat {
 }
 
 export interface EspnBoxscoreTeamEntry {
-  team: { id: string }
+  /** abbreviation is the fallback key for matching drives to a team, since
+   * ESPN's drive objects don't always carry a team id. */
+  team: { id: string; abbreviation?: string }
   statistics: EspnBoxscoreStat[]
 }
 
@@ -157,9 +159,11 @@ export interface EspnBoxscore {
   players?: EspnBoxscorePlayerEntry[]
 }
 
-// Play-by-play — best-effort/unverified shape, same caveat as the box
-// score above. ESPN's summary endpoint groups plays into drives; `current`
-// is the in-progress drive, `previous` is every completed drive.
+// Play-by-play. ESPN's summary endpoint groups plays into drives;
+// `current` is the in-progress drive, `previous` is every completed drive.
+// The drive/play field names below (isScore, team, start.yardsToEndzone)
+// are taken from sportsdataverse's ESPN CFB parser, which extracts exactly
+// these keys from this endpoint — not guessed.
 export interface EspnPlay {
   id: string
   text?: string
@@ -169,11 +173,17 @@ export interface EspnPlay {
   homeScore?: number
   awayScore?: number
   scoringPlay?: boolean
+  /** Distance to the opponent's goal line at the snap — the red zone
+   * signal (<= 20), since the team box score carries no red zone stat. */
+  start?: { yardsToEndzone?: number }
 }
 
 export interface EspnDrive {
   id?: string
   plays?: EspnPlay[]
+  /** True when the drive ended in points (touchdown or field goal). */
+  isScore?: boolean
+  team?: { id?: string; abbreviation?: string }
 }
 
 export interface EspnDrives {
