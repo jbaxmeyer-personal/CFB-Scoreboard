@@ -25,3 +25,48 @@
   border-color: var(--accent-primary);
   color: #1a0f00;
 }
+
+/* A day in the window that has no games — still tappable, just quieter, so
+   the ten-day strip stays a stable ruler instead of reflowing midweek. */
+.day-tabs__tab--empty {
+  opacity: 0.45;
+}
+
+/* Date picker at the end of the strip, for jumping outside the window.
+   A native date input so iOS gives its own wheel picker; the field itself
+   is collapsed to the calendar glyph to keep it chip-sized. */
+/* Pinned to the right edge rather than sitting at the far end of a
+   ten-tab scroller, where it would be off-screen until you scrolled all
+   the way over. Still "at the end", just always reachable. */
+.day-tabs__pick {
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  background: var(--bg-base);
+  box-shadow: -10px 0 10px -6px var(--bg-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.day-tabs__pick-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  /* Safari needs an explicit appearance reset or the native field keeps
+     its own intrinsic size and spills outside the chip. */
+  -webkit-appearance: none;
+  appearance: none;
+}

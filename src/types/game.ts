@@ -72,14 +72,6 @@ export interface FieldSituation {
   isRedZone: boolean
 }
 
-/** Identifies one ESPN scoreboard week — seasonType 2 = regular season,
- * 3 = postseason (bowls/playoff). */
-export interface WeekSelector {
-  year: number
-  seasonType: number
-  week: number
-}
-
 export interface Game {
   id: string
   /** ESPN's competition id. Usually equal to the event id, but it is a

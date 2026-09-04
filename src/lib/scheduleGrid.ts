@@ -34,7 +34,10 @@ export function computeGridBounds(games: Game[], zoneId: string): GridBounds | n
     if (s > maxStart) maxStart = s
   }
 
-  const start = minStart.startOf('hour')
+  // The grid starts at the first kickoff itself, not the hour before it.
+  // Rounding down to the hour meant a 5:40 kickoff opened the day at 5:00
+  // and the slate began with 40 minutes of dead space.
+  const start = minStart
   const latestNeeded = maxStart.plus({ minutes: ASSUMED_DURATION_MIN })
   let end = latestNeeded.startOf('hour')
   if (end < latestNeeded) end = end.plus({ hours: 1 })
@@ -68,11 +71,18 @@ export function nowOffsetMinutes(zoneId: string, bounds: GridBounds): number {
   return DateTime.now().setZone(zone).diff(bounds.start, 'minutes').minutes
 }
 
+/** Real clock-hour boundaries inside the grid's span. The grid no longer
+ * starts on an hour boundary, so stepping in hours from its start would
+ * label the axis 5:40, 6:40, 7:40 — tick from the first whole hour instead. */
 export function hourTicks(bounds: GridBounds): DateTime[] {
+  const end = bounds.start.plus({ minutes: bounds.totalMinutes })
+  let tick = bounds.start.startOf('hour')
+  if (tick < bounds.start) tick = tick.plus({ hours: 1 })
+
   const ticks: DateTime[] = []
-  const hours = Math.ceil(bounds.totalMinutes / 60)
-  for (let i = 0; i <= hours; i++) {
-    ticks.push(bounds.start.plus({ hours: i }))
+  while (tick <= end) {
+    ticks.push(tick)
+    tick = tick.plus({ hours: 1 })
   }
   return ticks
 }
@@ -81,23 +91,44 @@ export interface PositionedGame {
   game: Game
   left: number
   width: number
+  /** Which stacked sub-row within the network row this chip sits in. */
+  lane: number
 }
 
 /**
- * A single network only ever airs one game at a time, so games on the same
- * row never stack — instead, each chip's width is capped at the next
- * game's kickoff on that same network (falling back to the full assumed
- * duration for the last game in the row).
+ * Positions one network's games, stacking overlaps instead of shrinking
+ * them.
+ *
+ * This used to cap each chip's width at the next kickoff on the same
+ * network, on the assumption that a network only airs one game at a time.
+ * That is false for the streaming rows — ESPN+, ESPNU and SECN+ carry many
+ * simultaneous games — so a game followed twenty minutes later by another
+ * on the same row was squeezed to roughly its own logo. Every chip now gets
+ * the full assumed duration, and a game that would overlap the one before
+ * it drops into the next lane, the way a calendar stacks conflicting
+ * events. Lanes are reused as soon as they're free, so a row only grows as
+ * tall as its worst simultaneous overlap.
  */
 export function layoutRow(games: Game[], zoneId: string, bounds: GridBounds): PositionedGame[] {
   const sorted = [...games].sort((a, b) => a.startDate.localeCompare(b.startDate))
-  return sorted.map((game, i) => {
+  const laneEndsAt: number[] = []
+
+  return sorted.map((game) => {
     const startMin = minutesFromStart(game.startDate, zoneId, bounds)
-    const next = sorted[i + 1]
-    const gapToNext = next ? minutesFromStart(next.startDate, zoneId, bounds) - startMin : Infinity
-    const durationMin = Math.min(ASSUMED_DURATION_MIN, gapToNext)
-    return { game, left: startMin * pxPerMinute(), width: durationMin * pxPerMinute() }
+    const endMin = startMin + ASSUMED_DURATION_MIN
+
+    let lane = laneEndsAt.findIndex((freeAt) => freeAt <= startMin)
+    if (lane === -1) lane = laneEndsAt.length
+    laneEndsAt[lane] = endMin
+
+    return { game, left: startMin * pxPerMinute(), width: ASSUMED_DURATION_MIN * pxPerMinute(), lane }
   })
+}
+
+/** How many stacked lanes a positioned row needs — at least one, so an
+ * empty row still occupies a normal row's height. */
+export function laneCount(positioned: PositionedGame[]): number {
+  return positioned.reduce((most, p) => Math.max(most, p.lane + 1), 1)
 }
 
 /** Games grouped by their first broadcast network, rows ordered by each network's earliest kickoff. */
