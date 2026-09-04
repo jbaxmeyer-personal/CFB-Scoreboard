@@ -64,16 +64,11 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
   const needsCoreStats = summaryResolved && !hasBoxScoreContent(summaryBoxScore)
   const needsCorePlays = summaryResolved && summaryPlays.length === 0
 
-  const coreHome = useQuery({
-    queryKey: ['coreTeamStats', eventId, competitionId, home.id],
-    queryFn: () => fetchCoreTeamStats(eventId, competitionId, home.id),
-    enabled: needsCoreStats,
-    staleTime: 30_000,
-    refetchInterval: isLive ? 30_000 : false,
-  })
-  const coreAway = useQuery({
-    queryKey: ['coreTeamStats', eventId, competitionId, away.id],
-    queryFn: () => fetchCoreTeamStats(eventId, competitionId, away.id),
+  // One request set for both teams: the competitors collection they're both
+  // resolved from is shared, so fetching it twice would be waste.
+  const coreStats = useQuery({
+    queryKey: ['coreTeamStats', eventId, competitionId, home.id, away.id],
+    queryFn: () => fetchCoreTeamStats(eventId, competitionId, home.id, away.id),
     enabled: needsCoreStats,
     staleTime: 30_000,
     refetchInterval: isLive ? 30_000 : false,
@@ -87,8 +82,8 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
   })
 
   const coreBoxScore =
-    needsCoreStats && query.data && (coreHome.data || coreAway.data)
-      ? boxScoreFromCoreStats(coreHome.data, coreAway.data, query.data, home.id, away.id)
+    needsCoreStats && query.data && (coreStats.data?.home || coreStats.data?.away)
+      ? boxScoreFromCoreStats(coreStats.data.home, coreStats.data.away, query.data, home.id, away.id)
       : undefined
 
   const boxScore = hasBoxScoreContent(summaryBoxScore)
@@ -119,7 +114,8 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
   const diagnostics = query.data
     ? {
         ...summaryDiagnostics(query.data, eventId, competitionId, home, away),
-        coreStats: describeQuery(coreHome, needsCoreStats, () => describeCoreStats(coreHome.data ?? coreAway.data)),
+        coreStats: describeQuery(coreStats, needsCoreStats, () => describeCoreStats(coreStats.data?.home ?? coreStats.data?.away)),
+        coreCompetitors: describeQuery(coreStats, needsCoreStats, () => coreStats.data?.competitorSummary ?? '?'),
         corePlays: describeQuery(corePlays, needsCorePlays, () => `${corePlays.data?.items?.length ?? 0} items`),
       }
     : undefined
@@ -129,13 +125,12 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
     plays,
     // The core fallbacks are gated behind the summary, so a pending core
     // request is still "loading" from the panel's point of view.
-    isLoading: query.isLoading || coreHome.isLoading || coreAway.isLoading || corePlays.isLoading,
+    isLoading: query.isLoading || coreStats.isLoading || corePlays.isLoading,
     isError: query.isError,
     diagnostics,
     refetch: () => {
       void query.refetch()
-      void coreHome.refetch()
-      void coreAway.refetch()
+      void coreStats.refetch()
       void corePlays.refetch()
     },
   }

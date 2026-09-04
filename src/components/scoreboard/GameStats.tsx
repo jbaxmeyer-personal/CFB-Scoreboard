@@ -580,6 +580,10 @@ function SummaryNotice({
             <dd>{diagnostics.coreStats ?? '(not fetched)'}</dd>
           </div>
           <div>
+            <dt>core competitors</dt>
+            <dd>{diagnostics.coreCompetitors ?? '(not fetched)'}</dd>
+          </div>
+          <div>
             <dt>core plays</dt>
             <dd>{diagnostics.corePlays ?? '(not fetched)'}</dd>
           </div>
