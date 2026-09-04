@@ -1,0 +1,171 @@
+.team-page {
+  padding: 4px 0 12px;
+}
+
+.team-page__bar {
+  display: flex;
+  padding: 0 4px 8px;
+}
+
+.team-page__back {
+  padding: 6px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.team-page__back:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.team-page__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 4px 14px;
+}
+
+.team-page__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.team-page__name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.team-page__record {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.team-page__section {
+  padding-top: 6px;
+}
+
+.team-page__title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.team-page__section-label {
+  margin-top: 10px;
+  padding: 4px 2px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.team-page__stat-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 2px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.team-page__stat-label {
+  flex: 1 1 auto;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.team-page__stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Rank sits in its own fixed-width column so the values stay aligned
+   whether or not a given stat has one. */
+.team-page__stat-rank {
+  flex: 0 0 40px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.team-page__games {
+  display: flex;
+  flex-direction: column;
+}
+
+.team-page__game {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 2px;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.team-page__game:disabled {
+  cursor: default;
+}
+
+.team-page__game-date {
+  flex: 0 0 58px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.team-page__game-side {
+  flex: 0 0 18px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.team-page__game-opponent {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.team-page__game-outcome {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.team-page__result {
+  font-weight: 700;
+}
+
+.team-page__result--w {
+  color: var(--accent-positive, #4ade80);
+}
+
+.team-page__result--l {
+  color: var(--accent-negative, #f87171);
+}
+
+.team-page__hint {
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+}

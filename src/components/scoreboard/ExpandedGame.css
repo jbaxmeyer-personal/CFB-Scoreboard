@@ -168,3 +168,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* The identity block is a button now (it opens the team page), so strip the
+   native button chrome and keep the layout it had as a div. */
+.expanded-game__identity--tappable {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.expanded-game__identity--tappable:disabled {
+  cursor: default;
+}
+
+.expanded-game__identity--tappable:not(:disabled):active {
+  background: rgba(255, 255, 255, 0.06);
+}
