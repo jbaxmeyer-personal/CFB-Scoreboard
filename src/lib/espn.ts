@@ -670,10 +670,27 @@ export async function fetchCorePlays(eventId: string, competitionId: string): Pr
   return getCoreJson<EspnCorePlaysResponse>(`${coreCompetitionPath(eventId, competitionId)}/plays?limit=1000`, 'core plays')
 }
 
+/** This API varies its container shapes between endpoints, so nothing here
+ * assumes a field is an array just because it usually is. */
+function asArray<T>(value: T[] | T | undefined): T[] {
+  if (value === undefined || value === null) return []
+  return Array.isArray(value) ? value : [value]
+}
+
+/**
+ * The stat categories from a core statistics response, whichever shape it
+ * arrived in: `splits` as a list, `splits` as a single object, or
+ * `categories` at the top level.
+ *
+ * The single-object form is what season team statistics actually return,
+ * and treating it as a list crashed the app with "(e.splits ?? []).flatMap
+ * is not a function" — a blank screen, since this runs during render.
+ * Every core-stats consumer goes through here so that can't diverge again.
+ */
 function coreCategories(response: EspnCoreStatisticsResponse | undefined): EspnCoreStatCategory[] {
   if (!response) return []
-  const fromSplits = (response.splits ?? []).flatMap((split) => split.categories ?? [])
-  return fromSplits.length > 0 ? fromSplits : (response.categories ?? [])
+  const fromSplits = asArray(response.splits).flatMap((split) => asArray(split?.categories))
+  return fromSplits.length > 0 ? fromSplits : asArray(response.categories)
 }
 
 /**
@@ -700,7 +717,7 @@ export function flattenCoreStats(response: EspnCoreStatisticsResponse | undefine
     flat.push({ name, displayValue })
   }
   for (const category of coreCategories(response)) {
-    for (const stat of category.stats ?? []) {
+    for (const stat of asArray(category.stats)) {
       const displayValue = stat.displayValue ?? (stat.value !== undefined ? String(stat.value) : undefined)
       push(stat.name, displayValue)
       const alias = stat.name ? CORE_STAT_ALIASES[stat.name] : undefined
@@ -1073,10 +1090,8 @@ export async function fetchCoreTeamSeasonStats(teamId: string, year: number): Pr
 export function coreRankMap(response: EspnCoreStatisticsResponse | undefined): Map<string, string> {
   const ranks = new Map<string, string>()
   if (!response) return ranks
-  const splitCategories = (response.splits ?? []).flatMap((split) => split.categories ?? [])
-  const categories = splitCategories.length > 0 ? splitCategories : (response.categories ?? [])
-  for (const category of categories) {
-    for (const stat of category.stats ?? []) {
+  for (const category of coreCategories(response)) {
+    for (const stat of asArray(category.stats)) {
       if (!stat.name || ranks.has(stat.name)) continue
       if (stat.rankDisplayValue) ranks.set(stat.name, stat.rankDisplayValue)
       else if (typeof stat.rank === 'number' && stat.rank > 0) ranks.set(stat.name, ordinal(stat.rank))
@@ -1092,9 +1107,8 @@ export function describeRankSource(response: EspnCoreStatisticsResponse | undefi
   if (!response) return '(not fetched)'
   const ranks = coreRankMap(response)
   if (ranks.size > 0) return `${ranks.size} ranks`
-  const splitCategories = (response.splits ?? []).flatMap((split) => split.categories ?? [])
-  const categories = splitCategories.length > 0 ? splitCategories : (response.categories ?? [])
-  const names = categories.flatMap((c) => (c.stats ?? []).map((st) => st.name ?? '?')).slice(0, 6)
+  const categories = coreCategories(response)
+  const names = categories.flatMap((c) => asArray(c.stats).map((st) => st.name ?? '?')).slice(0, 6)
   return categories.length === 0 ? 'no categories' : `0 ranks in ${categories.length} cats: ${names.join(', ')}`
 }
 
