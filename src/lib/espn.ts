@@ -345,6 +345,79 @@ function cleanPlayText(text: string, isScoringPlay: boolean): string {
   return text.replace(/,?\s*1ST DOWN\b\.?/gi, '').replace(/\s{2,}/g, ' ').trim()
 }
 
+const ORDINALS = ['', '1st', '2nd', '3rd', '4th']
+
+/**
+ * "2nd & 7" from the numbers, when ESPN doesn't hand us its own version.
+ *
+ * Goal-to-go reads "& Goal" rather than a yard count, the way a broadcast
+ * says it, and a distance of zero is inches — a fresh set is never zero
+ * yards away, so zero means the ball is on the line.
+ */
+function formatDownDistance(down: number | undefined, distance: number | undefined, isGoalToGo?: boolean): string | undefined {
+  if (!down || down < 1 || down > 4) return undefined
+  const ordinal = ORDINALS[down]
+  if (isGoalToGo) return `${ordinal} & Goal`
+  if (distance === undefined) return ordinal
+  if (distance <= 0) return `${ordinal} & inches`
+  return `${ordinal} & ${distance}`
+}
+
+/** Down and distance at the snap. ESPN's own preformatted text wins when
+ * present — it already handles goal-to-go and any convention we'd otherwise
+ * guess at — falling back to the raw numbers, and to nothing on a play that
+ * has no down (kickoffs, extra points, end of quarter). */
+function playDownDistance(play: EspnPlay): string | undefined {
+  const start = play.start
+  if (!start) return undefined
+  const preformatted = start.shortDownDistanceText?.trim()
+  if (preformatted) return preformatted
+  return formatDownDistance(start.down, start.distance, start.isGoalToGo)
+}
+
+/**
+ * Formations ESPN prefixes nearly every play text with. They repeat on
+ * essentially every snap, which makes them noise rather than information,
+ * and they occupy the position the play row now gives to down and distance.
+ *
+ * Matched only at the very start of the text and only as whole phrases, so
+ * a formation named inside a description ("...on the Wildcat snap") is left
+ * alone. Anything not on this list survives untouched — an unknown prefix
+ * is better shown than silently eaten.
+ */
+const FORMATION_PREFIXES = [
+  'No Huddle-Shotgun',
+  'No Huddle Shotgun',
+  'No-Huddle Shotgun',
+  'Shotgun-No Huddle',
+  'No Huddle',
+  'No-Huddle',
+  'Shotgun',
+  'Under Center',
+  'Pistol',
+  'Wildcat',
+]
+
+/**
+ * Strips ESPN's leading "(5:16)" snap clock and formation prefix from a play
+ * description.
+ *
+ * The clock goes because the row already prints the play's time in its own
+ * column, so it was the same number twice; the formation goes because the
+ * row now leads with down and distance instead. Both are removed only from
+ * the front of the string, and the rest of the description is never touched.
+ */
+export function stripPlayPrefix(text: string): string {
+  let out = text.trim().replace(/^\(\d{1,2}:\d{2}\)\s*/, '')
+  for (const formation of FORMATION_PREFIXES) {
+    if (out.toLowerCase().startsWith(formation.toLowerCase())) {
+      out = out.slice(formation.length).trimStart()
+      break
+    }
+  }
+  return out.length > 0 ? out : text.trim()
+}
+
 function toGamePlay(play: EspnPlay): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
@@ -353,7 +426,8 @@ function toGamePlay(play: EspnPlay): GamePlay | null {
   // reliable enough to use directly (see normalizePlays for why).
   return {
     id: play.id,
-    text: play.text,
+    text: stripPlayPrefix(play.text),
+    downDistance: playDownDistance(play),
     period: play.period?.number ?? 0,
     clock: play.clock?.displayValue ?? '',
     homeScore: play.homeScore,

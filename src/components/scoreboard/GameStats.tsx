@@ -337,7 +337,14 @@ function PlayRow({ play, reaction, onReact }: { play: GamePlay; reaction?: strin
           <br />
           {play.clock}
         </span>
-        <span className="game-stats__play-text">{play.text}</span>
+        <span className="game-stats__play-text">
+          {/* Leads the description, in place of the formation ESPN prefixed
+              nearly every play with. Absent on plays with no down at all —
+              kickoffs, extra points, end of quarter — where the description
+              stands on its own. */}
+          {play.downDistance && <span className="game-stats__play-down">{play.downDistance}</span>}
+          {play.text}
+        </span>
         <span className="game-stats__play-score ticker">
           {play.awayScore}–{play.homeScore}
         </span>
