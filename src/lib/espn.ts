@@ -466,6 +466,24 @@ export function tidyTouchdownText(text: string): string {
   )
 }
 
+/**
+ * Drops ESPN's penalty shorthand.
+ *
+ * A flag arrives as "PENALTY ORE UNS: Unsportsmanlike Conduct (#1
+ * B.Alexander) 15 yards...". The token before the colon is ESPN's code for
+ * the foul — UNS, OH, DPI, FST — and the words immediately after it are the
+ * same foul spelled out, so the code is only ever read twice.
+ *
+ * Only fires on the exact shape "PENALTY <team> <code>:", with the code a
+ * short run of capitals and the colon right behind it. A flag written any
+ * other way, or one with no code at all, is left alone — and even a wrong
+ * match would drop a token whose meaning is restated in the next three
+ * words.
+ */
+export function stripPenaltyCode(text: string): string {
+  return text.replace(/\bPENALTY\s+([A-Z][A-Z&.'-]{1,5})\s+[A-Z]{2,5}:/g, 'PENALTY $1:')
+}
+
 function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: string }): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
@@ -474,7 +492,7 @@ function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: st
   // reliable enough to use directly (see normalizePlays for why).
   return {
     id: play.id,
-    text: labelTwoPointConversions(tidyTouchdownText(stripPlayPrefix(play.text))),
+    text: stripPenaltyCode(labelTwoPointConversions(tidyTouchdownText(stripPlayPrefix(play.text)))),
     downDistance: playDownDistance(play),
     // The play's own team wins: a drive can contain a snap the other side
     // ran — an interception return, a kickoff — and the drive's team would
