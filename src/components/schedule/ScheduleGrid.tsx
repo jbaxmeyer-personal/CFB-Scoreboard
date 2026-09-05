@@ -10,6 +10,7 @@ import { TimeGrid } from './TimeGrid'
 import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { zoneLabel, zoneAbbrNow } from '../../lib/timezone'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
+import { AppHeader } from '../shared/AppHeader'
 
 export function ScheduleGrid() {
   const { games, isLoading, isError, refetch } = useScoreboard()
@@ -28,12 +29,11 @@ export function ScheduleGrid() {
 
   return (
     <div className="schedule-grid">
-      <div className="schedule-grid__header">
-        <h1 className="schedule-grid__title">Slate</h1>
+      <AppHeader>
         <p className="schedule-grid__zone">
           Times shown in {zoneLabel(settings.timezoneId)} ({zoneAbbrNow(settings.timezoneId)})
         </p>
-      </div>
+      </AppHeader>
 
       {isLoading && <LoadingState label="Loading the slate…" />}
       {isError && <ErrorState onRetry={refetch} />}

@@ -1,0 +1,36 @@
+.app-header {
+  padding: 20px 12px 4px;
+}
+
+.app-header__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* The wordmark keeps the treatment the Slate screen's title already had,
+   so branding every screen doesn't change how the app looks on the one
+   screen that was already branded. */
+.app-header__brand {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  background: linear-gradient(180deg, #fff, #c7ccd4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
+}
+
+/* Secondary to the wordmark: this names the screen, the wordmark names the
+   app. Pushed to the right so the two never read as one phrase. */
+.app-header__section {
+  margin-left: auto;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}

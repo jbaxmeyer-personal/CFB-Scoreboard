@@ -4,18 +4,6 @@
   flex: 1;
 }
 
-.scoreboard-overview__header {
-  padding: 20px 12px 4px;
-}
-
-.scoreboard-overview__title {
-  font-family: var(--font-display);
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
 .scoreboard-overview__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
