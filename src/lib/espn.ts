@@ -444,6 +444,28 @@ export function labelTwoPointConversions(text: string): string {
   )
 }
 
+/**
+ * Tidies the end of a touchdown description.
+ *
+ * ESPN writes a score as "...for 38 yards to the ORE00 TOUCHDOWN, clock
+ * 10:14". Both halves of that are noise. "ORE00" is the goal line — the
+ * only place a touchdown can end, so saying it tells you nothing — and the
+ * clock repeats the time the row already prints in its own column, the same
+ * duplication the leading snap clock was removed for.
+ *
+ * What's left reads the way it would be called: "for 38 yards, TOUCHDOWN!".
+ *
+ * Anchored on the word TOUCHDOWN rather than on the yard line, so it only
+ * ever fires on a score; a yard line mentioned anywhere else in the
+ * description is untouched.
+ */
+export function tidyTouchdownText(text: string): string {
+  return text.replace(
+    /\s+to the\s+[A-Za-z]{2,6}\s?\d{1,2}\s+TOUCHDOWN\b(,?\s*clock\s+\d{1,2}:\d{2})?/gi,
+    ', TOUCHDOWN!',
+  )
+}
+
 function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: string }): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
@@ -452,7 +474,7 @@ function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: st
   // reliable enough to use directly (see normalizePlays for why).
   return {
     id: play.id,
-    text: labelTwoPointConversions(stripPlayPrefix(play.text)),
+    text: labelTwoPointConversions(tidyTouchdownText(stripPlayPrefix(play.text))),
     downDistance: playDownDistance(play),
     // The play's own team wins: a drive can contain a snap the other side
     // ran — an interception return, a kickoff — and the drive's team would
