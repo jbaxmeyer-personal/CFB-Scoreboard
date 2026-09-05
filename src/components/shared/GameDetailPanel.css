@@ -16,10 +16,17 @@
   margin-right: 0;
 }
 
-.game-detail-panel__close {
-  display: block;
-  margin-left: auto;
+/* Network on the left, the way out on the right. */
+.game-detail-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 4px;
+}
+
+.game-detail-panel__close {
+  /* Holds the right edge whether or not there's a network badge beside it. */
+  margin-left: auto;
   background: var(--bg-panel-raised);
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);

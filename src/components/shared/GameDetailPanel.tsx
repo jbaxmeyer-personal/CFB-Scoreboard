@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import './GameDetailPanel.css'
 import type { SafeGameEntry } from '../../hooks/useSpoilerSafeGames'
 import { ExpandedGame } from '../scoreboard/ExpandedGame'
+import { NetworkBadgeList } from './NetworkBadge'
 
 interface GameDetailPanelProps {
   entries: SafeGameEntry[]
@@ -34,9 +35,15 @@ export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId, flus
 
   return (
     <div className={`game-detail-panel${flush ? ' game-detail-panel--flush' : ''}`} ref={ref}>
-      <button type="button" className="game-detail-panel__close" onClick={onClose}>
-        Close ×
-      </button>
+      {/* Where you're watching it, opposite the way out. Read from the
+          sanitized view rather than the raw game — the network is not a
+          spoiler, but nothing outside the gate should reach for rawGame. */}
+      <div className="game-detail-panel__header">
+        <NetworkBadgeList networks={entry.game.broadcasts} />
+        <button type="button" className="game-detail-panel__close" onClick={onClose}>
+          Close ×
+        </button>
+      </div>
       <ExpandedGame game={entry.rawGame} zoneId={zoneId} isProtected={entry.isProtected} isDelayed={entry.isDelayed} />
     </div>
   )
