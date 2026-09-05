@@ -61,11 +61,22 @@ body {
    on a short page), and TabBar uses position:sticky — anchored to the
    normal document scroll, never a separate positioning context that can
    detach. */
+/* Installed to the home screen, Slate runs standalone with
+   `viewport-fit=cover` and a translucent status bar, which means the web
+   view is the *whole* screen — the clock, Dynamic Island and battery sit on
+   top of the page rather than above it. Without this the wordmark rendered
+   underneath them. Reserving the inset moves the app clear of that band and
+   lets the body gradient show through behind it.
+
+   Zero in a browser tab, where Safari's own chrome already does this, so
+   nothing changes there. Padding rather than margin so it stays inside the
+   100dvh column and the tab bar keeps its footing on the bottom edge. */
 #root {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
 }
 
 .app-main {

@@ -2,9 +2,12 @@
   position: fixed;
   left: 12px;
   right: 12px;
-  /* Sits just above the fixed tab bar (72px reserved + safe area, see
-     .app-main), never overlapping it. */
-  bottom: calc(72px + env(safe-area-inset-bottom) + 10px);
+  /* Sits just above the tab bar, never overlapping it. Written as the bar's
+     own measurements rather than a rounded-up guess at its height, so
+     trimming that bar's padding doesn't silently leave this floating: 4px
+     top padding, a 29px row of labels, and the same bottom reserve the bar
+     itself uses — then a 10px gap. */
+  bottom: calc(33px + max(env(safe-area-inset-bottom), 6px) + 10px);
   z-index: 20;
   display: flex;
   align-items: center;
