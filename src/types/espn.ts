@@ -305,9 +305,14 @@ export interface EspnCoreStatSplit {
 }
 
 /** Some core endpoints nest stats under `splits`, others expose
- * `categories` directly — sportsdataverse handles both, so this does too. */
+ * `categories` directly — sportsdataverse handles both, so this does too.
+ *
+ * `splits` itself comes back either as a list of splits or as a single
+ * split object. Season team statistics send the object form, which crashed
+ * a device with "(e.splits ?? []).flatMap is not a function" once that
+ * endpoint started resolving. Both are accepted now. */
 export interface EspnCoreStatisticsResponse {
-  splits?: EspnCoreStatSplit[]
+  splits?: EspnCoreStatSplit[] | EspnCoreStatSplit
   categories?: EspnCoreStatCategory[]
 }
 
