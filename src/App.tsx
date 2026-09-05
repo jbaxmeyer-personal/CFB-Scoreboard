@@ -6,6 +6,7 @@ import { ScoreboardOverview } from './components/scoreboard/ScoreboardOverview'
 import { SettingsScreen } from './components/settings/SettingsScreen'
 import { TabBar } from './components/shared/TabBar'
 import { UpdateBanner } from './components/shared/UpdateBanner'
+import { ErrorBoundary } from './components/shared/ErrorBoundary'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,12 +34,16 @@ function Shell() {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <SettingsProvider>
-        <ViewStateProvider>
-          <Shell />
-        </ViewStateProvider>
-      </SettingsProvider>
-    </QueryClientProvider>
+    // Outermost, so a crash inside any provider or screen still lands on a
+    // recoverable message rather than a blank page.
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <SettingsProvider>
+          <ViewStateProvider>
+            <Shell />
+          </ViewStateProvider>
+        </SettingsProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
