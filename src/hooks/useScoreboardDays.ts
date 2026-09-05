@@ -5,6 +5,7 @@ import { fetchScoreboard, normalizeScoreboard } from '../lib/espn'
 import { toEspnDateParam } from '../lib/timezone'
 import { windowDateKeys } from '../lib/dayWindow'
 import type { Game } from '../types/game'
+import { hasLiveGame, useLivePolling } from './useLivePolling'
 
 export { DAYS_BEFORE, DAYS_AFTER } from '../lib/dayWindow'
 
@@ -39,11 +40,26 @@ export function useScoreboardDays(anchorDateKey: string | null, zoneId: string):
       return {
         queryKey: ['scoreboard', dateParam],
         queryFn: () => fetchScoreboard(dateParam),
-        staleTime: 5 * 60_000,
-        refetchInterval: 30_000,
+        // Short, so arriving back at the app refetches rather than rendering
+        // whatever was last seen.
+        staleTime: 4_000,
+        // No `refetchInterval` — it does not work through `useQueries`. See
+        // useLivePolling, which drives the refetches instead. This screen is
+        // the scoreboard; it going quiet for minutes at a time was the bug.
       }
     }),
   })
+
+  const dateParams = useMemo(
+    () => dateKeys.map((dateKey) => toEspnDateParam(DateTime.fromISO(dateKey))),
+    [dateKeys],
+  )
+  const liveDateParams = useMemo(
+    () => dateParams.filter((_, i) => hasLiveGame(results[i]?.data)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dateParams.join(','), results.map((r) => r.dataUpdatedAt).join(',')],
+  )
+  useLivePolling(dateParams, liveDateParams)
 
   const isLoading = results.some((r) => r.isLoading)
   const hasAnyData = results.some((r) => r.data)

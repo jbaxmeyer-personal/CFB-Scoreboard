@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import { fetchScoreboard, normalizeScoreboard } from '../lib/espn'
 import { toEspnDateParam } from '../lib/timezone'
 import type { Game } from '../types/game'
+import { hasLiveGame, useLivePolling } from './useLivePolling'
 
 export interface ScoreboardResult {
   games: Game[]
@@ -39,18 +40,11 @@ export function useScoreboard(): ScoreboardResult {
     queries: dateParams.map((dateParam) => ({
       queryKey: ['scoreboard', dateParam],
       queryFn: () => fetchScoreboard(dateParam),
-      // Deliberately shorter than the poll below. Polling pauses while the
-      // tab is hidden, so coming back to the app is the moment the data is
-      // most likely to be behind — and a focus refetch only fires if the
-      // data is already stale. At five minutes it almost never was, so
-      // returning to a live game waited out the next 30s tick instead of
-      // refetching on arrival. Now anything older than half a poll refetches
-      // the moment the app is looked at again.
-      staleTime: 15_000,
-      // Keeps score/clock/possession/state fresh without any user action.
-      // Pauses automatically while the tab is hidden (refetchIntervalInBackground
-      // defaults to false), so this never polls when nobody's looking.
-      refetchInterval: 30_000,
+      // Short, so arriving back at the app refetches rather than rendering
+      // whatever was last seen. At five minutes it almost never did.
+      staleTime: 4_000,
+      // No `refetchInterval` — it does not work through `useQueries`. See
+      // useLivePolling, which drives the refetches instead.
     })),
   })
 
@@ -76,6 +70,15 @@ export function useScoreboard(): ScoreboardResult {
     return [...byId.values()].sort((a, b) => a.startDate.localeCompare(b.startDate))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results.map((r) => r.dataUpdatedAt).join(',')])
+
+  // Derived from the cached responses, so a day whose last game just went
+  // final drops back to the idle cadence on its own.
+  const liveDateParams = useMemo(
+    () => dateParams.filter((_, i) => hasLiveGame(results[i]?.data)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dateParams.join(','), results.map((r) => r.dataUpdatedAt).join(',')],
+  )
+  useLivePolling(dateParams, liveDateParams)
 
   const refetch = () => {
     for (const r of results) r.refetch()
