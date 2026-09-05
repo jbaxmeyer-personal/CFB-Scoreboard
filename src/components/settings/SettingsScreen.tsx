@@ -1,10 +1,14 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { AppHeader } from '../shared/AppHeader'
 import './SettingsScreen.css'
 import { useSettings } from '../../context/SettingsContext'
 import { TIMEZONE_OPTIONS, DEVICE_TIMEZONE_ID, getDeviceTimezone } from '../../lib/timezone'
 import { TeamSearchPicker } from './TeamSearchPicker'
 import { BROADCAST_DELAY_OPTIONS } from '../../lib/broadcastDelay'
+import { buildFeedSample } from '../../lib/feedSample'
+import { useViewState } from '../../context/ViewStateContext'
+import type { EspnScoreboardResponse, EspnSummaryResponse } from '../../types/espn'
 import type { Team } from '../../types/game'
 
 export function SettingsScreen() {
@@ -20,6 +24,38 @@ export function SettingsScreen() {
   } = useSettings()
 
   const [protectPrompt, setProtectPrompt] = useState<Team | null>(null)
+  const [feedSample, setFeedSample] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const queryClient = useQueryClient()
+  const { expandedGameId } = useViewState()
+
+  // Reads the responses already in the cache — no new requests, and nothing
+  // is interpreted on the way out.
+  function showFeedSample() {
+    const gameId = expandedGameId
+    if (!gameId) {
+      setFeedSample('Open a game first (tap one on Slate or Scoreboard), then come back here.')
+      return
+    }
+    const scoreboards = queryClient
+      .getQueriesData<EspnScoreboardResponse>({ queryKey: ['scoreboard'] })
+      .map(([, data]) => data)
+      .filter((d): d is EspnScoreboardResponse => Boolean(d))
+    const summary = queryClient.getQueryData<EspnSummaryResponse>(['gameSummary', gameId])
+    setFeedSample(buildFeedSample({ gameId, scoreboards, summary }))
+    setCopied(false)
+  }
+
+  async function copyFeedSample() {
+    if (!feedSample) return
+    try {
+      await navigator.clipboard.writeText(feedSample)
+      setCopied(true)
+    } catch {
+      // Clipboard can be refused; the text is on screen to select either way.
+      setCopied(false)
+    }
+  }
 
   function handleFavoriteToggle(team: Team) {
     const wasFavorite = isFavoriteTeam(team.id)
@@ -66,6 +102,27 @@ export function SettingsScreen() {
           placeholder="Search teams to favorite…"
           emptyHint="No favorite teams yet."
         />
+      </section>
+
+      <section className="settings-section">
+        <h2 className="settings-section__title">Feed Diagnostics</h2>
+        <p className="settings-section__hint">
+          Shows exactly what ESPN sent for the last game you opened — the field position, the current drive, a few
+          plays — copied out verbatim, nothing interpreted. ESPN can't be reached from where Slate is built, so this is
+          how a question about its data gets answered by reading rather than guessing. No new requests; it reads what's
+          already loaded.
+        </p>
+        <div className="settings-feed__actions">
+          <button type="button" className="settings-feed__button" onClick={showFeedSample}>
+            Show feed sample
+          </button>
+          {feedSample && (
+            <button type="button" className="settings-feed__button" onClick={copyFeedSample}>
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
+        {feedSample && <pre className="settings-feed__sample">{feedSample}</pre>}
       </section>
 
       <section className="settings-section">

@@ -229,6 +229,10 @@ export interface EspnDrives {
  * explanation. */
 export interface EspnSummaryHeaderCompetition {
   playByPlaySource?: string
+  /** The summary's own view of period and clock. Read only for the feed
+   * sample, where the point is to compare it against the scoreboard's — the
+   * two endpoints poll at different rates and can disagree. */
+  status?: unknown
 }
 
 export interface EspnSummaryResponse {
