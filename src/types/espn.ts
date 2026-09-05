@@ -240,10 +240,18 @@ export interface EspnDrives {
  * explanation. */
 export interface EspnSummaryHeaderCompetition {
   playByPlaySource?: string
-  /** The summary's own view of period and clock. Read only for the feed
-   * sample, where the point is to compare it against the scoreboard's — the
-   * two endpoints poll at different rates and can disagree. */
-  status?: unknown
+  /** The summary's own view of period, clock and game state.
+   *
+   * The two endpoints poll at different rates and can disagree, and the
+   * disagreement is not symmetric: this one is per-game and updates first.
+   * A game that had ended — play-by-play showing "End of 4th quarter." —
+   * was still being announced as Q4 1:41 by the scoreboard, so this is read
+   * to correct the header rather than only to describe it. */
+  status?: {
+    displayClock?: string
+    period?: number
+    type?: { state?: string; completed?: boolean; detail?: string; shortDetail?: string }
+  }
 }
 
 export interface EspnSummaryResponse {
