@@ -198,3 +198,18 @@
   font-size: 12px;
   color: var(--text-tertiary);
 }
+
+/* Rides along with the live clock rather than sitting beside it, so the
+   clock's own alignment is untouched when no delay is set. */
+.expanded-game__clock-delay {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.18));
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  vertical-align: middle;
+}

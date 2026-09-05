@@ -4,9 +4,11 @@ import { TeamLogo } from '../shared/TeamLogo'
 import { SpoilerGate } from '../shared/SpoilerGate'
 import { SeasonLeaders, SeasonTeamComparison, GameSummarySections, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
-import { seasonYearFromDate } from '../../lib/espn'
+import { seasonYearFromDate, isStatusAhead } from '../../lib/espn'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import { useViewState } from '../../context/ViewStateContext'
+import { useSettings } from '../../context/SettingsContext'
+import { delayBadge } from '../../lib/broadcastDelay'
 import { TeamPage } from '../team/TeamPage'
 
 /** Logo above name (not side by side) so a long team name gets the
@@ -57,12 +59,29 @@ function TeamIdentity({
  * game is protected and there's something (a live score or a final) to hide.
  */
 function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isDelayed: boolean }) {
+  // The delay is marked at the clock, not only in the app header: the header
+  // scrolls away, and a game running two minutes behind reads as a stuck
+  // clock rather than as a setting doing its job. The clock is where the lag
+  // is noticed, so it is where the reason belongs.
+  const { settings } = useSettings()
+  const delay = delayBadge(settings.broadcastDelaySeconds)
   // Called unconditionally — game.state can transition pre -> in on this
   // same mounted instance as scoreboard data refreshes, so this can't sit
   // after the pre-game early return below (Rules of Hooks). Only actually
   // fetches once live/final, and shares its query key with
   // GameSummarySections further down, so this never costs an extra request.
-  const { plays, currentDrive } = useGameSummary(game, game.state === 'in', game.state !== 'pre')
+  const { plays, currentDrive, liveStatus } = useGameSummary(game, game.state === 'in', game.state !== 'pre')
+
+  // Which endpoint's clock to believe. The scoreboard covers a whole day and
+  // the summary covers this one game, and the per-game feed moves first —
+  // watched live, the play-by-play had posted "End of 4th quarter." while
+  // the header still read Q4 1:41 on a finished game. The score never showed
+  // this because it already comes from the newest play; the clock and state
+  // did not, which is the worst possible thing for a scoreboard to be wrong
+  // about. Take whichever is further along, and only ever forward, so a feed
+  // that stalls or rewinds can't pull the header back into a quarter the
+  // game has left.
+  const status = liveStatus && isStatusAhead(liveStatus, game) ? liveStatus : game
 
   if (game.state === 'pre') {
     return <span className="ticker expanded-game__clock">{formatKickoff(game.startDate, zoneId)}</span>
@@ -94,7 +113,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
 
   // Only a final score is a real result — a live score can still flip, so
   // only 'post' games ever get a winner highlight.
-  const isFinal = game.state === 'post'
+  const isFinal = status.state === 'post'
   const awayWins = isFinal && awayScore > homeScore
   const homeWins = isFinal && homeScore > awayScore
 
@@ -113,14 +132,24 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
           {homeScore}
         </span>
       </div>
-      {game.state === 'in' && (
+      {status.state === 'in' && (
         <span className="ticker expanded-game__clock expanded-game__clock--live">
           <span className="live-dot" aria-hidden="true" />
-          {game.period ? `Q${game.period}` : ''} {game.clock ?? ''}
+          {status.period ? `Q${status.period}` : ''} {status.clock ?? ''}
+          {delay && (
+            <span
+              className="expanded-game__clock-delay"
+              title={`Held ${settings.broadcastDelaySeconds} seconds behind live by your broadcast delay`}
+            >
+              {delay}
+            </span>
+          )}
         </span>
       )}
-      {game.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
-      {game.state === 'in' && <FieldPositionBar game={game} drive={currentDrive} />}
+      {status.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
+      {/* Gated on the corrected state too, so a finished game stops showing
+          down, distance and a ball spotted mid-field. */}
+      {status.state === 'in' && <FieldPositionBar game={game} drive={currentDrive} />}
       <GameSummarySections game={game} />
     </div>
   )

@@ -620,6 +620,61 @@ export interface CurrentDrive {
   startText?: string
 }
 
+/** A game's live status — state, quarter and clock — from whichever
+ * endpoint reported it. */
+export interface LiveStatus {
+  state: GameState
+  statusDetail: string
+  period?: number
+  clock?: string
+}
+
+/**
+ * The summary endpoint's own view of the clock.
+ *
+ * The scoreboard endpoint covers a whole day of games and the summary covers
+ * one, and the per-game feed moves first. Watched live: the play-by-play had
+ * already posted "End of 4th quarter." while the scoreboard was still
+ * announcing Q4 1:41, so the header sat on a finished game showing time
+ * remaining. The score never showed this because it is already taken from
+ * the newest play; the clock and the game state were not.
+ */
+export function normalizeSummaryStatus(response: EspnSummaryResponse | undefined): LiveStatus | undefined {
+  const status = response?.header?.competitions?.[0]?.status
+  const state = status?.type?.state
+  if (!status || !state) return undefined
+  return {
+    state: toGameState(state),
+    statusDetail: status.type?.shortDetail || status.type?.detail || '',
+    period: status.period,
+    clock: status.displayClock,
+  }
+}
+
+/**
+ * Whether `candidate` describes a later moment in the game than `current`.
+ *
+ * Used to pick between the two endpoints, so it must only ever move the
+ * clock forward: a stalled or rewound feed can never drag the header back to
+ * a quarter the game has already left. Ordering is state first (a final game
+ * outranks a live one), then quarter, then time remaining, and an
+ * unreadable clock on either side is treated as no evidence rather than as
+ * zero.
+ */
+export function isStatusAhead(candidate: LiveStatus, current: LiveStatus): boolean {
+  const rank = (state: GameState): number => (state === 'post' ? 2 : state === 'in' ? 1 : 0)
+  if (rank(candidate.state) !== rank(current.state)) return rank(candidate.state) > rank(current.state)
+
+  const candidatePeriod = candidate.period ?? 0
+  const currentPeriod = current.period ?? 0
+  if (candidatePeriod !== currentPeriod) return candidatePeriod > currentPeriod
+
+  const candidateClock = clockSeconds(candidate.clock)
+  const currentClock = clockSeconds(current.clock)
+  if (candidateClock === undefined || currentClock === undefined) return false
+  return candidateClock < currentClock
+}
+
 /** Where a drive began, taken from its own plays rather than from the
  * drive's `start`.
  *

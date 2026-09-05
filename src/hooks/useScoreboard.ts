@@ -39,7 +39,14 @@ export function useScoreboard(): ScoreboardResult {
     queries: dateParams.map((dateParam) => ({
       queryKey: ['scoreboard', dateParam],
       queryFn: () => fetchScoreboard(dateParam),
-      staleTime: 5 * 60_000, // ESPN scores move fast on live game days; keep this short
+      // Deliberately shorter than the poll below. Polling pauses while the
+      // tab is hidden, so coming back to the app is the moment the data is
+      // most likely to be behind — and a focus refetch only fires if the
+      // data is already stale. At five minutes it almost never was, so
+      // returning to a live game waited out the next 30s tick instead of
+      // refetching on arrival. Now anything older than half a poll refetches
+      // the moment the app is looked at again.
+      staleTime: 15_000,
       // Keeps score/clock/possession/state fresh without any user action.
       // Pauses automatically while the tab is hidden (refetchIntervalInBackground
       // defaults to false), so this never polls when nobody's looking.

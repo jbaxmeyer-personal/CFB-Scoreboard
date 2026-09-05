@@ -42,7 +42,23 @@ export function SettingsScreen() {
       .map(([, data]) => data)
       .filter((d): d is EspnScoreboardResponse => Boolean(d))
     const summary = queryClient.getQueryData<EspnSummaryResponse>(['gameSummary', gameId])
-    setFeedSample(buildFeedSample({ gameId, scoreboards, summary }))
+    // The newest of the day-queries: the scoreboard is one request per day
+    // in the window, and the one carrying this game is the one that matters.
+    const scoreboardFetchedAt = queryClient
+      .getQueryCache()
+      .findAll({ queryKey: ['scoreboard'] })
+      .reduce((newest, q) => Math.max(newest, q.state.dataUpdatedAt), 0)
+    const summaryFetchedAt = queryClient.getQueryState(['gameSummary', gameId])?.dataUpdatedAt
+    setFeedSample(
+      buildFeedSample({
+        gameId,
+        scoreboards,
+        summary,
+        scoreboardFetchedAt: scoreboardFetchedAt || undefined,
+        summaryFetchedAt,
+        delaySeconds: settings.broadcastDelaySeconds,
+      }),
+    )
     setCopied(false)
   }
 

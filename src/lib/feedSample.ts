@@ -21,6 +21,17 @@ export interface FeedSampleSources {
   gameId: string
   scoreboards: EspnScoreboardResponse[]
   summary?: EspnSummaryResponse
+  /** When each response was last fetched, from the query cache.
+   *
+   * Without these the sample says what ESPN sent but not when we last
+   * asked, and those are the two halves of every "it isn't updating"
+   * report: a clock that hasn't moved because ESPN's hasn't looks exactly
+   * like one that hasn't moved because nothing refetched. */
+  scoreboardFetchedAt?: number
+  summaryFetchedAt?: number
+  /** The broadcast delay in force, since a game running deliberately behind
+   * is indistinguishable from a stalled one in a screenshot. */
+  delaySeconds?: number
 }
 
 /** Trims a drive to its shape plus a couple of plays — enough to see what
@@ -37,13 +48,38 @@ function sampleDrive(drive: unknown, plays: number): unknown {
   }
 }
 
-export function buildFeedSample({ gameId, scoreboards, summary }: FeedSampleSources): string {
+/** "12s ago", or a note when nothing has been fetched at all. */
+function age(at: number | undefined, now: number): string {
+  if (!at) return '(never fetched)'
+  const seconds = Math.round((now - at) / 1000)
+  return seconds < 90 ? `${seconds}s ago` : `${Math.floor(seconds / 60)}m ${seconds % 60}s ago`
+}
+
+export function buildFeedSample({
+  gameId,
+  scoreboards,
+  summary,
+  scoreboardFetchedAt,
+  summaryFetchedAt,
+  delaySeconds = 0,
+}: FeedSampleSources): string {
   const event = scoreboards.flatMap((s) => s?.events ?? []).find((e) => e.id === gameId)
   const competition = event?.competitions?.[0]
   const drives = summary?.drives
 
+  const now = Date.now()
   const sample = {
     gameId,
+    capturedAt: new Date(now).toISOString(),
+    // Read these first when something looks frozen. Both fetches recent and
+    // the clock unmoved means ESPN's feed is what stalled; a fetch minutes
+    // old means the app stopped asking; a non-zero delay means it is running
+    // behind on purpose.
+    freshness: {
+      scoreboardFetched: age(scoreboardFetchedAt, now),
+      summaryFetched: age(summaryFetchedAt, now),
+      broadcastDelay: delaySeconds > 0 ? `${delaySeconds}s (data shown is held back this far)` : 'off',
+    },
     scoreboard: event
       ? {
           shortName: event.shortName,
