@@ -11,12 +11,14 @@ import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { zoneLabel, zoneAbbrNow } from '../../lib/timezone'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 import { AppHeader } from '../shared/AppHeader'
+import { useScrollToCollapsedGame } from '../../hooks/useScrollToCollapsedGame'
 
 export function ScheduleGrid() {
   const { games, isLoading, isError, refetch } = useScoreboard()
   const { settings } = useSettings()
   const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame } = useViewState()
   const days = useGamesByDay(games, settings.timezoneId)
+  useScrollToCollapsedGame(expandedGameId)
 
   const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : days[0]?.dateKey
 

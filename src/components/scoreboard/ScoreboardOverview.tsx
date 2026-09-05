@@ -10,6 +10,7 @@ import { GameCard } from './GameCard'
 import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 import { AppHeader } from '../shared/AppHeader'
+import { useScrollToCollapsedGame } from '../../hooks/useScrollToCollapsedGame'
 
 export function ScoreboardOverview() {
   const { settings } = useSettings()
@@ -17,6 +18,7 @@ export function ScoreboardOverview() {
     useViewState()
   const { games, dateKeys, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
   const grouped = useGamesByDay(games, settings.timezoneId)
+  useScrollToCollapsedGame(expandedGameId)
 
   // Only days that actually have games get a tab. The window is still ten
   // days wide — that's what gets fetched — but the strip used to be a fixed

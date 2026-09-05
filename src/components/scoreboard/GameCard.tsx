@@ -5,6 +5,7 @@ import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { ProtectedToggle } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
+import { GAME_ANCHOR_ATTR } from '../../hooks/useScrollToCollapsedGame'
 
 function TeamCompactRow({
   team,
@@ -58,7 +59,7 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
   const awayWins = isFinal && game.awayScore! > game.homeScore!
 
   return (
-    <div id={`game-card-${game.id}`} className={`game-card${isSelected ? ' game-card--selected' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}>
+    <div {...{ [GAME_ANCHOR_ATTR]: game.id }} className={`game-card${isSelected ? ' game-card--selected' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}>
       <div
         role="button"
         tabIndex={0}
