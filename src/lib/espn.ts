@@ -1,5 +1,6 @@
 import type {
   EspnBoxscorePlayerEntry,
+  EspnDrive,
   EspnCoreCompetitor,
   EspnCoreRef,
   EspnCoreCompetitorsResponse,
@@ -443,7 +444,7 @@ export function labelTwoPointConversions(text: string): string {
   )
 }
 
-function toGamePlay(play: EspnPlay): GamePlay | null {
+function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: string }): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
   // below in normalizePlays, once the real signal — an actual score change
@@ -453,6 +454,11 @@ function toGamePlay(play: EspnPlay): GamePlay | null {
     id: play.id,
     text: labelTwoPointConversions(stripPlayPrefix(play.text)),
     downDistance: playDownDistance(play),
+    // The play's own team wins: a drive can contain a snap the other side
+    // ran — an interception return, a kickoff — and the drive's team would
+    // put the wrong crest beside it.
+    offenseTeamId: play.start?.team?.id ?? driveTeam?.id,
+    offenseTeamAbbr: play.start?.team?.abbreviation ?? driveTeam?.abbreviation,
     period: play.period?.number ?? 0,
     clock: play.clock?.displayValue ?? '',
     homeScore: play.homeScore,
@@ -511,8 +517,18 @@ function sortPlaysChronologically(plays: EspnPlay[]): EspnPlay[] {
 }
 
 export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
-  const previousPlays = (response.drives?.previous ?? []).flatMap((d) => d.plays ?? [])
-  const currentPlays = response.drives?.current?.plays ?? []
+  // Which drive each play came from, so the possessing team survives the
+  // flattening. Keyed on the play object itself, which sorting and dedup
+  // below pass through by reference rather than copying.
+  const driveTeamByPlay = new Map<EspnPlay, { id?: string; abbreviation?: string }>()
+  const collect = (drive: EspnDrive | undefined): EspnPlay[] => {
+    const plays = drive?.plays ?? []
+    if (drive?.team) for (const play of plays) driveTeamByPlay.set(play, drive.team)
+    return plays
+  }
+
+  const previousPlays = (response.drives?.previous ?? []).flatMap(collect)
+  const currentPlays = collect(response.drives?.current)
   const fromDrives = [...previousPlays, ...currentPlays]
 
   // Fallback: some responses come back with no usable drive data even for a
@@ -531,7 +547,7 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
     seen.add(key)
     return true
   })
-  const games = deduped.map(toGamePlay).filter((p): p is GamePlay => p !== null)
+  const games = deduped.map((p) => toGamePlay(p, driveTeamByPlay.get(p))).filter((p): p is GamePlay => p !== null)
 
   // ESPN's own scoringPlay flag isn't reliable — confirmed live, it was set
   // on plays whose score hadn't actually changed (a kickoff and a later

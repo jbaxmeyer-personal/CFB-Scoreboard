@@ -416,3 +416,12 @@ a.game-stats__notice-retry {
   color: var(--accent-primary);
   white-space: nowrap;
 }
+
+/* The possessing team's crest, under the quarter and clock. Sits in the meta
+   column rather than in front of the description so every play's text starts
+   at the same left edge. */
+.game-stats__play-team {
+  display: block;
+  margin-top: 5px;
+  opacity: 0.9;
+}

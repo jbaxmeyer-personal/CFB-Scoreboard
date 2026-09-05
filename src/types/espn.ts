@@ -193,6 +193,11 @@ export interface EspnPlay {
     isGoalToGo?: boolean
     shortDownDistanceText?: string
     downDistanceText?: string
+    /** Who had the ball at the snap. Preferred over the drive's team when
+     * present, since a drive can contain a play the other side ran (a
+     * turnover return, a kickoff). Matched by id, with abbreviation as the
+     * fallback — ESPN's drive objects don't always carry an id. */
+    team?: { id?: string; abbreviation?: string }
   }
 }
 
