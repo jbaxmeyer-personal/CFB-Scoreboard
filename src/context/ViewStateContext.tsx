@@ -6,7 +6,6 @@ const TAB_STORAGE_KEY = 'slate.tab.v1'
 const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v1'
 const EXPANDED_GAME_STORAGE_KEY = 'slate.expandedGame.v1'
 const SCOREBOARD_ANCHOR_STORAGE_KEY = 'slate.scoreboardAnchor.v1'
-const TEAM_PAGE_STORAGE_KEY = 'slate.teamPage.v1'
 const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'settings']
 
 function readStoredTab(): Tab {
@@ -54,8 +53,13 @@ interface ViewStateValue {
   scoreboardAnchorDate: string | null
   setScoreboardAnchorDate: (dateKey: string | null) => void
   /** Team whose page the expanded game is currently showing, or null for
-   * the game itself. Persisted like the rest of the view state so a refresh
-   * puts you back on the team you were reading, not the game behind it. */
+   * the game itself.
+   *
+   * Deliberately NOT persisted, unlike the tab, day and expanded game. If a
+   * team page ever fails to render, persisting it means every reload
+   * restores the screen that just broke — a blank page that reloading
+   * can't escape. Refresh returns to the expanded game instead, which is
+   * one tap away and can't trap anyone. */
   teamPageId: string | null
   setTeamPageId: (teamId: string | null) => void
 }
@@ -67,7 +71,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
   const [expandedGameId, setExpandedGameId] = useState<string | null>(() => readStoredString(EXPANDED_GAME_STORAGE_KEY))
   const [scoreboardAnchorDate, setScoreboardAnchorDate] = useState<string | null>(() => readStoredString(SCOREBOARD_ANCHOR_STORAGE_KEY))
-  const [teamPageId, setTeamPageId] = useState<string | null>(() => readStoredString(TEAM_PAGE_STORAGE_KEY))
+  const [teamPageId, setTeamPageId] = useState<string | null>(null)
 
   useEffect(() => {
     writeStoredValue(TAB_STORAGE_KEY, tab)
@@ -85,9 +89,6 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
     writeStoredValue(SCOREBOARD_ANCHOR_STORAGE_KEY, scoreboardAnchorDate)
   }, [scoreboardAnchorDate])
 
-  useEffect(() => {
-    writeStoredValue(TEAM_PAGE_STORAGE_KEY, teamPageId)
-  }, [teamPageId])
 
   const value = useMemo<ViewStateValue>(
     () => ({
