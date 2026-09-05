@@ -611,28 +611,56 @@ export interface CurrentDrive {
   teamAbbr?: string
   /** Where the drive began, as the feed writes it: "ORE 25".
    *
-   * The only source used. The numeric `yardsToEndzone` on the same object
-   * was tried and is not in the frame it appears to be: on a drive that
-   * plainly started at Oregon's own 25 it read 100, which drew the fill all
-   * the way to the goal line — the exact thing this bar was changed to stop
-   * doing. This text says which side its number counts from and can be
-   * checked against the two teams in the game, so it is trusted and the
-   * number is not. */
+   * Text only, never a number. Both numbers ESPN offers for this were tried
+   * against a real drive that plainly started at Oregon's own 25:
+   * `yardsToEndzone` read 100 and `yardLine` read 0. Each drew the fill to
+   * the goal line — the exact thing the field bar was changed to stop
+   * doing. Text says which side its number counts from and can be checked
+   * against the two teams in the game, so it is trusted and they are not. */
   startText?: string
+}
+
+/** Where a drive began, taken from its own plays rather than from the
+ * drive's `start`.
+ *
+ * From a live payload: on an Oregon drive that began at their own 25 after
+ * a fair catch, ESPN sent `start: { yardLine: 0, text: "ORE 0" }`. That is
+ * a placeholder rather than a spot, and it is why the fill kept starting at
+ * the goal line — "ORE 0" parses cleanly, it is just wrong. The plays in
+ * that same drive carried the real thing: each one has `possessionText`
+ * ("ORE 25", "ORE 35") on both `start` and `end`, already in the
+ * side-named form the field bar reads.
+ *
+ * A drive's first play is often a kickoff, whose `start` belongs to the
+ * kicking team — so for each play in order, take the snap spot when the
+ * offense is the drive's team, and otherwise the spot the ball ended at
+ * when possession was theirs. The first hit is where the drive started.
+ */
+function driveStartText(drive: EspnDrive): string | undefined {
+  const teamId = drive.team?.id
+  const teamAbbr = drive.team?.abbreviation
+  const isDriveTeam = (team?: { id?: string; abbreviation?: string }): boolean =>
+    team !== undefined &&
+    ((teamId !== undefined && team.id === teamId) || (teamAbbr !== undefined && team.abbreviation === teamAbbr))
+
+  if (teamId !== undefined || teamAbbr !== undefined) {
+    for (const play of sortPlaysChronologically(drive.plays ?? [])) {
+      if (play.start?.possessionText && isDriveTeam(play.start.team)) return play.start.possessionText
+      if (play.end?.possessionText && isDriveTeam(play.end.team)) return play.end.possessionText
+    }
+  }
+  // Last resort, and knowingly the weaker source: a drive whose plays say
+  // nothing about possession still names a start, and the field bar rejects
+  // the placeholder form on its own.
+  return drive.start?.text
 }
 
 /**
  * The in-progress drive's team and starting field position.
  *
- * Read from the drive object rather than derived by walking back through the
- * play feed for a run of same-team plays: that walk breaks on exactly the
- * plays worth getting right — a kickoff filed under the receiving team's
- * drive starts before the drive does, and a turnover splits one drive into
- * two. The drive says where it began; nothing here has to infer it.
- *
- * Everything is optional. A response without drive start data yields an
- * object with no yard line, and the field bar draws no drive at all rather
- * than a made-up one.
+ * Everything is optional. A response whose drive says nothing usable about
+ * where it started yields an object with no start text, and the field bar
+ * draws no drive at all rather than a made-up one.
  */
 export function normalizeCurrentDrive(response: EspnSummaryResponse | undefined): CurrentDrive | undefined {
   const drive = response?.drives?.current
@@ -640,7 +668,7 @@ export function normalizeCurrentDrive(response: EspnSummaryResponse | undefined)
   return {
     teamId: drive.team?.id,
     teamAbbr: drive.team?.abbreviation,
-    startText: drive.start?.text,
+    startText: driveStartText(drive),
   }
 }
 
@@ -670,7 +698,14 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
 
   const seen = new Set<string>()
   const deduped = chronological.filter((p) => {
-    const key = `${p.period?.number ?? ''}|${p.clock?.displayValue ?? ''}|${p.text ?? ''}`
+    // ESPN's own play id first. Confirmed live that the in-progress drive
+    // arrives twice — as `drives.current` and as the last entry of
+    // `drives.previous`, same drive id — so every one of its plays is in
+    // this list twice. Text and clock caught that only while both copies
+    // read identically, and they need not: each play carries a `modified`
+    // stamp, and ESPN does revise wording, so a play revised in one copy
+    // and not the other showed up as two plays.
+    const key = p.id || `${p.period?.number ?? ''}|${p.clock?.displayValue ?? ''}|${p.text ?? ''}`
     if (seen.has(key)) return false
     seen.add(key)
     return true
