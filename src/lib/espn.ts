@@ -560,11 +560,15 @@ function sortPlaysChronologically(plays: EspnPlay[]): EspnPlay[] {
 export interface CurrentDrive {
   teamId?: string
   teamAbbr?: string
-  /** Distance to the opponent's goal line at the drive's first snap, so it
-   * flips with possession. Converted to the bar's axis by the component. */
-  startYardsToEndzone?: number
-  /** The same spot as the feed writes it, e.g. "ORE 25". Preferred over the
-   * number above because it names the side it counts from. */
+  /** Where the drive began, as the feed writes it: "ORE 25".
+   *
+   * The only source used. The numeric `yardsToEndzone` on the same object
+   * was tried and is not in the frame it appears to be: on a drive that
+   * plainly started at Oregon's own 25 it read 100, which drew the fill all
+   * the way to the goal line — the exact thing this bar was changed to stop
+   * doing. This text says which side its number counts from and can be
+   * checked against the two teams in the game, so it is trusted and the
+   * number is not. */
   startText?: string
 }
 
@@ -587,7 +591,6 @@ export function normalizeCurrentDrive(response: EspnSummaryResponse | undefined)
   return {
     teamId: drive.team?.id,
     teamAbbr: drive.team?.abbreviation,
-    startYardsToEndzone: drive.start?.yardsToEndzone,
     startText: drive.start?.text,
   }
 }
@@ -678,6 +681,10 @@ export interface SummaryDiagnostics {
   statNames: string
   leaders: string
   keys: string
+  /** Exactly what the in-progress drive says about where it began. The field
+   * bar's drive fill depends on this and nothing here can see a live
+   * response, so it is reported rather than assumed. */
+  currentDrive: string
 }
 
 /** "59/GT:14" — how a section identifies a team, and how much it carries.
@@ -724,6 +731,17 @@ function describeLeaderEntries(entries: EspnSummaryLeadersEntry[] | undefined): 
     .join(' · ')
 }
 
+/** The in-progress drive's start, verbatim, for the diagnostics panel: which
+ * keys it carries and what they say. A drive fill that looks wrong is
+ * answerable from this line alone. */
+function describeCurrentDrive(drive: EspnDrive | undefined): string {
+  if (!drive) return '(no current drive)'
+  const start = drive.start
+  if (!start) return `team ${drive.team?.abbreviation ?? drive.team?.id ?? '?'}, no start`
+  const parts = Object.entries(start).map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+  return `team ${drive.team?.abbreviation ?? drive.team?.id ?? '?'} · start{ ${parts.join(' ')} }`
+}
+
 export function summaryDiagnostics(
   response: EspnSummaryResponse,
   eventId: string,
@@ -749,6 +767,7 @@ export function summaryDiagnostics(
         .join(', ') ?? '(no stats)',
     leaders: describeLeaderEntries(response.leaders),
     keys: Object.keys(response).join(', ') || '(none)',
+    currentDrive: describeCurrentDrive(response.drives?.current),
   }
 }
 
