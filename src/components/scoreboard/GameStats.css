@@ -269,6 +269,26 @@
   margin-bottom: 4px;
   transform: translateX(-50%);
   transition: left 0.4s ease;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* The arrow leads the crest on the side the team is heading, so the pair
+   reads as movement in that direction rather than as a logo with a
+   decoration stuck to it. */
+.field-bar__possessor--left {
+  flex-direction: row;
+}
+
+.field-bar__possessor:not(.field-bar__possessor--left) {
+  flex-direction: row-reverse;
+}
+
+.field-bar__arrow {
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-tertiary);
 }
 
 .field-bar__ticks {

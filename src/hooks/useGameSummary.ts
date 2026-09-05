@@ -7,11 +7,12 @@ import {
   fetchCoreTeamStats,
   fetchGameSummary,
   normalizeBoxScore,
+  normalizeCurrentDrive,
   normalizeCorePlays,
   normalizePlays,
   summaryDiagnostics,
 } from '../lib/espn'
-import type { SummaryDiagnostics } from '../lib/espn'
+import type { CurrentDrive, SummaryDiagnostics } from '../lib/espn'
 import type { Game, GameBoxScore, GamePlay } from '../types/game'
 import { useSettings } from '../context/SettingsContext'
 import { useDelayedValue } from './useDelayedValue'
@@ -19,6 +20,9 @@ import { useDelayedValue } from './useDelayedValue'
 export interface GameSummaryResult {
   boxScore?: GameBoxScore
   plays: GamePlay[]
+  /** The drive in progress, for the field position bar. Held back by the
+   * broadcast delay with everything else — a drive start is a live fact. */
+  currentDrive?: CurrentDrive
   isLoading: boolean
   isError: boolean
   /** What the response actually contained, surfaced on demand when a panel
@@ -130,12 +134,14 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
   // is live: a final game's summary has stopped changing, and a delay that
   // outlives the broadcast would just be a blank panel.
   const { settings } = useSettings()
-  const undelayed = useMemo(() => ({ boxScore, plays }), [boxScore, plays])
+  const currentDrive = query.data ? normalizeCurrentDrive(query.data) : undefined
+  const undelayed = useMemo(() => ({ boxScore, plays, currentDrive }), [boxScore, plays, currentDrive])
   const delayed = useDelayedValue(undelayed, settings.broadcastDelaySeconds, isLive)
 
   return {
     boxScore: delayed.value?.boxScore,
     plays: delayed.value?.plays ?? [],
+    currentDrive: delayed.value?.currentDrive,
     isDelayed: delayed.isDelayed,
     // The core fallbacks are gated behind the summary, so a pending core
     // request is still "loading" from the panel's point of view.

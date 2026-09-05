@@ -62,7 +62,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
   // after the pre-game early return below (Rules of Hooks). Only actually
   // fetches once live/final, and shares its query key with
   // GameSummarySections further down, so this never costs an extra request.
-  const { plays } = useGameSummary(game, game.state === 'in', game.state !== 'pre')
+  const { plays, currentDrive } = useGameSummary(game, game.state === 'in', game.state !== 'pre')
 
   if (game.state === 'pre') {
     return <span className="ticker expanded-game__clock">{formatKickoff(game.startDate, zoneId)}</span>
@@ -120,7 +120,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
         </span>
       )}
       {game.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
-      {game.state === 'in' && <FieldPositionBar game={game} />}
+      {game.state === 'in' && <FieldPositionBar game={game} drive={currentDrive} />}
       <GameSummarySections game={game} />
     </div>
   )
