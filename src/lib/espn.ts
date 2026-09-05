@@ -582,8 +582,19 @@ function upgradeRef(url: string): string {
   return url.replace(/^http:\/\//, 'https://')
 }
 
+/** Requests that back a visible loading state get a deadline. Without one a
+ * stalled connection leaves the panel spinning indefinitely with no way
+ * back — an error at least settles into a message and a retry. */
+const REQUEST_TIMEOUT_MS = 12_000
+
+function timeoutSignal(): AbortSignal | undefined {
+  // Safari gained AbortSignal.timeout in 16.4; older browsers simply get
+  // the previous no-deadline behaviour rather than a crash.
+  return typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(REQUEST_TIMEOUT_MS) : undefined
+}
+
 async function getCoreJson<T>(url: string, label: string): Promise<T> {
-  const res = await fetch(upgradeRef(url))
+  const res = await fetch(upgradeRef(url), { signal: timeoutSignal() })
   if (!res.ok) throw new Error(`${label} HTTP ${res.status}`)
   return res.json() as Promise<T>
 }
@@ -768,7 +779,11 @@ export function seasonYearFromDate(iso: string): number {
  * 12 games played, with no error) — so the year must be forced. seasontype
  * 2 = regular season, matching what's actually in progress right now. */
 export async function fetchTeamSeasonStats(teamId: string, year: number): Promise<EspnTeamStatisticsResponse> {
-  const res = await fetch(`${TEAMS_URL}/${teamId}/statistics?season=${year}&seasontype=2`)
+  const res = await fetch(`${TEAMS_URL}/${teamId}/statistics?season=${year}&seasontype=2`, { signal: timeoutSignal() })
+  // A team that hasn't played yet has no statistics resource at all. That's
+  // an empty season, not a failure — returning an empty response lets the
+  // page say "no stats posted yet" instead of "couldn't load".
+  if (res.status === 404) return {}
   if (!res.ok) {
     throw new Error(`ESPN team statistics request failed: ${res.status}`)
   }
@@ -1038,7 +1053,11 @@ export async function fetchFbsTeamIds(year: number): Promise<Set<string>> {
  */
 export async function fetchCoreTeamSeasonStats(teamId: string, year: number): Promise<EspnCoreStatisticsResponse> {
   const team = await getCoreJson<{ statistics?: EspnCoreRef }>(
-    `${CORE_URL}/seasons/${year}/types/2/teams/${teamId}`,
+    // Team objects sit directly under the season, NOT under a season type:
+    // seasons/{year}/teams/{id}. Composing .../types/2/teams/{id} is what
+    // returned "core season team HTTP 404" on a device. The statistics link
+    // is then followed rather than composed, for the same reason.
+    `${CORE_URL}/seasons/${year}/teams/${teamId}`,
     'core season team',
   )
   const ref = team.statistics?.$ref
@@ -1086,7 +1105,7 @@ export function describeRankSource(response: EspnCoreStatisticsResponse | undefi
  * second parser that could drift from the first.
  */
 export async function fetchTeamSchedule(teamId: string, year: number): Promise<EspnTeamScheduleResponse> {
-  const res = await fetch(`${TEAMS_URL}/${teamId}/schedule?season=${year}`)
+  const res = await fetch(`${TEAMS_URL}/${teamId}/schedule?season=${year}`, { signal: timeoutSignal() })
   if (!res.ok) throw new Error(`ESPN team schedule request failed: ${res.status}`)
   return res.json() as Promise<EspnTeamScheduleResponse>
 }
