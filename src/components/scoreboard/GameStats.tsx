@@ -327,7 +327,19 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   )
 }
 
-function PlayRow({ play, reaction, onReact }: { play: GamePlay; reaction?: string; onReact: (emoji: string) => void }) {
+/** The team that had the ball, matched against this game's two. ESPN's drive
+ * objects don't always carry an id, so the abbreviation is a second key. A
+ * play we can't attribute — anything from the core-API fallback, which has no
+ * drive team — simply gets no crest rather than a guessed one. */
+function offenseTeam(play: GamePlay, game: Game): Team | undefined {
+  for (const team of [game.home, game.away]) {
+    if (play.offenseTeamId && team.id === play.offenseTeamId) return team
+    if (play.offenseTeamAbbr && team.abbreviation === play.offenseTeamAbbr) return team
+  }
+  return undefined
+}
+
+function PlayRow({ play, team, reaction, onReact }: { play: GamePlay; team?: Team; reaction?: string; onReact: (emoji: string) => void }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   return (
     <div className={`game-stats__play-row${play.isScoringPlay ? ' game-stats__play-row--scoring' : ''}`}>
@@ -336,6 +348,14 @@ function PlayRow({ play, reaction, onReact }: { play: GamePlay; reaction?: strin
           Q{play.period}
           <br />
           {play.clock}
+          {/* Under the clock rather than inline with the description: it
+              keeps the text block's left edge straight down the feed, which
+              a logo of varying width in front of the words would not. */}
+          {team && (
+            <span className="game-stats__play-team" title={`${team.name} on offense`}>
+              <TeamLogo team={team} size={18} />
+            </span>
+          )}
         </span>
         <span className="game-stats__play-text">
           {/* Leads the description, in place of the formation ESPN prefixed
@@ -482,7 +502,15 @@ function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
         <div className="game-stats__plays">
           {visiblePlays.map((play) => {
             const key = `${game.id}:${play.id}`
-            return <PlayRow key={play.id} play={play} reaction={reactions[key]} onReact={(emoji) => setReaction(key, emoji)} />
+            return (
+              <PlayRow
+                key={play.id}
+                play={play}
+                team={offenseTeam(play, game)}
+                reaction={reactions[key]}
+                onReact={(emoji) => setReaction(key, emoji)}
+              />
+            )
           })}
         </div>
       </div>

@@ -61,6 +61,13 @@ export interface GamePlay {
    * formation the play text used to lead with. Absent on plays that have no
    * down at all (kickoffs, extra points, end of quarter). */
   downDistance?: string
+  /** Who had the ball, as ESPN identified them. Kept as the raw id and
+   * abbreviation rather than a resolved 'home' | 'away' because the play
+   * normalizer never sees the game's two teams — the screen matches these
+   * against them. Either may be absent; a drive without a team id is why
+   * the abbreviation is carried too. */
+  offenseTeamId?: string
+  offenseTeamAbbr?: string
   period: number
   clock: string
   homeScore: number
