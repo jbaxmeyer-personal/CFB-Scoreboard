@@ -1,7 +1,6 @@
 import './ExpandedGame.css'
 import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
-import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { SpoilerGate } from '../shared/SpoilerGate'
 import { SeasonLeaders, SeasonTeamComparison, GameSummarySections, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
@@ -181,7 +180,6 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
 
         <div className="expanded-game__footer">
           <span className="expanded-game__venue">{game.venue ?? formatDayLabel(game.startDate, zoneId)}</span>
-          <NetworkBadgeList networks={game.broadcasts} />
         </div>
       </div>
     </div>
