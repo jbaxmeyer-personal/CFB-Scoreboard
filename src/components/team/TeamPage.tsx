@@ -15,6 +15,12 @@ const SECTION_LABEL: Record<TeamProfileSection, string> = {
 }
 
 function StatRows({ stats }: { stats: TeamProfileStat[] }) {
+  // Reserve the rank column for every row as soon as any row has a rank,
+  // so a rankless row (the derived per-play ones) keeps its value in the
+  // same column as the rest instead of sliding right into the rank slot.
+  // When nothing is ranked at all — an FCS team — the column is dropped
+  // entirely rather than leaving dead space down the whole panel.
+  const showRankColumn = stats.some((stat) => stat.rank)
   let lastSection: TeamProfileSection | undefined
   return (
     <>
@@ -28,8 +34,9 @@ function StatRows({ stats }: { stats: TeamProfileStat[] }) {
               <span className="team-page__stat-label">{stat.label}</span>
               <span className="team-page__stat-value ticker">{stat.value}</span>
               {/* Rank only when ESPN actually sends one — a missing rank
-                  shows nothing rather than a placeholder that reads as data. */}
-              {stat.rank && <span className="team-page__stat-rank ticker">{stat.rank}</span>}
+                  shows nothing rather than a placeholder that reads as data.
+                  The cell itself still holds its place so the values line up. */}
+              {showRankColumn && <span className="team-page__stat-rank ticker">{stat.rank ?? ''}</span>}
             </div>
           </div>
         )
