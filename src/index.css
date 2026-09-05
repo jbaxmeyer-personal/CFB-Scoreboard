@@ -79,6 +79,21 @@ body {
   padding-top: env(safe-area-inset-top);
 }
 
+/* Anything the app scrolls to must stop below the status bar, not at the
+   very top of the viewport.
+
+   #root's padding moves the app clear of that band, but the page still
+   scrolls normally underneath it, so `scrollIntoView` — which aligns to the
+   viewport edge — parks its target under the clock and battery. Opening a
+   game did it to the panel's Close button; closing one did it to the card
+   being restored. `scroll-margin-top` is the offset scrollIntoView honours,
+   so both stop clear of the bar with a little room to spare. Zero inset in a
+   browser tab leaves just that gap. */
+[data-game-id],
+.game-detail-panel {
+  scroll-margin-top: calc(env(safe-area-inset-top) + 10px);
+}
+
 .app-main {
   display: flex;
   flex-direction: column;
