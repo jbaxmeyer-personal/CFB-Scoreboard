@@ -104,8 +104,12 @@ function positionFromFieldText(text: string | undefined, game: Game): number | u
   const match = text?.trim().match(/^([A-Za-z&.'-]{2,6})\s+(\d{1,2})$/)
   if (!match) return undefined
   const yard = Number(match[2])
-  // A yard line runs 0 to 50 from each side; anything else isn't one.
-  if (!Number.isFinite(yard) || yard < 0 || yard > 50) return undefined
+  // A yard line runs 1 to 50 from each side; anything else isn't one. Zero
+  // is excluded on purpose: the feed uses it as a placeholder, not a spot —
+  // a drive that began at Oregon's own 25 came through as "ORE 0" — and the
+  // goal line itself is written as the 1. Treating it as a real position is
+  // what painted the fill across the whole field.
+  if (!Number.isFinite(yard) || yard < 1 || yard > 50) return undefined
   const side = match[1].toUpperCase()
   if (side === game.away.abbreviation?.toUpperCase()) return yard
   if (side === game.home.abbreviation?.toUpperCase()) return 100 - yard
@@ -143,11 +147,12 @@ export function FieldPositionBar({ game, drive }: { game: Game; drive?: CurrentD
   // used to run from the ball to the possessing team's own goal, which grew
   // as they advanced and so read as a drive the length of the field.
   //
-  // Drive start comes only from its own text, which names the side its
-  // number counts from. The numeric `yardsToEndzone` on the same object was
-  // tried and is not in the frame it appears to be — on a drive that plainly
-  // started at Oregon's own 25 it read 100, which painted the fill to the
-  // goal line and reproduced the very thing this bar was changed to stop
+  // Drive start comes only as text that names the side its number counts
+  // from, and now from the drive's own plays rather than its `start` field —
+  // both numbers on that field turned out to be unusable, `yardsToEndzone`
+  // reading 100 and `yardLine` reading 0 for the same drive that plainly
+  // began at Oregon's own 25 (see driveStartText). Each painted the fill to
+  // the goal line, which is the very thing this bar was changed to stop
   // doing. No fill at all beats a wrong one, so there is no numeric
   // fallback: without readable text the bar shows the ball and nothing else.
   const driveIsCurrent =
@@ -390,15 +395,33 @@ function offenseTeam(play: GamePlay, game: Game): Team | undefined {
   return undefined
 }
 
-function PlayRow({ play, team, reaction, onReact }: { play: GamePlay; team?: Team; reaction?: string; onReact: (emoji: string) => void }) {
+function PlayRow({
+  play,
+  team,
+  showClock,
+  reaction,
+  onReact,
+}: {
+  play: GamePlay
+  team?: Team
+  showClock: boolean
+  reaction?: string
+  onReact: (emoji: string) => void
+}) {
   const [pickerOpen, setPickerOpen] = useState(false)
   return (
     <div className={`game-stats__play-row${play.isScoringPlay ? ' game-stats__play-row--scoring' : ''}`}>
       <div className="game-stats__play-main">
+        {/* Keeps its width when the clock is hidden, so the rows below a
+            repeat still line up with the one that carries the time. */}
         <span className="game-stats__play-meta">
-          Q{play.period}
-          <br />
-          {play.clock}
+          {showClock && (
+            <>
+              Q{play.period}
+              <br />
+              {play.clock}
+            </>
+          )}
         </span>
         {/* Its own column between the clock and the description, not inline
             with the words: a fixed-width slot keeps every play's text on the
@@ -550,13 +573,22 @@ function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
           </div>
         </div>
         <div className="game-stats__plays">
-          {visiblePlays.map((play) => {
+          {visiblePlays.map((play, i) => {
             const key = `${game.id}:${play.id}`
+            // ESPN's per-play clock stalls: a live payload had a kickoff, a
+            // 10-yard run and a false start all stamped 15:00 (their
+            // wallclocks were two minutes apart), which read as three plays
+            // happening at the same instant. The clock isn't wrong so much
+            // as unchanged, so show it once per run of plays sharing it
+            // instead of repeating a time that didn't advance.
+            const prev = visiblePlays[i - 1]
+            const repeatsClock = prev !== undefined && prev.period === play.period && prev.clock === play.clock
             return (
               <PlayRow
                 key={play.id}
                 play={play}
                 team={offenseTeam(play, game)}
+                showClock={!repeatsClock}
                 reaction={reactions[key]}
                 onReact={(emoji) => setReaction(key, emoji)}
               />

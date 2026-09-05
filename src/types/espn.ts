@@ -198,6 +198,17 @@ export interface EspnPlay {
      * turnover return, a kickoff). Matched by id, with abbreviation as the
      * fallback — ESPN's drive objects don't always carry an id. */
     team?: { id?: string; abbreviation?: string }
+    /** Where the ball was, written the way the rest of the feed writes a
+     * spot: "ORE 25". Read to find where a drive actually began, since the
+     * drive's own start field can't be trusted for it (see driveStartText). */
+    possessionText?: string
+  }
+  /** State when the play ended. Same shape and frame as `start`. Read for
+   * the drive-start derivation: after a kickoff, this is the first place
+   * the receiving team had the ball. */
+  end?: {
+    team?: { id?: string; abbreviation?: string }
+    possessionText?: string
   }
 }
 
