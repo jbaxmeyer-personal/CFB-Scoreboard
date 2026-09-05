@@ -17,13 +17,10 @@ export interface FilteredGamesResult {
  * Both screens call this on their full list, before grouping into days, so
  * the day strip and the games agree: a day whose only games are filtered
  * out doesn't offer a tab that leads to an empty screen.
- *
- * The conference list is fetched only when a conference filter is actually
- * set — a screen with no conference filter never pays for it.
  */
 export function useFilteredGames(games: Game[]): FilteredGamesResult {
   const { filters } = useViewState()
-  const { byId } = useConferences(filters.conferenceId !== null)
+  const { byId } = useConferences()
   const conference = filters.conferenceId ? byId.get(filters.conferenceId) : undefined
 
   return useMemo(
