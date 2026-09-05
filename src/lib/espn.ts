@@ -418,6 +418,31 @@ export function stripPlayPrefix(text: string): string {
   return out.length > 0 ? out : text.trim()
 }
 
+/**
+ * Names a two-point conversion as one.
+ *
+ * ESPN appends the conversion attempt to the touchdown's own play text and
+ * describes it the same way it describes an extra point: "#3 D.Dorwart pass
+ * attempt Successful". Only the verb separates them — `kick` is the extra
+ * point, `pass`/`rush`/`run` is a two-point try — so a successful two-point
+ * conversion read as an ordinary PAT, with nothing on the row saying the
+ * team had gone for it and got it.
+ *
+ * Only the attempt clause is rewritten; the touchdown it hangs off is left
+ * exactly as it was. `kick attempt` deliberately doesn't match — an extra
+ * point is already described correctly. Nothing here infers a conversion
+ * from the score alone: it renames a clause ESPN actually sent.
+ */
+export function labelTwoPointConversions(text: string): string {
+  return text.replace(
+    /\b(pass|rush|run)\s+attempt\s+(successful|good|failed|no\s+good|unsuccessful)\b/gi,
+    (_match, kind: string, outcome: string) => {
+      const good = /^(successful|good)$/i.test(outcome.trim())
+      return `TWO-POINT CONVERSION ${good ? 'GOOD' : 'FAILED'} (${kind.toLowerCase()})`
+    },
+  )
+}
+
 function toGamePlay(play: EspnPlay): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
@@ -426,7 +451,7 @@ function toGamePlay(play: EspnPlay): GamePlay | null {
   // reliable enough to use directly (see normalizePlays for why).
   return {
     id: play.id,
-    text: stripPlayPrefix(play.text),
+    text: labelTwoPointConversions(stripPlayPrefix(play.text)),
     downDistance: playDownDistance(play),
     period: play.period?.number ?? 0,
     clock: play.clock?.displayValue ?? '',
