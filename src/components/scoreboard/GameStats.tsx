@@ -143,21 +143,17 @@ export function FieldPositionBar({ game, drive }: { game: Game; drive?: CurrentD
   // used to run from the ball to the possessing team's own goal, which grew
   // as they advanced and so read as a drive the length of the field.
   //
-  // Drive start comes from its own text where the feed gives one, for the
-  // same reason as above; `yardsToEndzone` is the fallback, and that one is
-  // measured from the goal the possessing team is attacking, so it flips
-  // with possession.
+  // Drive start comes only from its own text, which names the side its
+  // number counts from. The numeric `yardsToEndzone` on the same object was
+  // tried and is not in the frame it appears to be — on a drive that plainly
+  // started at Oregon's own 25 it read 100, which painted the fill to the
+  // goal line and reproduced the very thing this bar was changed to stop
+  // doing. No fill at all beats a wrong one, so there is no numeric
+  // fallback: without readable text the bar shows the ball and nothing else.
   const driveIsCurrent =
     drive !== undefined &&
     (drive.teamId === undefined || drive.teamId === possessor?.id || drive.teamAbbr === possessor?.abbreviation)
-  const driveFromText = driveIsCurrent ? positionFromFieldText(drive.startText, game) : undefined
-  const driveFromYards =
-    driveIsCurrent && drive.startYardsToEndzone !== undefined
-      ? game.possession === 'away'
-        ? 100 - drive.startYardsToEndzone
-        : drive.startYardsToEndzone
-      : undefined
-  const driveStart = driveFromText ?? driveFromYards
+  const driveStart = driveIsCurrent ? positionFromFieldText(drive.startText, game) : undefined
   const fillLeft = driveStart === undefined ? 0 : Math.min(driveStart, fieldPosition)
   const fillWidth = driveStart === undefined ? 0 : Math.abs(fieldPosition - driveStart)
 
@@ -643,6 +639,10 @@ function SummaryNotice({
           <div>
             <dt>plays</dt>
             <dd>{diagnostics.plays}</dd>
+          </div>
+          <div>
+            <dt>current drive</dt>
+            <dd>{diagnostics.currentDrive}</dd>
           </div>
           <div>
             <dt>matching on</dt>
