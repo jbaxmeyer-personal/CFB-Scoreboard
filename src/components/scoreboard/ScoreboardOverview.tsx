@@ -9,6 +9,7 @@ import { DayTabs } from '../shared/DayTabs'
 import { GameCard } from './GameCard'
 import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
+import { AppHeader } from '../shared/AppHeader'
 
 export function ScoreboardOverview() {
   const { settings } = useSettings()
@@ -44,9 +45,7 @@ export function ScoreboardOverview() {
 
   return (
     <div className="scoreboard-overview">
-      <div className="scoreboard-overview__header">
-        <h1 className="scoreboard-overview__title">Scoreboard</h1>
-      </div>
+      <AppHeader section="Scoreboard" />
 
       {isLoading && <LoadingState label="Loading the scoreboard…" />}
       {isError && <ErrorState onRetry={refetch} />}

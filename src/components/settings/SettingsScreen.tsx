@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AppHeader } from '../shared/AppHeader'
 import './SettingsScreen.css'
 import { useSettings } from '../../context/SettingsContext'
 import { TIMEZONE_OPTIONS, DEVICE_TIMEZONE_ID, getDeviceTimezone } from '../../lib/timezone'
@@ -28,9 +29,7 @@ export function SettingsScreen() {
 
   return (
     <div className="settings-screen">
-      <div className="settings-screen__header">
-        <h1 className="settings-screen__title">Settings</h1>
-      </div>
+      <AppHeader section="Settings" />
 
       <section className="settings-section">
         <h2 className="settings-section__title">Timezone</h2>
