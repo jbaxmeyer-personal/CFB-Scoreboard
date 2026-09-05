@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import type { Game } from '../types/game'
 import { resolveZone } from './timezone'
+import { networkRank, shortNetworkName } from './networks'
 
 // Visual layout constants for the horizontal timeline grid. ESPN doesn't
 // give us an actual end time, so chip width is an assumed average CFB game
@@ -131,26 +132,15 @@ export function laneCount(positioned: PositionedGame[]): number {
   return positioned.reduce((most, p) => Math.max(most, p.lane + 1), 1)
 }
 
-/**
- * Networks that sort to the bottom of the grid regardless of kickoff time.
- * ESPN+ is an overflow tier carrying many simultaneous lower-profile games,
- * so its row stacks several lanes tall (see layoutRow). Left in kickoff
- * order it would push the marquee rows down the screen; last, it can grow
- * as tall as it needs to without displacing anything above it.
- */
-const DEMOTED_NETWORKS = ['ESPN+']
-
-function isDemoted(network: string): boolean {
-  return DEMOTED_NETWORKS.includes(network.toUpperCase())
-}
-
-/** Games grouped by their first broadcast network. Rows are ordered by each
- * network's earliest kickoff, except the demoted overflow tiers above,
- * which always sort last. */
+/** Games grouped by their first broadcast network, in the running order
+ * defined by networkRank — a fixed editorial ranking, not kickoff order.
+ * Networks sharing a rank (the ones not listed there) fall back to their
+ * earliest kickoff. Grouping uses the canonical short name so a network that
+ * arrives spelled two ways in one day is still one row. */
 export function groupByNetwork(games: Game[]): NetworkRow[] {
   const map = new Map<string, Game[]>()
   for (const game of games) {
-    const key = game.broadcasts[0] ?? 'TBD'
+    const key = game.broadcasts[0] ? shortNetworkName(game.broadcasts[0]) : 'TBD'
     const bucket = map.get(key)
     if (bucket) bucket.push(game)
     else map.set(key, [game])
@@ -161,8 +151,8 @@ export function groupByNetwork(games: Game[]): NetworkRow[] {
       games: gamesForNetwork.sort((a, b) => a.startDate.localeCompare(b.startDate)),
     }))
     .sort((a, b) => {
-      const demotedDiff = Number(isDemoted(a.network)) - Number(isDemoted(b.network))
-      if (demotedDiff !== 0) return demotedDiff
+      const rankDiff = networkRank(a.network) - networkRank(b.network)
+      if (rankDiff !== 0) return rankDiff
       return a.games[0].startDate.localeCompare(b.games[0].startDate)
     })
 }

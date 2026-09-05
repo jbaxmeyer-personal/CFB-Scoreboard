@@ -1,21 +1,5 @@
 import './NetworkBadge.css'
-
-// ESPN sometimes gives the full network name instead of its usual short
-// abbreviation (e.g. "ACC Network" instead of "ACCN") — normalize those so
-// badges stay compact and still hit the color map below.
-const NETWORK_ABBREVIATIONS: Record<string, string> = {
-  'ACC Network': 'ACCN',
-  'ACC Network Extra': 'ACCNX',
-  'SEC Network': 'SECN',
-  'SEC Network+': 'SECN+',
-  'Big Ten Network': 'BTN',
-  'Pac-12 Network': 'PAC-12',
-  'ESPN Deportes': 'ESPN Dep.',
-}
-
-function shortNetworkName(name: string): string {
-  return NETWORK_ABBREVIATIONS[name] ?? name
-}
+import { shortNetworkName } from '../../lib/networks'
 
 const NETWORK_COLORS: Record<string, string> = {
   ESPN: '#d00000',
