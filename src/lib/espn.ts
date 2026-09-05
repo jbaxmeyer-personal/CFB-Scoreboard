@@ -484,6 +484,26 @@ export function stripPenaltyCode(text: string): string {
   return text.replace(/\bPENALTY\s+([A-Z][A-Z&.'-]{1,5})\s+[A-Z]{2,5}:/g, 'PENALTY $1:')
 }
 
+/**
+ * The snap time ESPN embeds at the front of a play's own description.
+ *
+ * Every play carries two clocks and they mean different things. The `clock`
+ * field is the time at the *end* of the play; this parenthetical is the time
+ * at the snap. They agree exactly on a play that stops the clock — an
+ * incompletion, a score — and differ when it runs: "(12:25) M.Nelson rush
+ * left for 1 yard gain" carries a `clock` of 12:17.
+ *
+ * A play-by-play is a list of snaps, so the snap time is the one that
+ * belongs beside each row. Returned normalized to the same shape the clock
+ * field uses ("5:16", not "05:16") so the column doesn't change style
+ * depending on which source a row got.
+ */
+export function snapClockFromText(text: string | undefined): string | undefined {
+  const match = text?.trim().match(/^\((\d{1,2}):(\d{2})\)/)
+  if (!match) return undefined
+  return `${Number(match[1])}:${match[2]}`
+}
+
 function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: string }): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
@@ -500,7 +520,10 @@ function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: st
     offenseTeamId: play.start?.team?.id ?? driveTeam?.id,
     offenseTeamAbbr: play.start?.team?.abbreviation ?? driveTeam?.abbreviation,
     period: play.period?.number ?? 0,
-    clock: play.clock?.displayValue ?? '',
+    // The snap, not the end of the play — see snapClockFromText. Plays with
+    // no parenthetical are the ones that don't move the clock anyway
+    // (penalties, timeouts, end of quarter), so the fallback agrees.
+    clock: snapClockFromText(play.text) ?? play.clock?.displayValue ?? '',
     homeScore: play.homeScore,
     awayScore: play.awayScore,
     isScoringPlay: false,
