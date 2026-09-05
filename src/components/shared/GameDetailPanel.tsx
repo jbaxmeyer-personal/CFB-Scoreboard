@@ -37,7 +37,7 @@ export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId, flus
       <button type="button" className="game-detail-panel__close" onClick={onClose}>
         Close ×
       </button>
-      <ExpandedGame game={entry.rawGame} zoneId={zoneId} isProtected={entry.isProtected} />
+      <ExpandedGame game={entry.rawGame} zoneId={zoneId} isProtected={entry.isProtected} isDelayed={entry.isDelayed} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import './SettingsScreen.css'
 import { useSettings } from '../../context/SettingsContext'
 import { TIMEZONE_OPTIONS, DEVICE_TIMEZONE_ID, getDeviceTimezone } from '../../lib/timezone'
 import { TeamSearchPicker } from './TeamSearchPicker'
+import { BROADCAST_DELAY_OPTIONS } from '../../lib/broadcastDelay'
 import type { Team } from '../../types/game'
 
 export function SettingsScreen() {
@@ -13,6 +14,7 @@ export function SettingsScreen() {
     isFavoriteTeam,
     toggleFavoriteTeam,
     setGlobalSpoilers,
+    setBroadcastDelaySeconds,
     isTeamSpoilerListed,
     toggleProtectedTeam,
   } = useSettings()
@@ -64,6 +66,29 @@ export function SettingsScreen() {
           placeholder="Search teams to favorite…"
           emptyHint="No favorite teams yet."
         />
+      </section>
+
+      <section className="settings-section">
+        <h2 className="settings-section__title">Broadcast Delay</h2>
+        <p className="settings-section__hint">
+          ESPN's feed runs ahead of the television picture, so scores here can land before the play does on screen.
+          This holds live games back so the app trails your broadcast instead of beating it. Finals and upcoming games
+          are never delayed, and a live game shows no score for the first stretch after you open the app — that gap is
+          the delay itself, with nothing yet old enough to show.
+        </p>
+        <div className="settings-radio-group">
+          {BROADCAST_DELAY_OPTIONS.map((option) => (
+            <label className="settings-radio" key={option.seconds}>
+              <input
+                type="radio"
+                name="broadcast-delay"
+                checked={settings.broadcastDelaySeconds === option.seconds}
+                onChange={() => setBroadcastDelaySeconds(option.seconds)}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
       </section>
 
       <section className="settings-section">

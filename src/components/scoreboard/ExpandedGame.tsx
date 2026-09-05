@@ -57,7 +57,7 @@ function TeamIdentity({
  * the *real* game — callers must gate this behind SpoilerGate whenever the
  * game is protected and there's something (a live score or a final) to hide.
  */
-function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
+function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isDelayed: boolean }) {
   // Called unconditionally — game.state can transition pre -> in on this
   // same mounted instance as scoreboard data refreshes, so this can't sit
   // after the pre-game early return below (Rules of Hooks). Only actually
@@ -67,6 +67,21 @@ function LiveArea({ game, zoneId }: { game: Game; zoneId: string }) {
 
   if (game.state === 'pre') {
     return <span className="ticker expanded-game__clock">{formatKickoff(game.startDate, zoneId)}</span>
+  }
+
+  // The score fields are stripped while the delay holds this game, and the
+  // fallbacks below would render that as 0-0 — a scoreline of its own, and a
+  // wrong one. Say what is actually happening instead.
+  if (isDelayed) {
+    return (
+      <div className="expanded-game__score-block">
+        <span className="ticker expanded-game__clock expanded-game__clock--live">
+          <span className="live-dot" aria-hidden="true" />
+          LIVE
+        </span>
+        <span className="expanded-game__delay-note">Waiting on your broadcast delay…</span>
+      </div>
+    )
   }
 
   // The scoreboard endpoint (game.homeScore/awayScore, polled every 30s
@@ -118,9 +133,11 @@ interface ExpandedGameProps {
   game: Game
   zoneId: string
   isProtected: boolean
+  /** The broadcast delay is holding this game's live state back. */
+  isDelayed?: boolean
 }
 
-export function ExpandedGame({ game, zoneId, isProtected }: ExpandedGameProps) {
+export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: ExpandedGameProps) {
   const hasHideableResult = isProtected && game.state !== 'pre'
   const { teamPageId, setTeamPageId } = useViewState()
 
@@ -151,10 +168,10 @@ export function ExpandedGame({ game, zoneId, isProtected }: ExpandedGameProps) {
           <div className={`expanded-game__live-area${hasHideableResult ? ' expanded-game__live-area--gated' : ''}`}>
             {hasHideableResult ? (
               <SpoilerGate>
-                <LiveArea game={game} zoneId={zoneId} />
+                <LiveArea game={game} zoneId={zoneId} isDelayed={isDelayed} />
               </SpoilerGate>
             ) : (
-              <LiveArea game={game} zoneId={zoneId} />
+              <LiveArea game={game} zoneId={zoneId} isDelayed={isDelayed} />
             )}
           </div>
         </div>

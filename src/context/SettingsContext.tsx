@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { DEVICE_TIMEZONE_ID } from '../lib/timezone'
 import { readStorage, writeStorage } from '../lib/storage'
 import type { SpoilerSettings } from '../lib/spoilers'
+import { DEFAULT_BROADCAST_DELAY_SECONDS, normalizeDelaySeconds } from '../lib/broadcastDelay'
 
 const STORAGE_KEY = 'slate.settings.v1'
 
@@ -9,11 +10,15 @@ export interface Settings {
   timezoneId: string
   favoriteTeamIds: string[]
   spoilers: SpoilerSettings
+  /** Seconds to hold live game data back, so the app trails the television
+   * broadcast instead of leading it. 0 is off. */
+  broadcastDelaySeconds: number
 }
 
 const DEFAULT_SETTINGS: Settings = {
   timezoneId: DEVICE_TIMEZONE_ID,
   favoriteTeamIds: [],
+  broadcastDelaySeconds: DEFAULT_BROADCAST_DELAY_SECONDS,
   spoilers: {
     globalEnabled: false,
     protectedGameIds: [],
@@ -27,6 +32,7 @@ interface SettingsContextValue {
   toggleFavoriteTeam: (teamId: string) => void
   isFavoriteTeam: (teamId: string) => boolean
   setGlobalSpoilers: (enabled: boolean) => void
+  setBroadcastDelaySeconds: (seconds: number) => void
   toggleProtectedGame: (gameId: string) => void
   toggleProtectedTeam: (teamId: string) => void
   isTeamSpoilerListed: (teamId: string) => boolean
@@ -39,7 +45,12 @@ function toggleInList(list: string[], id: string): string[] {
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(() => readStorage(STORAGE_KEY, DEFAULT_SETTINGS))
+  const [settings, setSettings] = useState<Settings>(() => {
+    const stored = readStorage(STORAGE_KEY, DEFAULT_SETTINGS)
+    // Settings persisted before the delay existed come back without it, and
+    // an unrecognized value would leave the app on a delay it can't name.
+    return { ...stored, broadcastDelaySeconds: normalizeDelaySeconds(stored.broadcastDelaySeconds) }
+  })
 
   useEffect(() => {
     writeStorage(STORAGE_KEY, settings)
@@ -52,6 +63,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       toggleFavoriteTeam: (teamId) =>
         setSettings((s) => ({ ...s, favoriteTeamIds: toggleInList(s.favoriteTeamIds, teamId) })),
       isFavoriteTeam: (teamId) => settings.favoriteTeamIds.includes(teamId),
+      setBroadcastDelaySeconds: (seconds) =>
+        setSettings((s) => ({ ...s, broadcastDelaySeconds: normalizeDelaySeconds(seconds) })),
       setGlobalSpoilers: (enabled) =>
         setSettings((s) => ({ ...s, spoilers: { ...s.spoilers, globalEnabled: enabled } })),
       toggleProtectedGame: (gameId) =>

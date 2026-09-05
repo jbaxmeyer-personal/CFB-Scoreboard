@@ -34,3 +34,20 @@
   letter-spacing: 0.04em;
   color: var(--text-tertiary);
 }
+
+/* The active broadcast delay, next to the wordmark. Present only when the
+   delay is on, so its absence is the "live" state and needs no badge of its
+   own. */
+.app-header__delay {
+  align-self: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-primary-dim);
+  background: var(--accent-primary-dim);
+  color: var(--accent-primary);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+}

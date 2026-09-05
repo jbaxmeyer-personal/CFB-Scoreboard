@@ -21,15 +21,16 @@ export function isGameProtected(game: Game, spoilers: SpoilerSettings): boolean 
 const SHOW_LIVE_BADGE_FOR_PROTECTED_GAMES = true
 
 /**
- * Every score/result/live-state field, stripped. Anything that renders a
- * game outside the explicit tap-to-reveal flow — grid rows, overview cards,
- * and any future feature (notifications, embeds, sharing) — must render
- * through this function rather than touching `Game` fields directly, so a
- * protected score has no path to leak out.
+ * Every score/result/live-state field, stripped, leaving only what the
+ * schedule already tells you: who is playing, when, and on what.
+ *
+ * Two features share this. No-spoilers mode strips a game the viewer asked
+ * never to see, and the broadcast delay strips a live game whose current
+ * state hasn't been released yet — different reasons, but the same set of
+ * fields has to go, so they use one implementation rather than two that can
+ * drift apart.
  */
-export function toSafeView(game: Game, spoilers: SpoilerSettings): Game {
-  if (!isGameProtected(game, spoilers)) return game
-
+export function stripLiveState(game: Game): Game {
   const isLive = game.state === 'in' && SHOW_LIVE_BADGE_FOR_PROTECTED_GAMES
 
   return {
@@ -44,5 +45,17 @@ export function toSafeView(game: Game, spoilers: SpoilerSettings): Game {
     period: undefined,
     clock: undefined,
     possession: undefined,
+    situation: undefined,
   }
+}
+
+/**
+ * The no-spoilers view of a game. Anything that renders a game outside the
+ * explicit tap-to-reveal flow — grid rows, overview cards, and any future
+ * feature (notifications, embeds, sharing) — must render through this
+ * function rather than touching `Game` fields directly, so a protected score
+ * has no path to leak out.
+ */
+export function toSafeView(game: Game, spoilers: SpoilerSettings): Game {
+  return isGameProtected(game, spoilers) ? stripLiveState(game) : game
 }
