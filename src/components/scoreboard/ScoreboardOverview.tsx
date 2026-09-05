@@ -10,13 +10,18 @@ import { GameCard } from './GameCard'
 import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 import { AppHeader } from '../shared/AppHeader'
+import { FilterBar } from '../shared/FilterBar'
+import { useFilteredGames } from '../../hooks/useFilteredGames'
 import { useScrollToCollapsedGame } from '../../hooks/useScrollToCollapsedGame'
 
 export function ScoreboardOverview() {
   const { settings } = useSettings()
   const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame, scoreboardAnchorDate, setScoreboardAnchorDate } =
     useViewState()
-  const { games, dateKeys, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
+  const { games: allGames, dateKeys, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
+  // Filtered before grouping, so the day strip reflects the filter too: a
+  // day with no Top 25 games shouldn't offer a tab that leads to nothing.
+  const { games, filtersActive, filterSummary } = useFilteredGames(allGames)
   const grouped = useGamesByDay(games, settings.timezoneId)
   useScrollToCollapsedGame(expandedGameId)
 
@@ -66,6 +71,8 @@ export function ScoreboardOverview() {
       {isLoading && <LoadingState label="Loading the scoreboard…" />}
       {isError && <ErrorState onRetry={refetch} />}
 
+      {!isLoading && !isError && <FilterBar />}
+
       {!isLoading && !isError && (
         <DayTabs
           days={days}
@@ -76,7 +83,9 @@ export function ScoreboardOverview() {
         />
       )}
 
-      {!isLoading && !isError && (activeDay?.games.length ?? 0) === 0 && <EmptyState />}
+      {!isLoading && !isError && (activeDay?.games.length ?? 0) === 0 && (
+        <EmptyState message={filtersActive ? `No games match ${filterSummary}.` : undefined} />
+      )}
 
       {!isLoading && !isError && activeDay && activeDay.games.length > 0 && (
         <div className="scoreboard-overview__grid">

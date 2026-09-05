@@ -23,11 +23,16 @@ export function ErrorState({ onRetry }: { onRetry: () => void }) {
   )
 }
 
-export function EmptyState() {
+/** `message` distinguishes "nothing is scheduled" from "your filters hid
+ * everything" — the same blank screen otherwise, but only one of them is
+ * something the viewer can undo. */
+export function EmptyState({ message }: { message?: string } = {}) {
   return (
     <div className="status-state">
-      <p className="status-state__title">No games on the slate</p>
-      <p className="status-state__body">Nothing scheduled for this window — check back closer to kickoff.</p>
+      <p className="status-state__title">{message ? 'No games match your filters' : 'No games on the slate'}</p>
+      <p className="status-state__body">
+        {message ?? 'Nothing scheduled for this window — check back closer to kickoff.'}
+      </p>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { NO_FILTERS, type GameFilters } from '../lib/gameFilters'
 
 export type Tab = 'schedule' | 'scoreboard' | 'settings'
 
@@ -6,6 +7,7 @@ const TAB_STORAGE_KEY = 'slate.tab.v1'
 const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v1'
 const EXPANDED_GAME_STORAGE_KEY = 'slate.expandedGame.v1'
 const SCOREBOARD_ANCHOR_STORAGE_KEY = 'slate.scoreboardAnchor.v1'
+const FILTERS_STORAGE_KEY = 'slate.filters.v1'
 const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'settings']
 
 function readStoredTab(): Tab {
@@ -22,6 +24,24 @@ function readStoredString(key: string): string | null {
     return localStorage.getItem(key)
   } catch {
     return null
+  }
+}
+
+/** Filters survive a reload, like the tab and day do. A filter you set and
+ * then lose on refresh is worse than no filter — you would not know why the
+ * slate looked short. Anything unparseable reads as no filters rather than
+ * trapping the app behind a filter it can't describe. */
+function readStoredFilters(): GameFilters {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY)
+    if (!raw) return NO_FILTERS
+    const parsed = JSON.parse(raw) as Partial<GameFilters>
+    return {
+      rankedOnly: parsed.rankedOnly === true,
+      conferenceId: typeof parsed.conferenceId === 'string' ? parsed.conferenceId : null,
+    }
+  } catch {
+    return NO_FILTERS
   }
 }
 
@@ -62,6 +82,11 @@ interface ViewStateValue {
    * one tap away and can't trap anyone. */
   teamPageId: string | null
   setTeamPageId: (teamId: string | null) => void
+  /** Shared by Slate and Scoreboard, like the selected day: they are two
+   * views onto the same slate, so filtering one and not the other would
+   * show two different answers to the same question. */
+  filters: GameFilters
+  setFilters: (filters: GameFilters) => void
 }
 
 const ViewStateContext = createContext<ViewStateValue | null>(null)
@@ -72,6 +97,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [expandedGameId, setExpandedGameId] = useState<string | null>(() => readStoredString(EXPANDED_GAME_STORAGE_KEY))
   const [scoreboardAnchorDate, setScoreboardAnchorDate] = useState<string | null>(() => readStoredString(SCOREBOARD_ANCHOR_STORAGE_KEY))
   const [teamPageId, setTeamPageId] = useState<string | null>(null)
+  const [filters, setFilters] = useState<GameFilters>(readStoredFilters)
 
   useEffect(() => {
     writeStoredValue(TAB_STORAGE_KEY, tab)
@@ -88,6 +114,10 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     writeStoredValue(SCOREBOARD_ANCHOR_STORAGE_KEY, scoreboardAnchorDate)
   }, [scoreboardAnchorDate])
+
+  useEffect(() => {
+    writeStoredValue(FILTERS_STORAGE_KEY, JSON.stringify(filters))
+  }, [filters])
 
 
   const value = useMemo<ViewStateValue>(
@@ -108,8 +138,10 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       setScoreboardAnchorDate,
       teamPageId,
       setTeamPageId,
+      filters,
+      setFilters,
     }),
-    [tab, selectedDateKey, expandedGameId, scoreboardAnchorDate, teamPageId],
+    [tab, selectedDateKey, expandedGameId, scoreboardAnchorDate, teamPageId, filters],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>
