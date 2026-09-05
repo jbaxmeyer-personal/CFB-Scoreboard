@@ -1,5 +1,5 @@
 import type { Game } from '../types/game'
-import type { Conference } from './espn'
+import type { Conference } from '../data/conferences'
 
 export interface GameFilters {
   /** Only games with at least one AP Top 25 team. */

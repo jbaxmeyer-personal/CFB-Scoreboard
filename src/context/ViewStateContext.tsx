@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NO_FILTERS, type GameFilters } from '../lib/gameFilters'
+import { isKnownConferenceId } from '../data/conferences'
 
 export type Tab = 'schedule' | 'scoreboard' | 'settings'
 
@@ -36,10 +37,13 @@ function readStoredFilters(): GameFilters {
     const raw = localStorage.getItem(FILTERS_STORAGE_KEY)
     if (!raw) return NO_FILTERS
     const parsed = JSON.parse(raw) as Partial<GameFilters>
-    return {
-      rankedOnly: parsed.rankedOnly === true,
-      conferenceId: typeof parsed.conferenceId === 'string' ? parsed.conferenceId : null,
-    }
+    // A conference id this build doesn't know — one saved when conferences
+    // were keyed by ESPN's numeric group ids, or a hand-edited value — would
+    // match no games at all, leaving an empty slate with a filter chip
+    // nobody could explain. Unknown reads as no conference filter.
+    const conferenceId =
+      typeof parsed.conferenceId === 'string' && isKnownConferenceId(parsed.conferenceId) ? parsed.conferenceId : null
+    return { rankedOnly: parsed.rankedOnly === true, conferenceId }
   } catch {
     return NO_FILTERS
   }

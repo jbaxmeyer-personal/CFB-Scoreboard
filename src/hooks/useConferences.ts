@@ -1,41 +1,23 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchConferences, seasonYearFromDate, type Conference } from '../lib/espn'
+import { CONFERENCES, CONFERENCES_BY_ID, type Conference } from '../data/conferences'
 
 export interface ConferencesResult {
   conferences: Conference[]
   byId: Map<string, Conference>
-  isLoading: boolean
-  isError: boolean
 }
 
 /**
  * The FBS conferences and their membership.
  *
- * `enabled` is what keeps this honest about its cost: building the list
- * takes one request for the conference list plus one per conference, so it
- * only runs once someone actually opens the conference filter. Nobody who
- * never touches it pays for it.
+ * A static table rather than a fetch. This used to walk ESPN's core API —
+ * one request for the conference list and one per conference — which meant
+ * a picker that had to show a loading state, could fail, and rested on a
+ * response shape that couldn't be checked from the build environment.
+ * Membership changes once a season, so paying for it at runtime bought
+ * nothing.
  *
- * Cached for the session with a long staleTime — conference membership
- * changes between seasons, not between refreshes — and never refetched on
- * an interval.
+ * Kept as a hook so callers don't change shape, and so swapping the source
+ * again later is a one-file edit.
  */
-export function useConferences(enabled: boolean): ConferencesResult {
-  const year = seasonYearFromDate(new Date().toISOString())
-  const query = useQuery({
-    queryKey: ['conferences', year],
-    queryFn: () => fetchConferences(year),
-    enabled,
-    staleTime: 24 * 60 * 60_000,
-    gcTime: 24 * 60 * 60_000,
-    retry: 1,
-  })
-
-  const conferences = query.data ?? []
-  return {
-    conferences,
-    byId: new Map(conferences.map((c) => [c.id, c])),
-    isLoading: query.isPending && query.isFetching,
-    isError: query.isError,
-  }
+export function useConferences(): ConferencesResult {
+  return { conferences: CONFERENCES, byId: CONFERENCES_BY_ID }
 }

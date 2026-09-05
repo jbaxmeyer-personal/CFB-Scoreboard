@@ -6,20 +6,16 @@ import { useConferences } from '../../hooks/useConferences'
 /**
  * Top 25 and conference filters, shared by Slate and Scoreboard.
  *
- * The conference list is deliberately not a native <select>. Building it
- * costs a request per conference, so it is fetched only when the picker is
- * opened — and a native select can't say "loading": the first tap would
- * open a wheel containing nothing but "All conferences", with the real list
- * arriving after it had already been dismissed. This dropdown can show the
- * fetch happening, so opening it once is enough.
+ * The conference list comes from a static table, so the picker opens with
+ * every conference already in it — no loading state, nothing to fail, and
+ * no request. It stays a custom dropdown rather than a native <select>
+ * because the chips either side of it are ours, and a native control in the
+ * middle of them looks like a different app.
  */
 export function FilterBar() {
   const { filters, setFilters } = useViewState()
   const [open, setOpen] = useState(false)
-  // Also needed when a conference is already chosen: the list is what turns
-  // a stored id back into a name.
-  const needsConferences = open || filters.conferenceId !== null
-  const { conferences, byId, isLoading, isError } = useConferences(needsConferences)
+  const { conferences, byId } = useConferences()
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -37,9 +33,7 @@ export function FilterBar() {
   }, [open])
 
   const selected = filters.conferenceId ? byId.get(filters.conferenceId) : undefined
-  const conferenceLabel = filters.conferenceId
-    ? (selected?.shortName ?? (isLoading ? 'Loading…' : 'Conference'))
-    : 'All conferences'
+  const conferenceLabel = selected?.shortName ?? 'All conferences'
 
   const choose = (conferenceId: string | null) => {
     setFilters({ ...filters, conferenceId })
@@ -79,10 +73,6 @@ export function FilterBar() {
             >
               All conferences
             </button>
-            {/* Reported, not left as a blank list — an empty menu reads as
-                "there are no conferences" rather than as a failed request. */}
-            {isLoading && <p className="filter-bar__menu-note">Loading conferences…</p>}
-            {isError && <p className="filter-bar__menu-note">Couldn't load conferences.</p>}
             {conferences.map((c) => (
               <button
                 key={c.id}
