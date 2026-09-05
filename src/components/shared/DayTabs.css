@@ -26,12 +26,6 @@
   color: #1a0f00;
 }
 
-/* A day in the window that has no games — still tappable, just quieter, so
-   the ten-day strip stays a stable ruler instead of reflowing midweek. */
-.day-tabs__tab--empty {
-  opacity: 0.45;
-}
-
 /* Date picker at the end of the strip, for jumping outside the window.
    A native date input so iOS gives its own wheel picker; the field itself
    is collapsed to the calendar glyph to keep it chip-sized. */

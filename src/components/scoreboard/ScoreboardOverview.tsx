@@ -18,16 +18,30 @@ export function ScoreboardOverview() {
   const { games, dateKeys, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
   const grouped = useGamesByDay(games, settings.timezoneId)
 
-  // Every day in the window gets a tab, whether or not it has games, so the
-  // strip is a stable ten-day ruler instead of reflowing as midweek thins
-  // out. Days outside the window (a late kickoff filed under the next day)
-  // are dropped rather than appended, which would push the ruler around.
+  // Only days that actually have games get a tab. The window is still ten
+  // days wide — that's what gets fetched — but the strip used to be a fixed
+  // ruler including the empty ones, and in college football most of the
+  // week is empty: a midweek tab was a tab that led to a blank screen.
+  // Days outside the window (a late kickoff filed under the next day) are
+  // still dropped rather than appended, which would extend the strip past
+  // what was fetched.
   const days = useMemo(() => {
     const byKey = new Map(grouped.map((d) => [d.dateKey, d]))
-    return dateKeys.map((dateKey) => byKey.get(dateKey) ?? { dateKey, games: [] })
+    return dateKeys.flatMap((dateKey) => byKey.get(dateKey) ?? [])
   }, [grouped, dateKeys])
 
-  const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : dateKeys[DAYS_BEFORE]
+  // The anchor day when it has games, otherwise the nearest day that does,
+  // looking forward first: landing on an empty Tuesday should show you
+  // Thursday's games rather than last Saturday's. `days` is in window
+  // order, so the first key past the anchor is the nearest one ahead and
+  // the last entry is the most recent one behind.
+  const defaultDateKey = useMemo(() => {
+    const anchorKey = dateKeys[DAYS_BEFORE]
+    if (days.some((d) => d.dateKey === anchorKey)) return anchorKey
+    return (days.find((d) => d.dateKey > anchorKey) ?? days[days.length - 1])?.dateKey
+  }, [days, dateKeys])
+
+  const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : defaultDateKey
 
   useEffect(() => {
     if (!selectedDateKey && activeDateKey) setSelectedDateKey(activeDateKey)

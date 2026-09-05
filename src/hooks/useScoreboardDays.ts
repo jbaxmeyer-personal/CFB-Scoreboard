@@ -10,9 +10,10 @@ export { DAYS_BEFORE, DAYS_AFTER } from '../lib/dayWindow'
 
 export interface ScoreboardDaysResult {
   games: Game[]
-  /** Every day in the window, in order — including days with no games, so
-   * the tab strip is a stable ten-day ruler rather than jumping around as
-   * the schedule thins out midweek. */
+  /** Every day the window fetched, in order, including days that turned out
+   * to have no games. Scoreboard filters these down to the days that do
+   * before building its tab strip; the full list is what defines the
+   * window's extent and its anchor. */
   dateKeys: string[]
   isLoading: boolean
   isError: boolean
