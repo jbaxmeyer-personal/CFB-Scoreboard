@@ -516,6 +516,39 @@ function sortPlaysChronologically(plays: EspnPlay[]): EspnPlay[] {
   })
 }
 
+/** Where the drive in progress began, for the field bar. */
+export interface CurrentDrive {
+  teamId?: string
+  teamAbbr?: string
+  /** Distance to the opponent's goal line at the drive's first snap. Same
+   * frame as a play's yardsToEndzone; converted to the bar's own axis by the
+   * component. */
+  startYardsToEndzone?: number
+}
+
+/**
+ * The in-progress drive's team and starting field position.
+ *
+ * Read from the drive object rather than derived by walking back through the
+ * play feed for a run of same-team plays: that walk breaks on exactly the
+ * plays worth getting right — a kickoff filed under the receiving team's
+ * drive starts before the drive does, and a turnover splits one drive into
+ * two. The drive says where it began; nothing here has to infer it.
+ *
+ * Everything is optional. A response without drive start data yields an
+ * object with no yard line, and the field bar draws no drive at all rather
+ * than a made-up one.
+ */
+export function normalizeCurrentDrive(response: EspnSummaryResponse | undefined): CurrentDrive | undefined {
+  const drive = response?.drives?.current
+  if (!drive) return undefined
+  return {
+    teamId: drive.team?.id,
+    teamAbbr: drive.team?.abbreviation,
+    startYardsToEndzone: drive.start?.yardsToEndzone,
+  }
+}
+
 export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   // Which drive each play came from, so the possessing team survives the
   // flattening. Keyed on the play object itself, which sorting and dedup

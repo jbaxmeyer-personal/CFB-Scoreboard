@@ -207,6 +207,11 @@ export interface EspnDrive {
   /** True when the drive ended in points (touchdown or field goal). */
   isScore?: boolean
   team?: { id?: string; abbreviation?: string }
+  /** Where the drive began. Same shape and frame as a play's `start`, whose
+   * yardsToEndzone this app already reads for the red zone — so this is the
+   * same bet rather than a new one. Optional throughout: a response without
+   * it just means the field bar can't show how far the drive has come. */
+  start?: { yardLine?: number; yardsToEndzone?: number; text?: string }
 }
 
 export interface EspnDrives {

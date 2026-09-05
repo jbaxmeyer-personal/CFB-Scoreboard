@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import './GameStats.css'
 import type { Game, GameBoxScore, GamePlay, StatLeader, Team, TeamStatLine } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
-import type { SummaryDiagnostics } from '../../lib/espn'
+import type { CurrentDrive, SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
 import { TeamLogo } from '../shared/TeamLogo'
@@ -99,7 +99,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
  * the two ends never swap and the ball moves realistically back and forth.
  * Unverified against a live response but degrades to nothing if the
  * situation data is missing entirely. */
-export function FieldPositionBar({ game }: { game: Game }) {
+export function FieldPositionBar({ game, drive }: { game: Game; drive?: CurrentDrive }) {
   const sit = game.situation
   if (!sit) return null
   const possessor = game.possession === 'home' ? game.home : game.possession === 'away' ? game.away : undefined
@@ -114,16 +114,46 @@ export function FieldPositionBar({ game }: { game: Game }) {
   // header, box score columns, etc.), not the reverse this shipped with
   // originally. Away drives left-to-right toward home's goal; home drives
   // right-to-left toward away's goal.
-  const fieldPosition = game.possession === 'home' ? 100 - sit.yardLine : sit.yardLine
-  const fillLeft = game.possession === 'home' ? fieldPosition : 0
-  const fillWidth = game.possession === 'home' ? 100 - fieldPosition : fieldPosition
+  const toAxis = (yardLineFromOwnGoal: number) =>
+    game.possession === 'home' ? 100 - yardLineFromOwnGoal : yardLineFromOwnGoal
+  const fieldPosition = toAxis(sit.yardLine)
+
+  // The fill is the drive: from where this possession began to where the
+  // ball is now. It used to run from the ball to the possessing team's own
+  // goal line, which grew as they advanced and so read as a drive the whole
+  // length of the field — a team taking over at midfield looked like it had
+  // gone ninety yards.
+  //
+  // Only drawn when the feed actually says where the drive started, and only
+  // when that drive belongs to the team with the ball — a drive object left
+  // over from the previous possession would draw a stretch of field nobody
+  // covered. Otherwise there is no fill at all, which says nothing rather
+  // than something false.
+  const driveIsCurrent =
+    drive?.startYardsToEndzone !== undefined &&
+    (drive.teamId === undefined || drive.teamId === possessor?.id || drive.teamAbbr === possessor?.abbreviation)
+  const driveStart = driveIsCurrent ? toAxis(100 - drive!.startYardsToEndzone!) : undefined
+  const fillLeft = driveStart === undefined ? 0 : Math.min(driveStart, fieldPosition)
+  const fillWidth = driveStart === undefined ? 0 : Math.abs(fieldPosition - driveStart)
+
+  // Which way they're going, on the fixed axis above: away attacks rightward
+  // toward home's goal, home attacks leftward toward away's.
+  const attackingLeft = game.possession === 'home'
 
   return (
     <div className="field-bar">
       <div className="field-bar__track">
-        <div className="field-bar__fill" style={{ left: `${fillLeft}%`, width: `${fillWidth}%`, background: color }} />
+        {fillWidth > 0 && (
+          <div className="field-bar__fill" style={{ left: `${fillLeft}%`, width: `${fillWidth}%`, background: color }} />
+        )}
         {possessor && (
-          <div className="field-bar__possessor" style={{ left: `${fieldPosition}%` }}>
+          <div
+            className={`field-bar__possessor${attackingLeft ? ' field-bar__possessor--left' : ''}`}
+            style={{ left: `${fieldPosition}%` }}
+          >
+            <span className="field-bar__arrow" aria-hidden="true">
+              {attackingLeft ? '\u25C0' : '\u25B6'}
+            </span>
             <TeamLogo team={possessor} size={18} />
           </div>
         )}
