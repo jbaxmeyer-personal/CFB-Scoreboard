@@ -90,15 +90,33 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   )
 }
 
+/** A yard line as the feed writes it — "ORE 34" — placed on the bar's axis,
+ * where 0 is the away team's goal line and 100 is the home team's.
+ *
+ * This text is the only field-position value that says what it means: the
+ * abbreviation names which half of the field the number counts from. It is
+ * also checkable, because that abbreviation has to be one of the two teams
+ * in this game — anything else, or any text not in this form, returns
+ * undefined so the caller falls back rather than placing the ball somewhere
+ * invented.
+ */
+function positionFromFieldText(text: string | undefined, game: Game): number | undefined {
+  const match = text?.trim().match(/^([A-Za-z&.'-]{2,6})\s+(\d{1,2})$/)
+  if (!match) return undefined
+  const yard = Number(match[2])
+  // A yard line runs 0 to 50 from each side; anything else isn't one.
+  if (!Number.isFinite(yard) || yard < 0 || yard > 50) return undefined
+  const side = match[1].toUpperCase()
+  if (side === game.away.abbreviation?.toUpperCase()) return yard
+  if (side === game.home.abbreviation?.toUpperCase()) return 100 - yard
+  return undefined
+}
+
 /** Live down/distance/field-position — only rendered while a game is
- * actually in progress (see ExpandedGame). ESPN's yardLine is 0-100 from
- * the possessing team's own goal line, but flipping which end is "0" every
- * time possession changes is disorienting on a compact widget — instead
- * this fixes home's goal on the left and away's on the right (like a real
- * broadcast graphic) and mirrors away's position onto that fixed axis, so
- * the two ends never swap and the ball moves realistically back and forth.
- * Unverified against a live response but degrades to nothing if the
- * situation data is missing entirely. */
+ * actually in progress (see ExpandedGame). The bar fixes away's goal on the
+ * left and home's on the right, like a broadcast graphic, so the two ends
+ * never swap when possession changes and the ball moves back and forth
+ * realistically. Degrades to nothing if the situation data is missing. */
 export function FieldPositionBar({ game, drive }: { game: Game; drive?: CurrentDrive }) {
   const sit = game.situation
   if (!sit) return null
@@ -109,35 +127,42 @@ export function FieldPositionBar({ game, drive }: { game: Game; drive?: CurrentD
   // halftime, etc. — so a real down is always 1-4, never a value to render.
   const hasDown = sit.down >= 1 && sit.down <= 4
 
-  // Away's goal is fixed on the left, home's on the right — matching the
-  // "away @ home" order used everywhere else in this app (the matchup
-  // header, box score columns, etc.), not the reverse this shipped with
-  // originally. Away drives left-to-right toward home's goal; home drives
-  // right-to-left toward away's goal.
-  const toAxis = (yardLineFromOwnGoal: number) =>
-    game.possession === 'home' ? 100 - yardLineFromOwnGoal : yardLineFromOwnGoal
-  const fieldPosition = toAxis(sit.yardLine)
-
-  // The fill is the drive: from where this possession began to where the
-  // ball is now. It used to run from the ball to the possessing team's own
-  // goal line, which grew as they advanced and so read as a drive the whole
-  // length of the field — a team taking over at midfield looked like it had
-  // gone ninety yards.
+  // The ball, on the fixed axis.
   //
-  // Only drawn when the feed actually says where the drive started, and only
-  // when that drive belongs to the team with the ball — a drive object left
-  // over from the previous possession would draw a stretch of field nobody
-  // covered. Otherwise there is no fill at all, which says nothing rather
-  // than something false.
+  // `possessionText` first, because it names the side it counts from. The
+  // numeric `yardLine` is the fallback, and it is measured from the HOME
+  // team's goal line — not, as this once assumed, from the goal line of
+  // whoever has the ball. Those two readings agree whenever the home team is
+  // driving, which is why the bar looked right until an away team had it and
+  // the ball appeared mirrored into the wrong half. Checked against four
+  // live states where the text gave the true spot: "ORE 34", "BOIS 42",
+  // "OHIO 37" and "HOU 40" all place correctly this way and only this way.
+  const fieldPosition = positionFromFieldText(sit.possessionText, game) ?? 100 - sit.yardLine
+
+  // The fill is the drive: from where this possession began to the ball. It
+  // used to run from the ball to the possessing team's own goal, which grew
+  // as they advanced and so read as a drive the length of the field.
+  //
+  // Drive start comes from its own text where the feed gives one, for the
+  // same reason as above; `yardsToEndzone` is the fallback, and that one is
+  // measured from the goal the possessing team is attacking, so it flips
+  // with possession.
   const driveIsCurrent =
-    drive?.startYardsToEndzone !== undefined &&
+    drive !== undefined &&
     (drive.teamId === undefined || drive.teamId === possessor?.id || drive.teamAbbr === possessor?.abbreviation)
-  const driveStart = driveIsCurrent ? toAxis(100 - drive!.startYardsToEndzone!) : undefined
+  const driveFromText = driveIsCurrent ? positionFromFieldText(drive.startText, game) : undefined
+  const driveFromYards =
+    driveIsCurrent && drive.startYardsToEndzone !== undefined
+      ? game.possession === 'away'
+        ? 100 - drive.startYardsToEndzone
+        : drive.startYardsToEndzone
+      : undefined
+  const driveStart = driveFromText ?? driveFromYards
   const fillLeft = driveStart === undefined ? 0 : Math.min(driveStart, fieldPosition)
   const fillWidth = driveStart === undefined ? 0 : Math.abs(fieldPosition - driveStart)
 
-  // Which way they're going, on the fixed axis above: away attacks rightward
-  // toward home's goal, home attacks leftward toward away's.
+  // Which way they're going: away attacks rightward toward home's goal,
+  // home leftward toward away's.
   const attackingLeft = game.possession === 'home'
 
   return (
