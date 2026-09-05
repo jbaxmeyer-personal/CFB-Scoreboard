@@ -181,9 +181,19 @@ export interface EspnPlay {
   homeScore?: number
   awayScore?: number
   scoringPlay?: boolean
-  /** Distance to the opponent's goal line at the snap — the red zone
-   * signal (<= 20), since the team box score carries no red zone stat. */
-  start?: { yardsToEndzone?: number }
+  /** State at the snap. `yardsToEndzone` is the red zone signal (<= 20),
+   * since the team box score carries no red zone stat. The down/distance
+   * fields drive the play row's "2nd & 7" label — ESPN's own preformatted
+   * text is preferred when present, with the numbers as the fallback, since
+   * which of these a response actually carries could not be checked live. */
+  start?: {
+    yardsToEndzone?: number
+    down?: number
+    distance?: number
+    isGoalToGo?: boolean
+    shortDownDistanceText?: string
+    downDistanceText?: string
+  }
 }
 
 export interface EspnDrive {

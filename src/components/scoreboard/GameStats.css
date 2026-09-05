@@ -403,3 +403,16 @@ a.game-stats__notice-retry {
   color: var(--text-secondary);
   word-break: break-word;
 }
+
+/* Down and distance, leading the play description. Set in the display face
+   and tinted so it reads as a label rather than as the first words of the
+   sentence that follows it. */
+.game-stats__play-down {
+  margin-right: 6px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-primary);
+  white-space: nowrap;
+}

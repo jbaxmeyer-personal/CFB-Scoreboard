@@ -57,6 +57,10 @@ export interface GameBoxScore {
 export interface GamePlay {
   id: string
   text: string
+  /** Down and distance at the snap, e.g. "2nd & 7" — shown in place of the
+   * formation the play text used to lead with. Absent on plays that have no
+   * down at all (kickoffs, extra points, end of quarter). */
+  downDistance?: string
   period: number
   clock: string
   homeScore: number
