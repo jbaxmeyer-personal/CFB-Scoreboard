@@ -31,7 +31,7 @@ export function ScheduleGrid() {
 
   return (
     <div className="schedule-grid">
-      <AppHeader>
+      <AppHeader showDelayBadge>
         <p className="schedule-grid__zone">
           Times shown in {zoneLabel(settings.timezoneId)} ({zoneAbbrNow(settings.timezoneId)})
         </p>

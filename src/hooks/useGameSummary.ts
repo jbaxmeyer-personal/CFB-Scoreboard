@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   boxScoreFromCoreStats,
@@ -12,6 +13,8 @@ import {
 } from '../lib/espn'
 import type { SummaryDiagnostics } from '../lib/espn'
 import type { Game, GameBoxScore, GamePlay } from '../types/game'
+import { useSettings } from '../context/SettingsContext'
+import { useDelayedValue } from './useDelayedValue'
 
 export interface GameSummaryResult {
   boxScore?: GameBoxScore
@@ -23,6 +26,9 @@ export interface GameSummaryResult {
   diagnostics?: SummaryDiagnostics
   /** Lets the empty/error state offer a retry without a full page reload. */
   refetch: () => void
+  /** The broadcast delay is holding this game's summary back — the panel
+   * should say so rather than reporting an empty feed. */
+  isDelayed: boolean
 }
 
 function hasBoxScoreContent(boxScore: GameBoxScore | undefined): boolean {
@@ -120,9 +126,17 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
       }
     : undefined
 
+  // Held back on the same terms as the score above it. Only while the game
+  // is live: a final game's summary has stopped changing, and a delay that
+  // outlives the broadcast would just be a blank panel.
+  const { settings } = useSettings()
+  const undelayed = useMemo(() => ({ boxScore, plays }), [boxScore, plays])
+  const delayed = useDelayedValue(undelayed, settings.broadcastDelaySeconds, isLive)
+
   return {
-    boxScore,
-    plays,
+    boxScore: delayed.value?.boxScore,
+    plays: delayed.value?.plays ?? [],
+    isDelayed: delayed.isDelayed,
     // The core fallbacks are gated behind the summary, so a pending core
     // request is still "loading" from the panel's point of view.
     isLoading: query.isLoading || coreStats.isLoading || corePlays.isLoading,

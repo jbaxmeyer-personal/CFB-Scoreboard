@@ -605,7 +605,7 @@ function SummaryNotice({
  * explanation instead of two components independently rendering nothing.
  */
 export function GameSummarySections({ game }: { game: Game }) {
-  const { plays, boxScore, isLoading, isError, diagnostics, refetch } = useGameSummary(game, game.state === 'in')
+  const { plays, boxScore, isLoading, isError, isDelayed, diagnostics, refetch } = useGameSummary(game, game.state === 'in')
 
   const hasPlays = plays.length > 0
   const hasBoxScore =
@@ -613,6 +613,9 @@ export function GameSummarySections({ game }: { game: Game }) {
     (boxScore.teamStats.length > 0 || boxScore.homeLeaders.length > 0 || boxScore.awayLeaders.length > 0)
 
   if (isLoading) return <p className="game-stats__hint">Loading stats…</p>
+  // An empty feed and a held-back one look identical from here, and the
+  // diagnostics notice would blame ESPN for a delay the viewer set.
+  if (isDelayed) return <p className="game-stats__hint">Held until your broadcast delay catches up…</p>
   if (!hasPlays && !hasBoxScore) {
     return (
       <SummaryNotice gameId={game.id} isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />

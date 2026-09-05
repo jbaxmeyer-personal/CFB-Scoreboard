@@ -61,7 +61,7 @@ export function ScoreboardOverview() {
 
   return (
     <div className="scoreboard-overview">
-      <AppHeader section="Scoreboard" />
+      <AppHeader section="Scoreboard" showDelayBadge />
 
       {isLoading && <LoadingState label="Loading the scoreboard…" />}
       {isError && <ErrorState onRetry={refetch} />}
