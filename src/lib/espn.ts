@@ -542,10 +542,12 @@ function sortPlaysChronologically(plays: EspnPlay[]): EspnPlay[] {
 export interface CurrentDrive {
   teamId?: string
   teamAbbr?: string
-  /** Distance to the opponent's goal line at the drive's first snap. Same
-   * frame as a play's yardsToEndzone; converted to the bar's own axis by the
-   * component. */
+  /** Distance to the opponent's goal line at the drive's first snap, so it
+   * flips with possession. Converted to the bar's axis by the component. */
   startYardsToEndzone?: number
+  /** The same spot as the feed writes it, e.g. "ORE 25". Preferred over the
+   * number above because it names the side it counts from. */
+  startText?: string
 }
 
 /**
@@ -568,6 +570,7 @@ export function normalizeCurrentDrive(response: EspnSummaryResponse | undefined)
     teamId: drive.team?.id,
     teamAbbr: drive.team?.abbreviation,
     startYardsToEndzone: drive.start?.yardsToEndzone,
+    startText: drive.start?.text,
   }
 }
 
