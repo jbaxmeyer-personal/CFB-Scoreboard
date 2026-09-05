@@ -6,29 +6,6 @@ import { registerSW } from 'virtual:pwa-register'
  * more than this does. */
 const POLL_MS = 15 * 60_000
 
-/** Applying an update reloads the app, so a bug that kept finding one would
- * be a boot loop. This is the floor between two automatic applies; the
- * Refresh button ignores it, because that one is a person asking. */
-const MIN_APPLY_GAP_MS = 60_000
-const LAST_APPLY_KEY = 'slate.lastUpdateApply.v1'
-
-function recentlyApplied(): boolean {
-  try {
-    const last = Number(sessionStorage.getItem(LAST_APPLY_KEY) ?? 0)
-    return Number.isFinite(last) && Date.now() - last < MIN_APPLY_GAP_MS
-  } catch {
-    return false
-  }
-}
-
-function markApplied(): void {
-  try {
-    sessionStorage.setItem(LAST_APPLY_KEY, String(Date.now()))
-  } catch {
-    // best-effort only; the guard is a safety net, not a requirement
-  }
-}
-
 /**
  * Drops the service worker and its caches, then reloads.
  *
@@ -39,7 +16,6 @@ function markApplied(): void {
  * load.
  */
 async function applyUpdate(): Promise<void> {
-  markApplied()
   try {
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations()
@@ -59,20 +35,18 @@ async function applyUpdate(): Promise<void> {
  * Keeps the installed app on the current build.
  *
  * An installed iOS app almost never does a real page load, so left alone the
- * service worker can serve the same build for days. Two things fix that.
+ * service worker can serve the same build for days. The fix is in finding
+ * the update, not in applying it behind your back: the check refetches the
+ * worker script with `cache: 'no-store'` before asking the registration to
+ * update, because `registration.update()` on its own is allowed to reuse the
+ * HTTP-cached copy of that script, and GitHub Pages serves it with cache
+ * headers. Without that the check could run on schedule, find the same bytes
+ * it already had, and conclude there was nothing new.
  *
- * The check itself refetches the worker script with `cache: 'no-store'`
- * before asking the registration to update. `registration.update()` on its
- * own is allowed to reuse the HTTP-cached copy of that script, and GitHub
- * Pages serves it with cache headers — so the check could run on schedule,
- * find the same bytes it already had, and conclude there was nothing new.
- * That is the version of this that looked like it worked and didn't.
- *
- * And a waiting update is applied automatically when the app is opened or
- * returned to, rather than waiting for someone to notice a banner. Coming
- * back to the app is the moment a reload costs nothing. An update that turns
- * up mid-session still just offers the banner, so the screen never changes
- * under someone who is reading it.
+ * Applying it stays a deliberate tap on the Refresh banner. An update is
+ * never installed on its own — a reload that arrives unannounced is worse
+ * than one you asked for, and the banner is how you know a new build landed
+ * at all.
  */
 export function usePwaUpdate() {
   const [needRefresh, setNeedRefresh] = useState(false)
@@ -82,19 +56,6 @@ export function usePwaUpdate() {
 
     let registration: ServiceWorkerRegistration | undefined
     let swUrl = ''
-    // True until the app has been visible for a moment, so the check that
-    // runs at startup counts as "on open" and applies straight away.
-    let openingOrResuming = true
-
-    const applyIfWaiting = () => {
-      if (!registration?.waiting) return false
-      if (openingOrResuming && !recentlyApplied()) {
-        void applyUpdate()
-        return true
-      }
-      setNeedRefresh(true)
-      return false
-    }
 
     const checkForUpdate = async () => {
       if (!registration || registration.installing) return
@@ -111,18 +72,13 @@ export function usePwaUpdate() {
       } catch {
         // Offline, or the check raced a reload. Try again next time.
       }
-      applyIfWaiting()
+      if (registration.waiting) setNeedRefresh(true)
     }
 
+    // Coming back to the app is the moment worth checking: an installed app
+    // can sit in the background for days without ever loading a page.
     const onVisible = () => {
-      if (document.visibilityState !== 'visible') return
-      openingOrResuming = true
-      void checkForUpdate()
-      // Anything found after this window is a mid-session update, which gets
-      // the banner rather than pulling the page out from under a reader.
-      window.setTimeout(() => {
-        openingOrResuming = false
-      }, 10_000)
+      if (document.visibilityState === 'visible') void checkForUpdate()
     }
 
     document.addEventListener('visibilitychange', onVisible)
@@ -133,16 +89,13 @@ export function usePwaUpdate() {
     registerSW({
       immediate: true,
       onNeedRefresh() {
-        if (!applyIfWaiting()) setNeedRefresh(true)
+        setNeedRefresh(true)
       },
       onRegisteredSW(url, reg) {
         swUrl = url
         registration = reg
         if (!reg) return
         void checkForUpdate()
-        window.setTimeout(() => {
-          openingOrResuming = false
-        }, 10_000)
       },
     })
 
