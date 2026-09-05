@@ -364,11 +364,37 @@ function formatDownDistance(down: number | undefined, distance: number | undefin
   return `${ordinal} & ${distance}`
 }
 
+/**
+ * Plays that carry no down, whatever the feed says.
+ *
+ * ESPN leaves `down` and `distance` set to the previous snap's values on
+ * anything that isn't a scrimmage play, so a kickoff and an end-of-quarter
+ * marker both arrived labelled "1st & 10". Checking the numbers can't catch
+ * that — they are a real down, just not this play's — so the description is
+ * what rules them out.
+ *
+ * Only whole words at the front, or the word kickoff anywhere, so a punt
+ * (which is a real fourth down) and a play that merely mentions the end of
+ * something are left alone.
+ */
+function hasNoDown(text: string | undefined): boolean {
+  if (!text) return true
+  return (
+    /\bkickoff\b/i.test(text) ||
+    /^end of\b/i.test(text) ||
+    /^(start|beginning) of\b/i.test(text) ||
+    /^timeout\b/i.test(text) ||
+    /^two[- ]minute warning\b/i.test(text) ||
+    /^coin toss\b/i.test(text)
+  )
+}
+
 /** Down and distance at the snap. ESPN's own preformatted text wins when
  * present — it already handles goal-to-go and any convention we'd otherwise
  * guess at — falling back to the raw numbers, and to nothing on a play that
- * has no down (kickoffs, extra points, end of quarter). */
+ * has no down. */
 function playDownDistance(play: EspnPlay): string | undefined {
+  if (hasNoDown(play.text)) return undefined
   const start = play.start
   if (!start) return undefined
   const preformatted = start.shortDownDistanceText?.trim()

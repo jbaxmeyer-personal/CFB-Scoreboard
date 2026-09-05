@@ -112,3 +112,38 @@
   border-color: var(--accent-primary) !important;
   color: #1a0f00 !important;
 }
+
+/* Feed diagnostics: a raw view of what ESPN sent, for answering questions
+   about its data by reading it instead of inferring it from the screen. */
+.settings-feed__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-feed__button {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel-raised);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-feed__sample {
+  margin: 10px 0 0;
+  padding: 10px;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+}
