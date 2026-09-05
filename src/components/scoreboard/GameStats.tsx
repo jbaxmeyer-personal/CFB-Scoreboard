@@ -348,14 +348,13 @@ function PlayRow({ play, team, reaction, onReact }: { play: GamePlay; team?: Tea
           Q{play.period}
           <br />
           {play.clock}
-          {/* Under the clock rather than inline with the description: it
-              keeps the text block's left edge straight down the feed, which
-              a logo of varying width in front of the words would not. */}
-          {team && (
-            <span className="game-stats__play-team" title={`${team.name} on offense`}>
-              <TeamLogo team={team} size={18} />
-            </span>
-          )}
+        </span>
+        {/* Its own column between the clock and the description, not inline
+            with the words: a fixed-width slot keeps every play's text on the
+            same left edge, and it holds that slot even on a play with no
+            attribution so the feed doesn't jog in and out. */}
+        <span className="game-stats__play-team" title={team ? `${team.name} on offense` : undefined}>
+          {team && <TeamLogo team={team} size={18} />}
         </span>
         <span className="game-stats__play-text">
           {/* Leads the description, in place of the formation ESPN prefixed

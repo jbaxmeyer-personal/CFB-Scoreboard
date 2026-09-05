@@ -417,11 +417,15 @@ a.game-stats__notice-retry {
   white-space: nowrap;
 }
 
-/* The possessing team's crest, under the quarter and clock. Sits in the meta
-   column rather than in front of the description so every play's text starts
-   at the same left edge. */
+/* The possessing team's crest, in its own column between the clock and the
+   description. Fixed width and always present — an empty slot on an
+   unattributed play keeps the text block's left edge straight down the feed
+   instead of jogging in and out. */
 .game-stats__play-team {
-  display: block;
-  margin-top: 5px;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  align-self: flex-start;
+  margin-top: 1px;
   opacity: 0.9;
 }
