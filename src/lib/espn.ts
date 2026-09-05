@@ -38,8 +38,25 @@ export function buildScoreboardUrl(dateParam: string, group = FBS_GROUP): string
   return `${SCOREBOARD_URL}?${params.toString()}`
 }
 
+/**
+ * Never let a live request be answered from the browser's HTTP cache.
+ *
+ * Without this a poll is only a *request to consider* fetching: the browser
+ * may satisfy it from cache, off the network entirely, for as long as the
+ * stored response is considered fresh. Polling every 30 seconds and getting
+ * the same cached payload back looks exactly like a scoreboard that has
+ * stopped moving, and it is invisible from the code — the query resolves,
+ * the timestamps update, the data does not. A live scoreboard has to be
+ * asking the network every time.
+ *
+ * `no-store` and nothing else: a Cache-Control *header* would make these
+ * cross-origin requests preflight, and ESPN's endpoints don't answer
+ * preflights, which would take the whole feed down rather than speed it up.
+ */
+const LIVE_FETCH: RequestInit = { cache: 'no-store' }
+
 export async function fetchScoreboard(dateParam: string): Promise<EspnScoreboardResponse> {
-  const res = await fetch(buildScoreboardUrl(dateParam))
+  const res = await fetch(buildScoreboardUrl(dateParam), LIVE_FETCH)
   if (!res.ok) {
     throw new Error(`ESPN scoreboard request failed: ${res.status}`)
   }
@@ -187,7 +204,7 @@ export function normalizeScoreboard(response: EspnScoreboardResponse): Game[] {
 // just yields empty sections instead of crashing.
 
 export async function fetchGameSummary(eventId: string): Promise<EspnSummaryResponse> {
-  const res = await fetch(`${SUMMARY_URL}?event=${eventId}`)
+  const res = await fetch(`${SUMMARY_URL}?event=${eventId}`, LIVE_FETCH)
   if (!res.ok) {
     throw new Error(`ESPN summary request failed: ${res.status}`)
   }
@@ -943,7 +960,7 @@ function timeoutSignal(): AbortSignal | undefined {
 }
 
 async function getCoreJson<T>(url: string, label: string): Promise<T> {
-  const res = await fetch(upgradeRef(url), { signal: timeoutSignal() })
+  const res = await fetch(upgradeRef(url), { ...LIVE_FETCH, signal: timeoutSignal() })
   if (!res.ok) throw new Error(`${label} HTTP ${res.status}`)
   return res.json() as Promise<T>
 }

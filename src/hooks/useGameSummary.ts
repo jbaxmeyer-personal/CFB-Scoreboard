@@ -68,10 +68,12 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
     // Shorter than the poll, for the same reason as the scoreboard's: a
     // summary that outlives its poll interval without going stale can't be
     // refetched on focus, which is exactly when it needs to be.
-    staleTime: 10_000,
+    staleTime: 4_000,
     // A final game's summary is done changing; only keep polling while the
-    // game is actually in progress.
-    refetchInterval: isLive ? 20_000 : false,
+    // game is actually in progress. One game at a time — this only runs for
+    // the game whose detail view is open — so it matches the live scoreboard
+    // rate rather than trailing it.
+    refetchInterval: isLive ? 5_000 : false,
   })
 
   const summaryBoxScore = query.data ? normalizeBoxScore(query.data, home, away) : undefined
