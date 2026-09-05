@@ -4,6 +4,7 @@ import { TeamLogo } from '../shared/TeamLogo'
 import { ProtectedToggle } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
+import { GAME_ANCHOR_ATTR } from '../../hooks/useScrollToCollapsedGame'
 
 interface GameChipProps {
   game: Game
@@ -38,6 +39,7 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
 
   return (
     <div
+      {...{ [GAME_ANCHOR_ATTR]: game.id }}
       role="button"
       tabIndex={0}
       className={classes}
