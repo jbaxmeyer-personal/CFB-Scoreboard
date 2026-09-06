@@ -350,7 +350,7 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
  * making that cost a tap per category was worse than the long panel it was
  * meant to avoid. Each still collapses, for folding away the ones you don't
  * care about. */
-function PlayerCategory({ category }: { category: PlayerStatCategory }) {
+export function PlayerCategory({ category }: { category: PlayerStatCategory }) {
   const [open, setOpen] = useState(true)
   return (
     <div className="player-stats__category">
@@ -374,8 +374,10 @@ function PlayerCategory({ category }: { category: PlayerStatCategory }) {
             <thead>
               <tr>
                 <th scope="col">Player</th>
-                {category.columns.map((column) => (
-                  <th key={column} scope="col">
+                {/* Keyed by position, not by label: ESPN's own passing
+                    category lists QBR twice, so a label is not unique. */}
+                {category.columns.map((column, i) => (
+                  <th key={i} scope="col">
                     {column}
                   </th>
                 ))}
@@ -386,7 +388,7 @@ function PlayerCategory({ category }: { category: PlayerStatCategory }) {
                 <tr key={row.playerName}>
                   <th scope="row">{row.playerName}</th>
                   {row.stats.map((stat, i) => (
-                    <td key={category.columns[i]}>{stat}</td>
+                    <td key={i}>{stat}</td>
                   ))}
                 </tr>
               ))}
