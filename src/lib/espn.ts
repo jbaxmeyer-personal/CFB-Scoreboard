@@ -1194,22 +1194,12 @@ function statDisplay(map: Map<string, EspnTeamStatEntry>, name: string, perGame:
   return (perGame ? stat.perGameDisplayValue : undefined) ?? stat.displayValue
 }
 
-/** ESPN doesn't expose a single "yards per play" field — derive it from the
- * season total yards and total offensive plays, both confirmed present on
- * both the team's own stats and (separately) the opponent side. */
-function yardsPerPlay(map: Map<string, EspnTeamStatEntry>): string | undefined {
-  const yards = map.get('totalYards')?.value
-  const plays = map.get('totalOffensivePlays')?.value
-  if (yards === undefined || plays === undefined || plays === 0) return undefined
-  return (yards / plays).toFixed(1)
-}
-
 interface SeasonStatDef {
   label: string
   section: 'offense' | 'defense' | 'turnovers'
   /** The ESPN stat this row reads, used to look up a national rank on the
-   * team page. Absent for derived rows (yards per play), which have no
-   * single underlying stat and so no rank. */
+   * team page. Optional so a derived row — one with no single underlying
+   * stat, and so no rank — remains expressible. */
   rankKey?: string
   // Lower is better for allowed/defense stats (and for turnovers) — flips
   // which team's bar segment reads as "ahead" rather than just "bigger".
@@ -1226,7 +1216,6 @@ const SEASON_STAT_DEFS: SeasonStatDef[] = [
   { label: 'Passing Yards Per Game', section: 'offense', rankKey: 'passingYardsPerGame', get: (own) => statDisplay(own, 'passingYardsPerGame', false) },
   { label: 'Rushing Yards Per Game', section: 'offense', rankKey: 'rushingYardsPerGame', get: (own) => statDisplay(own, 'rushingYardsPerGame', false) },
   { label: 'First Downs Per Game', section: 'offense', rankKey: 'firstDowns', get: (own) => statDisplay(own, 'firstDowns', true) },
-  { label: 'Yards Per Play', section: 'offense', get: (own) => yardsPerPlay(own) },
   { label: 'Passing Yards Per Play', section: 'offense', rankKey: 'yardsPerPassAttempt', get: (own) => statDisplay(own, 'yardsPerPassAttempt', false) },
   { label: 'Rushing Yards Per Play', section: 'offense', rankKey: 'yardsPerRushAttempt', get: (own) => statDisplay(own, 'yardsPerRushAttempt', false) },
   // Defense (all "allowed" — lower is better, so bars invert)
@@ -1234,7 +1223,6 @@ const SEASON_STAT_DEFS: SeasonStatDef[] = [
   { label: 'Total Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'yardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'yardsPerGame', false) },
   { label: 'Passing Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'passingYardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'passingYardsPerGame', false) },
   { label: 'Rushing Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'rushingYardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'rushingYardsPerGame', false) },
-  { label: 'Yards Allowed Per Play', section: 'defense', invert: true, get: (_own, allowed) => yardsPerPlay(allowed) },
   { label: 'Passing Yards Allowed Per Play', section: 'defense', invert: true, rankKey: 'yardsPerPassAttempt', get: (_own, allowed) => statDisplay(allowed, 'yardsPerPassAttempt', false) },
   { label: 'Rushing Yards Allowed Per Play', section: 'defense', invert: true, rankKey: 'yardsPerRushAttempt', get: (_own, allowed) => statDisplay(allowed, 'yardsPerRushAttempt', false) },
   // Turnovers — giving the ball away is bad (fewer is better), taking it
