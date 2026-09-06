@@ -20,9 +20,17 @@ import type { PlayerStatCategory } from '../types/game'
 /** Longest-play columns take the best of the season, not the sum of them. */
 const MAX_COLUMNS = new Set(['LONG', 'LNG'])
 
-/** Games played, counted here rather than read from anywhere — a player is
- * credited with a game in a category when they have a line in it. */
-const GAMES_PLAYED = 'GP'
+/** Yards per game, computed here from figures this file already has exactly:
+ * the season's yards, which are summed, over the games the player actually
+ * appeared in, which are counted. Unlike the averages ESPN reports per game,
+ * this one can be derived rather than guessed at — which is why it is the
+ * one average that comes back.
+ *
+ * Only for the categories where a per-game yardage is the number people
+ * quote. A defensive back's tackles per game is not a stat anyone asks for,
+ * and inventing it for every category would bury the totals. */
+const PER_GAME_YARDS = 'YDS/G'
+const PER_GAME_CATEGORIES = new Set(['passing', 'rushing', 'receiving'])
 
 const COMBINED = /^(\d+)\/(\d+)$/
 const INTEGER = /^-?\d+$/
@@ -68,6 +76,10 @@ function combine(label: string, values: string[]): string | undefined {
  * screens read the same feed the same way. Columns that can't be added are
  * dropped from the header as well as the rows, so nothing is left sitting
  * under a heading it doesn't answer to.
+ *
+ * The one column added back is yards per game, and only where it is the
+ * number people quote — see PER_GAME_YARDS. Games played is counted to
+ * divide by it and is not shown: it is the workings, not the answer.
  */
 export function aggregateSeasonPlayers(perGame: PlayerStatCategory[][]): PlayerStatCategory[] {
   // Category -> column labels, in the order the feed first gave them.
@@ -116,22 +128,29 @@ export function aggregateSeasonPlayers(perGame: PlayerStatCategory[][]): PlayerS
     if (keep.length === 0) continue
 
     const appearances = gamesByCategory.get(name)!
-    const rows = [...players.entries()].map(([playerName, cells]) => ({
-      playerName,
-      stats: [String(appearances.get(playerName) ?? 0), ...keep.map((i) => combine(header.columns[i], cells[i])!)],
-    }))
-    // Most productive first, by the column most likely to be yardage, else
-    // by games played — a season table sorted by whoever ESPN listed first
-    // reads as unsorted.
-    const sortIndex = keep.findIndex((i) => header.columns[i].toUpperCase() === 'YDS')
-    rows.sort((a, b) => Number(b.stats[sortIndex + 1] ?? b.stats[0]) - Number(a.stats[sortIndex + 1] ?? a.stats[0]))
+    const yardsAt = keep.findIndex((i) => header.columns[i].toUpperCase() === 'YDS')
+    const showPerGame = yardsAt !== -1 && PER_GAME_CATEGORIES.has(name.toLowerCase())
 
-    categories.push({
-      name,
-      label: header.label,
-      columns: [GAMES_PLAYED, ...keep.map((i) => header.columns[i])],
-      rows,
+    const rows = [...players.entries()].map(([playerName, cells]) => {
+      const stats = keep.map((i) => combine(header.columns[i], cells[i])!)
+      if (showPerGame) {
+        const games = appearances.get(playerName) ?? 0
+        const yards = Number(stats[yardsAt])
+        // Inserted beside the total it comes from, so the two read together.
+        stats.splice(yardsAt + 1, 0, games > 0 && Number.isFinite(yards) ? (yards / games).toFixed(1) : '—')
+      }
+      return { playerName, stats }
     })
+
+    // Most productive first. A season table in the order ESPN happened to
+    // list people reads as unsorted.
+    const sortAt = yardsAt === -1 ? 0 : yardsAt
+    rows.sort((a, b) => Number(b.stats[sortAt]) - Number(a.stats[sortAt]))
+
+    const columns = keep.map((i) => header.columns[i])
+    if (showPerGame) columns.splice(yardsAt + 1, 0, PER_GAME_YARDS)
+
+    categories.push({ name, label: header.label, columns, rows })
   }
   return categories
 }
