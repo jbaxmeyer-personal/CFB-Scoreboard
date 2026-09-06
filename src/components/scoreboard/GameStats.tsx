@@ -404,17 +404,26 @@ function PlayerBoxScore({ boxScore, home, away }: { boxScore: GameBoxScore; home
     <>
       <div className="game-stats__section-head">
         <h3 className="game-stats__title">Player Stats</h3>
-        <div className="game-stats__play-filter" role="group" aria-label="Which team's players to show">
-          {(['away', 'home'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`game-stats__play-filter-option${side === option ? ' game-stats__play-filter-option--active' : ''}`}
-              onClick={() => setSide(option)}
-            >
-              {(option === 'home' ? home : away).abbreviation}
-            </button>
-          ))}
+        {/* Its own control rather than the play filter's styling, which is a
+            pair of small text pills. This one is a choice between two teams,
+            so it carries their crests and is sized to be hit while
+            scrolling. */}
+        <div className="player-stats__teams" role="group" aria-label="Which team's players to show">
+          {(['away', 'home'] as const).map((option) => {
+            const team = option === 'home' ? home : away
+            return (
+              <button
+                key={option}
+                type="button"
+                className={`player-stats__team${side === option ? ' player-stats__team--active' : ''}`}
+                onClick={() => setSide(option)}
+                aria-pressed={side === option}
+              >
+                <TeamLogo team={team} size={20} />
+                {team.abbreviation}
+              </button>
+            )
+          })}
         </div>
       </div>
       {categories.length === 0 ? (

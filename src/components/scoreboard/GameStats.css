@@ -472,6 +472,45 @@ a.game-stats__notice-retry {
   border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
 }
 
+.player-stats__teams {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.player-stats__team {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+  border-radius: 999px;
+  background: none;
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* The crest reads as part of the button rather than an icon beside it, and
+   dims with the label on the side that isn't selected. */
+.player-stats__team img {
+  display: block;
+  opacity: 0.55;
+}
+
+.player-stats__team--active {
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.player-stats__team--active img {
+  opacity: 1;
+}
+
 .player-stats__heading {
   display: flex;
   align-items: baseline;
