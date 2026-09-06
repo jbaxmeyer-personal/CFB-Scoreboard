@@ -346,56 +346,45 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
 
 /** One category's table — passing, kick returns, whatever the game had.
  *
- * Open by default: the reason to come down here is to read the numbers, and
- * making that cost a tap per category was worse than the long panel it was
- * meant to avoid. Each still collapses, for folding away the ones you don't
- * care about. */
+ * Always open. It was collapsible when the worry was a dozen categories
+ * burying the play-by-play, but the reason to scroll down here is to read
+ * the numbers, and a heading that hides them is a tap between someone and
+ * the thing they came for. */
 export function PlayerCategory({ category }: { category: PlayerStatCategory }) {
-  const [open, setOpen] = useState(true)
   return (
     <div className="player-stats__category">
-      <button
-        type="button"
-        className="player-stats__toggle"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="player-stats__toggle-caret" aria-hidden="true">
-          {open ? '▾' : '▸'}
-        </span>
+      <h4 className="player-stats__heading">
         {category.label}
-        <span className="player-stats__toggle-count">{category.rows.length}</span>
-      </button>
-      {open && (
-        // Its own horizontal scroller: some categories carry eight or nine
-        // columns, and the page itself must never scroll sideways.
-        <div className="player-stats__scroll">
-          <table className="player-stats__table">
-            <thead>
-              <tr>
-                <th scope="col">Player</th>
-                {/* Keyed by position, not by label: ESPN's own passing
-                    category lists QBR twice, so a label is not unique. */}
-                {category.columns.map((column, i) => (
-                  <th key={i} scope="col">
-                    {column}
-                  </th>
+        <span className="player-stats__count">{category.rows.length}</span>
+      </h4>
+      {/* Its own horizontal scroller: some categories carry eight or nine
+          columns, and the page itself must never scroll sideways. */}
+      <div className="player-stats__scroll">
+        <table className="player-stats__table">
+          <thead>
+            <tr>
+              <th scope="col">Player</th>
+              {/* Keyed by position, not by label: ESPN's own passing
+                  category lists QBR twice, so a label is not unique. */}
+              {category.columns.map((column, i) => (
+                <th key={i} scope="col">
+                  {column}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {category.rows.map((row) => (
+              <tr key={row.playerName}>
+                <th scope="row">{row.playerName}</th>
+                {row.stats.map((stat, i) => (
+                  <td key={i}>{stat}</td>
                 ))}
               </tr>
-            </thead>
-            <tbody>
-              {category.rows.map((row) => (
-                <tr key={row.playerName}>
-                  <th scope="row">{row.playerName}</th>
-                  {row.stats.map((stat, i) => (
-                    <td key={i}>{stat}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
