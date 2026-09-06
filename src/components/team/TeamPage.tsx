@@ -7,6 +7,9 @@ import { useSpoilerSafeGames } from '../../hooks/useSpoilerSafeGames'
 import { useSettings } from '../../context/SettingsContext'
 import { formatDayChip, formatKickoffTime } from '../../lib/timezone'
 import { LoadingState } from '../shared/StatusStates'
+import { PlayerCategory } from '../scoreboard/GameStats'
+import { useSeasonPlayerStats } from '../../hooks/useSeasonPlayerStats'
+import { useState } from 'react'
 
 const SECTION_LABEL: Record<TeamProfileSection, string> = {
   offense: 'Offense',
@@ -134,6 +137,8 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
           ))}
         </div>
       </section>
+      <SeasonPlayerStatsSection teamId={team.id} year={year} />
+
       <section className="team-page__section">
         <h3 className="team-page__title">{year} Season Stats</h3>
         {statsLoading && <LoadingState label="Loading season stats…" />}
@@ -147,5 +152,61 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
       </section>
 
     </div>
+  )
+}
+
+/**
+ * Every player's season line for this team.
+ *
+ * Behind a button rather than loaded with the page, because of where the
+ * data has to come from. ESPN publishes no per-team source for season player
+ * stats — the roster carries bios, the team statistics response carries team
+ * totals, the core API would be a request per athlete, and the one endpoint
+ * with the right shape cannot be filtered to a team, which three rounds of
+ * probing a real device established rather than assumed. So this reads the
+ * league-wide table and filters it, and that download is thousands of
+ * athletes. Nobody who merely opened a team page should pay for it.
+ *
+ * Once paid, it is paid for the session and for every team: the cache holds
+ * the league, not this team's slice of it.
+ */
+function SeasonPlayerStatsSection({ teamId, year }: { teamId: string; year: number }) {
+  const [requested, setRequested] = useState(false)
+  const { categories, isLoading, isError, leagueAthletes, pagesFetched, truncated } = useSeasonPlayerStats(
+    teamId,
+    year,
+    requested,
+  )
+
+  return (
+    <section className="team-page__section">
+      <h3 className="team-page__title">{year} Player Stats</h3>
+      {!requested && (
+        <>
+          <p className="team-page__hint">
+            ESPN has no per-team source for these, so this reads the league-wide table and picks out {"this team's"}{' '}
+            players. It is a few large requests, shared with every other team page once loaded.
+          </p>
+          <button type="button" className="team-page__load" onClick={() => setRequested(true)}>
+            Load player stats
+          </button>
+        </>
+      )}
+      {isLoading && <LoadingState label="Reading the league table…" />}
+      {isError && <p className="team-page__hint">Couldn’t load player stats.</p>}
+      {requested && !isLoading && !isError && categories.length === 0 && (
+        <p className="team-page__hint">No {year} player stats posted for this team yet.</p>
+      )}
+      {categories.map((category) => (
+        <PlayerCategory key={category.name} category={category} />
+      ))}
+      {categories.length > 0 && (
+        <p className="team-page__hint">
+          From {leagueAthletes?.toLocaleString()} athletes across {pagesFetched} request
+          {pagesFetched === 1 ? '' : 's'}.
+          {truncated ? ' The league table was longer than the page limit, so a player may be missing.' : ''}
+        </p>
+      )}
+    </section>
   )
 }
