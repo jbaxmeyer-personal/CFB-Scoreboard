@@ -346,11 +346,12 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
 
 /** One category's table — passing, kick returns, whatever the game had.
  *
- * Collapsed by default. A full box score is a dozen of these per team, and
- * unrolled they bury the play-by-play under a screen and a half of numbers
- * that nobody opened the game to read first. */
+ * Open by default: the reason to come down here is to read the numbers, and
+ * making that cost a tap per category was worse than the long panel it was
+ * meant to avoid. Each still collapses, for folding away the ones you don't
+ * care about. */
 function PlayerCategory({ category }: { category: PlayerStatCategory }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   return (
     <div className="player-stats__category">
       <button
