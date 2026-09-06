@@ -7,6 +7,8 @@ import { TIMEZONE_OPTIONS, DEVICE_TIMEZONE_ID, getDeviceTimezone } from '../../l
 import { TeamSearchPicker } from './TeamSearchPicker'
 import { BROADCAST_DELAY_OPTIONS } from '../../lib/broadcastDelay'
 import { buildFeedSample } from '../../lib/feedSample'
+import { probeTeamPlayerSources } from '../../lib/teamPlayerProbe'
+import { seasonYearFromDate } from '../../lib/espn'
 import { useViewState } from '../../context/ViewStateContext'
 import type { EspnScoreboardResponse, EspnSummaryResponse } from '../../types/espn'
 import type { Team } from '../../types/game'
@@ -26,8 +28,11 @@ export function SettingsScreen() {
   const [protectPrompt, setProtectPrompt] = useState<Team | null>(null)
   const [feedSample, setFeedSample] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [probeOutput, setProbeOutput] = useState<string | null>(null)
+  const [probing, setProbing] = useState(false)
+  const [probeCopied, setProbeCopied] = useState(false)
   const queryClient = useQueryClient()
-  const { expandedGameId } = useViewState()
+  const { expandedGameId, teamPageId } = useViewState()
 
   // Reads the responses already in the cache — no new requests, and nothing
   // is interpreted on the way out.
@@ -60,6 +65,36 @@ export function SettingsScreen() {
       }),
     )
     setCopied(false)
+  }
+
+  // Unlike the sample above, this one does make requests — that is the whole
+  // point of it. It runs on a device that can reach ESPN, against endpoints
+  // nothing in the app reads yet, to find out what season player stats
+  // actually look like before any of it is built.
+  async function runTeamProbe() {
+    if (!teamPageId) {
+      setProbeOutput('Open a team page first (tap a team name in an expanded game), then come back here.')
+      return
+    }
+    setProbing(true)
+    setProbeCopied(false)
+    try {
+      setProbeOutput(await probeTeamPlayerSources(teamPageId, seasonYearFromDate(new Date().toISOString())))
+    } catch (e) {
+      setProbeOutput(`Probe failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setProbing(false)
+    }
+  }
+
+  async function copyProbeOutput() {
+    if (!probeOutput) return
+    try {
+      await navigator.clipboard.writeText(probeOutput)
+      setProbeCopied(true)
+    } catch {
+      setProbeCopied(false)
+    }
   }
 
   async function copyFeedSample() {
@@ -139,6 +174,27 @@ export function SettingsScreen() {
           )}
         </div>
         {feedSample && <pre className="settings-feed__sample">{feedSample}</pre>}
+      </section>
+
+      <section className="settings-section">
+        <h2 className="settings-section__title">Season Player Stats Probe</h2>
+        <p className="settings-section__hint">
+          Asks ESPN which of its endpoints carries per-player season stats, and reports what comes back verbatim —
+          status, top-level keys, and a trimmed excerpt. Nothing in the app reads this; it exists so the feature can be
+          built against a real response instead of a guess. Open a team page first, then run it here and send me the
+          output.
+        </p>
+        <div className="settings-feed__actions">
+          <button type="button" className="settings-feed__button" onClick={runTeamProbe} disabled={probing}>
+            {probing ? 'Asking ESPN…' : 'Run probe'}
+          </button>
+          {probeOutput && (
+            <button type="button" className="settings-feed__button" onClick={copyProbeOutput}>
+              {probeCopied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
+        {probeOutput && <pre className="settings-feed__sample">{probeOutput}</pre>}
       </section>
 
       <section className="settings-section">

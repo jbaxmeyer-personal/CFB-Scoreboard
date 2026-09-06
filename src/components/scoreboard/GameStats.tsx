@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import './GameStats.css'
-import type { Game, GameBoxScore, GamePlay, StatLeader, Team, TeamStatLine } from '../../types/game'
+import type { Game, GameBoxScore, GamePlay, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import type { CurrentDrive, SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
@@ -344,10 +344,101 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
   )
 }
 
+/** One category's table — passing, kick returns, whatever the game had.
+ *
+ * Collapsed by default. A full box score is a dozen of these per team, and
+ * unrolled they bury the play-by-play under a screen and a half of numbers
+ * that nobody opened the game to read first. */
+function PlayerCategory({ category }: { category: PlayerStatCategory }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="player-stats__category">
+      <button
+        type="button"
+        className="player-stats__toggle"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="player-stats__toggle-caret" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+        {category.label}
+        <span className="player-stats__toggle-count">{category.rows.length}</span>
+      </button>
+      {open && (
+        // Its own horizontal scroller: some categories carry eight or nine
+        // columns, and the page itself must never scroll sideways.
+        <div className="player-stats__scroll">
+          <table className="player-stats__table">
+            <thead>
+              <tr>
+                <th scope="col">Player</th>
+                {category.columns.map((column) => (
+                  <th key={column} scope="col">
+                    {column}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {category.rows.map((row) => (
+                <tr key={row.playerName}>
+                  <th scope="row">{row.playerName}</th>
+                  {row.stats.map((stat, i) => (
+                    <td key={category.columns[i]}>{stat}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** The full individual box score, one team at a time.
+ *
+ * One team at a time rather than side by side: these are wide tables of
+ * small numbers, and two of them on a phone would mean either four-point
+ * type or a page that scrolls sideways. The toggle costs a tap and keeps
+ * every column readable. */
+function PlayerBoxScore({ boxScore, home, away }: { boxScore: GameBoxScore; home: Team; away: Team }) {
+  const [side, setSide] = useState<'away' | 'home'>('away')
+  const categories = side === 'home' ? boxScore.homePlayers : boxScore.awayPlayers
+  const team = side === 'home' ? home : away
+
+  return (
+    <>
+      <div className="game-stats__section-head">
+        <h3 className="game-stats__title">Player Stats</h3>
+        <div className="game-stats__play-filter" role="group" aria-label="Which team's players to show">
+          {(['away', 'home'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`game-stats__play-filter-option${side === option ? ' game-stats__play-filter-option--active' : ''}`}
+              onClick={() => setSide(option)}
+            >
+              {(option === 'home' ? home : away).abbreviation}
+            </button>
+          ))}
+        </div>
+      </div>
+      {categories.length === 0 ? (
+        <p className="game-stats__hint">No individual stats for {team.abbreviation} yet.</p>
+      ) : (
+        categories.map((category) => <PlayerCategory key={category.name} category={category} />)
+      )}
+    </>
+  )
+}
+
 function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: Team; away: Team }) {
   const hasStats = boxScore.teamStats.length > 0
   const hasLeaders = boxScore.homeLeaders.length > 0 || boxScore.awayLeaders.length > 0
-  if (!hasStats && !hasLeaders) return null
+  const hasPlayers = boxScore.homePlayers.length > 0 || boxScore.awayPlayers.length > 0
+  if (!hasStats && !hasLeaders && !hasPlayers) return null
 
   const awayColor = resolveAwayBarColor(home, away)
   return (
@@ -379,6 +470,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
           </div>
         </>
       )}
+      {hasPlayers && <PlayerBoxScore boxScore={boxScore} home={home} away={away} />}
     </div>
   )
 }

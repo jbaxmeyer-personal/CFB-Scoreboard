@@ -44,12 +44,35 @@ export interface TeamStatLine {
   invert?: boolean
 }
 
+/** One category of a team's individual stats for a game — passing, rushing,
+ * defensive, kick returns, whatever ESPN sends for that game.
+ *
+ * The columns are ESPN's own headers for the category, carried through
+ * rather than mapped onto a fixed set of fields: the categories differ by
+ * sport and by game (a game with no punt returns has no punt-return
+ * category at all), and inventing a schema for them would mean dropping
+ * whatever didn't fit it. */
+export interface PlayerStatCategory {
+  /** ESPN's key for the category, e.g. "kickReturns". Also the React key. */
+  name: string
+  /** What to show as the section heading, derived from the key. */
+  label: string
+  /** Column headers, e.g. ["C/ATT", "YDS", "AVG", "TD", "INT"]. */
+  columns: string[]
+  rows: { playerName: string; stats: string[] }[]
+}
+
 /** This-game box score — only ever fetched/shown once a game is live or
  * final, and only rendered behind the same spoiler gate as the score. */
 export interface GameBoxScore {
   teamStats: TeamStatLine[]
   homeLeaders: StatLeader[]
   awayLeaders: StatLeader[]
+  /** Every individual's line, by category. The leaders above are the first
+   * athlete of three of these categories; this is the rest of the box
+   * score. Empty when ESPN sent no player stats for the game. */
+  homePlayers: PlayerStatCategory[]
+  awayPlayers: PlayerStatCategory[]
 }
 
 /** One play from the live play-by-play feed — same spoiler-gating rules as
