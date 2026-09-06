@@ -1,173 +1,137 @@
 import type { PlayerStatCategory } from '../types/game'
 
 /**
- * Season stats for every player on one team.
+ * One team's season player stats, added up from that team's own games.
  *
- * ESPN has no per-team source for these. Three rounds of probing a real
- * device settled it: the roster carries bios and no statistics; the team
- * statistics response carries team totals only; the core API needs a request
- * per athlete (105 for Indiana) and the athlete it returns has no statistics
- * link, so it would be more than one each; and `athletes/{id}/stats` is a
- * 404.
+ * ESPN publishes no per-team source for these. The roster carries bios; the
+ * team statistics response carries team totals; the core API needs a request
+ * per athlete and then some; `athletes/{id}/stats` is a 404; and
+ * `statistics/byathlete`, which has exactly the right shape, cannot be
+ * narrowed to a team — five ways of asking all came back league-wide.
  *
- * What exists is `common/v3/statistics/byathlete`, which has exactly the
- * right shape — a row per athlete, each carrying its categories of totals,
- * and a top-level categories list carrying the column labels. It just cannot
- * be narrowed to a team. Five ways of asking were tried; `team=`, `teamId=`,
- * a team-scoped path (404), and two parameter sets all came back league-wide,
- * the first athlete playing for Miami when Indiana was asked for.
- *
- * So the league table is fetched and filtered here, by the `teamId` every
- * athlete row carries. That is a real cost — thousands of athletes across
- * several pages — which is why nothing fetches it until someone asks for it,
- * and why the result is cached under a key with no team in it: the whole
- * league is one download, shared by every team page for the rest of the
- * session.
+ * But the numbers are already in reach without any of that. Every game's
+ * summary carries both teams' per-player lines, the team page already knows
+ * which games the team has played, and the app already caches those
+ * summaries under the same key the expanded game uses. So a season is the
+ * team's own box scores added together: one request per game played, most of
+ * them already in hand, and nothing downloaded that belongs to another team.
  */
-const BYATHLETE = 'https://site.web.api.espn.com/apis/common/v3/sports/football/college-football/statistics/byathlete'
 
-/** Big enough that the league fits in a few requests. */
-const PAGE_SIZE = 1000
+/** Longest-play columns take the best of the season, not the sum of them. */
+const MAX_COLUMNS = new Set(['LONG', 'LNG'])
 
-/** A hard stop. Without one, a season with more athletes than expected — or
- * a pagination field that means something other than assumed — turns one
- * screen into an unbounded download on someone's phone. */
-const MAX_PAGES = 6
+/** Games played, counted here rather than read from anywhere — a player is
+ * credited with a game in a category when they have a line in it. */
+const GAMES_PLAYED = 'GP'
 
-/** One athlete, stripped to what a stat table needs.
+const COMBINED = /^(\d+)\/(\d+)$/
+const INTEGER = /^-?\d+$/
+
+/**
+ * How a column of per-game values becomes one season value.
  *
- * The league table is kept in memory so every team page can filter the same
- * download, so what is kept matters: a raw row carries fourteen team logos,
- * twelve links and a headshot, and the response repeats a sixty-entry
- * glossary on every page. None of that is a stat. */
-export interface LeagueAthlete {
-  teamId: string
-  name: string
-  position?: string
-  categories: { name: string; totals: string[] }[]
-}
+ * Decided from the values themselves rather than from what the header is
+ * called, because a header is a label and a label is a guess. Counting stats
+ * add up; "22/28" adds up on both sides of the slash; longest-play columns
+ * take the maximum. Anything else — an average, a percentage, a rating, a
+ * QBR — is left out entirely rather than added into nonsense, since none of
+ * those can be recovered from per-game figures without knowing which other
+ * columns they were derived from.
+ */
+function combine(label: string, values: string[]): string | undefined {
+  const present = values.filter((v) => v !== '' && v !== '—' && v !== '-')
+  if (present.length === 0) return undefined
 
-/** The league table, compacted — shared by every team page. */
-export interface LeaguePlayerStats {
-  /** Column headers per category name, from the response's own list. */
-  headers: Map<string, { label: string; columns: string[] }>
-  athletes: LeagueAthlete[]
-  /** How many athletes the league table held and how many pages were read,
-   * so the cost of this is visible rather than folklore. */
-  leagueAthletes: number
-  pagesFetched: number
-  /** True when the cap above stopped the walk before the end of the league,
-   * which means a player could be missing rather than statless. */
-  truncated: boolean
-}
-
-interface RawAthleteRow {
-  athlete?: { id?: string; displayName?: string; teamId?: string; position?: { abbreviation?: string } }
-  categories?: { name?: string; totals?: string[] }[]
-}
-
-interface RawByAthlete {
-  pagination?: { count?: number; pages?: number }
-  athletes?: RawAthleteRow[]
-  categories?: { name?: string; displayName?: string; labels?: string[] }[]
-}
-
-async function fetchPage(year: number, page: number): Promise<RawByAthlete> {
-  // `isqualified=false` on purpose: qualified filters to players meeting
-  // per-category minimums, which early in a season is 37 athletes in all of
-  // college football. A team's actual contributors are the point here.
-  const url = `${BYATHLETE}?season=${year}&seasontype=2&isqualified=false&page=${page}&limit=${PAGE_SIZE}`
-  const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`ESPN season player stats request failed: ${res.status}`)
-  return (await res.json()) as RawByAthlete
-}
-
-/** ESPN's own `displayName` for the category, which this response carries for
- * every one of them — unlike the game box score, where the key had to be
- * humanised. The fallback below only splits camelCase and capitalises, so an
- * all-lowercase key like "defensiveinterceptions" stays one word; a word list
- * to break it up would be a guess, and this path is a guard against a missing
- * field rather than something anyone is expected to see. */
-function categoryLabel(name: string, displayName: string | undefined): string {
-  if (displayName) return displayName
-  return name
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .split(/\s+/)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  if (MAX_COLUMNS.has(label.toUpperCase()) && present.every((v) => INTEGER.test(v))) {
+    return String(Math.max(...present.map(Number)))
+  }
+  if (present.every((v) => COMBINED.test(v))) {
+    let left = 0
+    let right = 0
+    for (const value of present) {
+      const match = value.match(COMBINED)!
+      left += Number(match[1])
+      right += Number(match[2])
+    }
+    return `${left}/${right}`
+  }
+  if (present.every((v) => INTEGER.test(v))) {
+    return String(present.reduce((sum, v) => sum + Number(v), 0))
+  }
+  return undefined
 }
 
 /**
- * Turns the league table into one team's categories.
+ * Adds a team's per-game categories into season lines.
  *
- * Column labels come from the response's own category list, matched to each
- * athlete's category by name; the values are that athlete's `totals`, which
- * are already display strings. Rows are padded and trimmed to the header
- * count for the same reason the game box score does it — a row that
- * disagrees with its headers reads as a different stat.
- *
- * A row is kept only where it has at least one value that isn't zero or
- * blank: the league table lists every category for every player, so a
- * quarterback otherwise appears under punting with a row of zeroes.
+ * Takes the categories exactly as the game box score produces them, so both
+ * screens read the same feed the same way. Columns that can't be added are
+ * dropped from the header as well as the rows, so nothing is left sitting
+ * under a heading it doesn't answer to.
  */
-export function selectTeamPlayers(league: LeaguePlayerStats, teamId: string): PlayerStatCategory[] {
-  const rowsByCategory = new Map<string, { playerName: string; stats: string[] }[]>()
-  for (const athlete of league.athletes) {
-    if (athlete.teamId !== teamId) continue
-    for (const category of athlete.categories) {
-      const header = league.headers.get(category.name)
-      if (!header || header.columns.length === 0) continue
-      const stats = header.columns.map((_, i) => category.totals[i] ?? '—')
-      const hasAnything = stats.some((v) => v !== '—' && v !== '0' && v !== '0.0' && v !== '-' && v !== '')
-      if (!hasAnything) continue
-      const list = rowsByCategory.get(category.name) ?? []
-      list.push({ playerName: athlete.position ? `${athlete.name} · ${athlete.position}` : athlete.name, stats })
-      rowsByCategory.set(category.name, list)
+export function aggregateSeasonPlayers(perGame: PlayerStatCategory[][]): PlayerStatCategory[] {
+  // Category -> column labels, in the order the feed first gave them.
+  const columnsByCategory = new Map<string, { label: string; columns: string[] }>()
+  // Category -> player -> column index -> that player's value in each game.
+  const valuesByCategory = new Map<string, Map<string, string[][]>>()
+  const gamesByCategory = new Map<string, Map<string, number>>()
+
+  for (const game of perGame) {
+    for (const category of game) {
+      if (!columnsByCategory.has(category.name)) {
+        columnsByCategory.set(category.name, { label: category.label, columns: category.columns })
+      }
+      const columns = columnsByCategory.get(category.name)!.columns
+      const players = valuesByCategory.get(category.name) ?? new Map<string, string[][]>()
+      const appearances = gamesByCategory.get(category.name) ?? new Map<string, number>()
+
+      for (const row of category.rows) {
+        const cells = players.get(row.playerName) ?? columns.map(() => [] as string[])
+        for (let i = 0; i < columns.length; i++) {
+          const value = row.stats[i]
+          if (value !== undefined) cells[i].push(value)
+        }
+        players.set(row.playerName, cells)
+        appearances.set(row.playerName, (appearances.get(row.playerName) ?? 0) + 1)
+      }
+      valuesByCategory.set(category.name, players)
+      gamesByCategory.set(category.name, appearances)
     }
   }
 
   const categories: PlayerStatCategory[] = []
-  for (const [name, header] of league.headers) {
-    const rows = rowsByCategory.get(name)
-    if (!rows || rows.length === 0) continue
-    categories.push({ name, label: header.label, columns: header.columns, rows })
+  for (const [name, header] of columnsByCategory) {
+    const players = valuesByCategory.get(name)
+    if (!players || players.size === 0) continue
+
+    // A column survives only if every player's season value could be
+    // combined; a column that works for one player and not another would put
+    // a blank in a total.
+    const keep: number[] = []
+    for (let i = 0; i < header.columns.length; i++) {
+      const label = header.columns[i]
+      const everyone = [...players.values()].map((cells) => combine(label, cells[i]))
+      if (everyone.length > 0 && everyone.every((v) => v !== undefined)) keep.push(i)
+    }
+    if (keep.length === 0) continue
+
+    const appearances = gamesByCategory.get(name)!
+    const rows = [...players.entries()].map(([playerName, cells]) => ({
+      playerName,
+      stats: [String(appearances.get(playerName) ?? 0), ...keep.map((i) => combine(header.columns[i], cells[i])!)],
+    }))
+    // Most productive first, by the column most likely to be yardage, else
+    // by games played — a season table sorted by whoever ESPN listed first
+    // reads as unsorted.
+    const sortIndex = keep.findIndex((i) => header.columns[i].toUpperCase() === 'YDS')
+    rows.sort((a, b) => Number(b.stats[sortIndex + 1] ?? b.stats[0]) - Number(a.stats[sortIndex + 1] ?? a.stats[0]))
+
+    categories.push({
+      name,
+      label: header.label,
+      columns: [GAMES_PLAYED, ...keep.map((i) => header.columns[i])],
+      rows,
+    })
   }
   return categories
-}
-
-/** Walks the league table, stopping at the end or at the page cap, and keeps
- * only the fields a stat table reads. */
-export async function fetchLeaguePlayerStats(year: number): Promise<LeaguePlayerStats> {
-  const headers = new Map<string, { label: string; columns: string[] }>()
-  const athletes: LeagueAthlete[] = []
-  let totalPages = 1
-  let leagueAthletes = 0
-  let pagesFetched = 0
-
-  for (let page = 1; page <= Math.min(totalPages, MAX_PAGES); page++) {
-    const body = await fetchPage(year, page)
-    pagesFetched++
-    totalPages = body.pagination?.pages ?? 1
-    leagueAthletes = body.pagination?.count ?? leagueAthletes
-
-    for (const category of body.categories ?? []) {
-      if (!category.name || headers.has(category.name)) continue
-      headers.set(category.name, { label: categoryLabel(category.name, category.displayName), columns: category.labels ?? [] })
-    }
-    for (const row of body.athletes ?? []) {
-      const teamId = row.athlete?.teamId
-      const name = row.athlete?.displayName
-      if (!teamId || !name) continue
-      athletes.push({
-        teamId,
-        name,
-        position: row.athlete?.position?.abbreviation,
-        categories: (row.categories ?? [])
-          .filter((c): c is { name: string; totals?: string[] } => Boolean(c.name))
-          .map((c) => ({ name: c.name, totals: c.totals ?? [] })),
-      })
-    }
-  }
-
-  return { headers, athletes, leagueAthletes, pagesFetched, truncated: totalPages > MAX_PAGES }
 }

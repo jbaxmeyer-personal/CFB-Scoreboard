@@ -137,7 +137,7 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
           ))}
         </div>
       </section>
-      <SeasonPlayerStatsSection teamId={team.id} year={year} />
+      <SeasonPlayerStatsSection team={team} year={year} schedule={schedule} />
 
       <section className="team-page__section">
         <h3 className="team-page__title">{year} Season Stats</h3>
@@ -156,25 +156,25 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
 }
 
 /**
- * Every player's season line for this team.
+ * Every player's season line for this team, added up from its own games.
  *
- * Behind a button rather than loaded with the page, because of where the
- * data has to come from. ESPN publishes no per-team source for season player
- * stats — the roster carries bios, the team statistics response carries team
- * totals, the core API would be a request per athlete, and the one endpoint
- * with the right shape cannot be filtered to a team, which three rounds of
- * probing a real device established rather than assumed. So this reads the
- * league-wide table and filters it, and that download is thousands of
- * athletes. Nobody who merely opened a team page should pay for it.
+ * ESPN publishes no per-team source for these, and the one endpoint with the
+ * right shape cannot be narrowed to a team. But the numbers are already in
+ * reach: every game summary carries both teams' per-player lines, the
+ * schedule above says which games have been played, and those summaries are
+ * cached under the same key the expanded game view uses. So this is one
+ * request per game played, most of them already in hand — and each one
+ * fetched here makes opening that game instant later.
  *
- * Once paid, it is paid for the session and for every team: the cache holds
- * the league, not this team's slice of it.
+ * Still behind a button. A team deep into a season is a dozen requests, and
+ * someone who opened this page for the schedule shouldn't pay for them.
  */
-function SeasonPlayerStatsSection({ teamId, year }: { teamId: string; year: number }) {
+function SeasonPlayerStatsSection({ team, year, schedule }: { team: Team; year: number; schedule: Game[] }) {
   const [requested, setRequested] = useState(false)
-  const { categories, isLoading, isError, leagueAthletes, pagesFetched, truncated } = useSeasonPlayerStats(
-    teamId,
-    year,
+  const { categories, isLoading, isError, gamesCounted, gamesAvailable } = useSeasonPlayerStats(
+    team.id,
+    team.abbreviation,
+    schedule,
     requested,
   )
 
@@ -184,16 +184,16 @@ function SeasonPlayerStatsSection({ teamId, year }: { teamId: string; year: numb
       {!requested && (
         <>
           <p className="team-page__hint">
-            ESPN has no per-team source for these, so this reads the league-wide table and picks out {"this team's"}{' '}
-            players. It is a few large requests, shared with every other team page once loaded.
+            Added up from this team&rsquo;s box scores — one request per game played, and none for games already
+            opened.
           </p>
-          <button type="button" className="team-page__load" onClick={() => setRequested(true)}>
-            Load player stats
+          <button type="button" className="team-page__load" onClick={() => setRequested(true)} disabled={gamesAvailable === 0}>
+            {gamesAvailable === 0 ? 'No games played yet' : `Load player stats (${gamesAvailable} game${gamesAvailable === 1 ? '' : 's'})`}
           </button>
         </>
       )}
-      {isLoading && <LoadingState label="Reading the league table…" />}
-      {isError && <p className="team-page__hint">Couldn’t load player stats.</p>}
+      {isLoading && <LoadingState label="Reading this season&rsquo;s box scores…" />}
+      {isError && <p className="team-page__hint">Couldn&rsquo;t load the box scores.</p>}
       {requested && !isLoading && !isError && categories.length === 0 && (
         <p className="team-page__hint">No {year} player stats posted for this team yet.</p>
       )}
@@ -202,9 +202,8 @@ function SeasonPlayerStatsSection({ teamId, year }: { teamId: string; year: numb
       ))}
       {categories.length > 0 && (
         <p className="team-page__hint">
-          From {leagueAthletes?.toLocaleString()} athletes across {pagesFetched} request
-          {pagesFetched === 1 ? '' : 's'}.
-          {truncated ? ' The league table was longer than the page limit, so a player may be missing.' : ''}
+          Totals from {gamesCounted} of {gamesAvailable} game{gamesAvailable === 1 ? '' : 's'}. Averages, percentages
+          and ratings are left out — they can&rsquo;t be recovered by adding up per-game figures.
         </p>
       )}
     </section>
