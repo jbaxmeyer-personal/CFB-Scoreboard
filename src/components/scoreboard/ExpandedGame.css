@@ -91,6 +91,12 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  /* A flex item defaults to min-width:auto, which means it refuses to be
+     narrower than its widest content — so one wide table (the player box
+     score, which can run to eight columns) stretched this whole column past
+     the panel, and the panel clipped it. Zero lets it be the panel's width
+     and lets the table scroll inside its own box instead. */
+  min-width: 0;
 }
 
 .expanded-game__digits {
