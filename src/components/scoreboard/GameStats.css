@@ -1,6 +1,8 @@
 .game-stats {
   width: 100%;
   padding: 0 4px;
+  /* Same reason as the score block above: this holds the wide tables. */
+  min-width: 0;
 }
 
 .game-stats--season {
