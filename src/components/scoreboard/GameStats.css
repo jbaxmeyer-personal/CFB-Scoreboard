@@ -449,3 +449,110 @@ a.game-stats__notice-retry {
   margin-top: 1px;
   opacity: 0.9;
 }
+
+/* --- Player box score ---------------------------------------------------
+   Wide tables of small numbers on a narrow screen. Each category collapses,
+   and the one that's open scrolls sideways inside its own box so the page
+   never does. */
+.game-stats__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.game-stats__section-head .game-stats__title {
+  margin: 0;
+}
+
+.player-stats__category {
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.player-stats__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 2px;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-stats__toggle-caret {
+  width: 10px;
+  color: var(--text-tertiary);
+}
+
+/* Pushed to the far edge so the category names stay on one left margin. */
+.player-stats__toggle-count {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.player-stats__scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+}
+
+.player-stats__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.player-stats__table th,
+.player-stats__table td {
+  padding: 5px 8px;
+  text-align: right;
+}
+
+/* The player column leads and is the only text one, so it anchors left and
+   takes what width it needs; the stat columns stay tight and right-aligned
+   for comparison down the column. */
+.player-stats__table thead th:first-child,
+.player-stats__table tbody th {
+  position: sticky;
+  left: 0;
+  padding-left: 2px;
+  /* Matches the panel it sits on, so the column that stays put while the
+     rest scrolls under it doesn't read as a lighter block. */
+  background: var(--bg-panel-raised);
+  text-align: left;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.player-stats__table thead th {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.player-stats__table tbody th {
+  color: var(--text-primary);
+}
+
+.player-stats__table tbody td {
+  color: var(--text-secondary);
+}
+
+.player-stats__table tbody tr + tr th,
+.player-stats__table tbody tr + tr td {
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+}

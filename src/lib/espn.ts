@@ -21,7 +21,7 @@ import type {
   EspnTeamStatEntry,
   EspnTeamStatisticsResponse,
 } from '../types/espn'
-import type { Game, GameBoxScore, GamePlay, GameState, StatLeader, Team, TeamStatLine } from '../types/game'
+import type { Game, GameBoxScore, GamePlay, GameState, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../types/game'
 
 export const FBS_GROUP = 80
 
@@ -331,6 +331,52 @@ function summarizePlayerStat(labels: string[], stats: string[]): string {
   if (yds && td) return `${yds} yds, ${td} TD`
   if (yds) return `${yds} yds`
   return stats.join(' / ')
+}
+
+/** "kickReturns" -> "Kick Returns".
+ *
+ * Derived from ESPN's category key rather than read from the `text` field
+ * alongside it: the key is a stable identifier, while `text` is prose whose
+ * length and wording this session has no live sample of. A heading built
+ * from the key is predictable for every category, including ones that
+ * haven't been seen. */
+export function playerCategoryLabel(name: string): string {
+  const spaced = name.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim()
+  if (!spaced) return name
+  return spaced
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
+/**
+ * Every individual's line for one team, by category.
+ *
+ * Categories are kept in the order ESPN sent them and with the column
+ * headers it sent, rather than being mapped onto a fixed schema — which
+ * categories appear varies by game (no punt returns, no punt-return
+ * category), and a schema would silently drop whatever it didn't know
+ * about. Empty categories are dropped, since a heading over no rows is
+ * just noise.
+ *
+ * Rows are padded or trimmed to the header count. A row that disagrees
+ * with its own headers would otherwise shift every value one column left
+ * and read as a different stat entirely.
+ */
+export function normalizePlayerStats(entry: EspnBoxscorePlayerEntry | undefined): PlayerStatCategory[] {
+  const categories: PlayerStatCategory[] = []
+  for (const category of entry?.statistics ?? []) {
+    const columns = category.labels ?? []
+    const rows = (category.athletes ?? [])
+      .filter((a) => a.athlete?.displayName)
+      .map((a) => ({
+        playerName: a.athlete.displayName,
+        stats: columns.map((_, i) => a.stats?.[i] ?? '—'),
+      }))
+    if (rows.length === 0 || columns.length === 0) continue
+    categories.push({ name: category.name, label: playerCategoryLabel(category.name), columns, rows })
+  }
+  return categories
 }
 
 function parseGameLeaders(entry: EspnBoxscorePlayerEntry | undefined): StatLeader[] {
@@ -1113,7 +1159,9 @@ export function boxScoreFromCoreStats(
       teamStats.push({ label: def.label, homeValue, awayValue, invert: def.invert })
     }
   }
-  return { teamStats, homeLeaders: [], awayLeaders: [] }
+  // The core API fallback carries team totals only — no per-athlete lines —
+  // so the player sections stay empty and simply don't render.
+  return { teamStats, homeLeaders: [], awayLeaders: [], homePlayers: [], awayPlayers: [] }
 }
 
 /** Core plays are the same objects the summary nests inside drives, so this
@@ -1372,6 +1420,8 @@ export function normalizeBoxScore(response: EspnSummaryResponse, home: TeamIdent
     teamStats,
     homeLeaders: homeLeaders.length > 0 ? homeLeaders : leadersFromSummary(response, home, away),
     awayLeaders: awayLeaders.length > 0 ? awayLeaders : leadersFromSummary(response, away, home),
+    homePlayers: normalizePlayerStats(homePlayers),
+    awayPlayers: normalizePlayerStats(awayPlayers),
   }
 }
 
