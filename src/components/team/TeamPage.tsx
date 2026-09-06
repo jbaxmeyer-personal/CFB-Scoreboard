@@ -202,8 +202,9 @@ function SeasonPlayerStatsSection({ team, year, schedule }: { team: Team; year: 
       ))}
       {categories.length > 0 && (
         <p className="team-page__hint">
-          Totals from {gamesCounted} of {gamesAvailable} game{gamesAvailable === 1 ? '' : 's'}. Averages, percentages
-          and ratings are left out — they can&rsquo;t be recovered by adding up per-game figures.
+          Totals from {gamesCounted} of {gamesAvailable} game{gamesAvailable === 1 ? '' : 's'}. Yards per game is
+          worked out from those totals; percentages and ratings are left out, since they can&rsquo;t be recovered by
+          adding up per-game figures.
         </p>
       )}
     </section>
