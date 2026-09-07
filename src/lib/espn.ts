@@ -1252,7 +1252,7 @@ interface SeasonStatDef {
   // Lower is better for allowed/defense stats (and for turnovers) — flips
   // which team's bar segment reads as "ahead" rather than just "bigger".
   invert?: boolean
-  get: (own: Map<string, EspnTeamStatEntry>, allowed: Map<string, EspnTeamStatEntry>) => string | undefined
+  get: (own: Map<string, EspnTeamStatEntry>) => string | undefined
 }
 
 const SEASON_STAT_DEFS: SeasonStatDef[] = [
@@ -1266,13 +1266,13 @@ const SEASON_STAT_DEFS: SeasonStatDef[] = [
   { label: 'First Downs Per Game', section: 'offense', rankKey: 'firstDowns', get: (own) => statDisplay(own, 'firstDowns', true) },
   { label: 'Passing Yards Per Play', section: 'offense', rankKey: 'yardsPerPassAttempt', get: (own) => statDisplay(own, 'yardsPerPassAttempt', false) },
   { label: 'Rushing Yards Per Play', section: 'offense', rankKey: 'yardsPerRushAttempt', get: (own) => statDisplay(own, 'yardsPerRushAttempt', false) },
-  // Defense (all "allowed" — lower is better, so bars invert)
-  { label: 'Points Allowed Per Game', section: 'defense', invert: true, rankKey: 'totalPointsPerGame', get: (_own, allowed) => statDisplay(allowed, 'totalPointsPerGame', false) },
-  { label: 'Total Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'yardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'yardsPerGame', false) },
-  { label: 'Passing Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'passingYardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'passingYardsPerGame', false) },
-  { label: 'Rushing Yards Allowed Per Game', section: 'defense', invert: true, rankKey: 'rushingYardsPerGame', get: (_own, allowed) => statDisplay(allowed, 'rushingYardsPerGame', false) },
-  { label: 'Passing Yards Allowed Per Play', section: 'defense', invert: true, rankKey: 'yardsPerPassAttempt', get: (_own, allowed) => statDisplay(allowed, 'yardsPerPassAttempt', false) },
-  { label: 'Rushing Yards Allowed Per Play', section: 'defense', invert: true, rankKey: 'yardsPerRushAttempt', get: (_own, allowed) => statDisplay(allowed, 'yardsPerRushAttempt', false) },
+  // Defence is not in this response. It used to be read from
+  // `results.opponent` — what opponents did against this team — which does
+  // not exist: the real payload carries `results.stats` and nothing else,
+  // and every allowed-yardage row silently evaluated to undefined, so the
+  // whole Defense block was missing from both screens that show these.
+  // Those rows are derived from the other side of a team's own box scores
+  // now; see seasonDefenseRows. Nothing defensive belongs in this list.
   // Turnovers — giving the ball away is bad (fewer is better), taking it
   // away is good (more is better), so only Turnovers inverts.
   { label: 'Turnovers', section: 'turnovers', invert: true, rankKey: 'totalGiveaways', get: (own) => statDisplay(own, 'totalGiveaways', false) },
@@ -1291,14 +1291,12 @@ export function normalizeSeasonStats(
   if (homeStats.requestedSeason?.year !== expectedYear || awayStats.requestedSeason?.year !== expectedYear) return []
 
   const homeOwn = flattenStatCategories(homeStats.results?.stats?.categories)
-  const homeAllowed = flattenStatCategories(homeStats.results?.opponent)
   const awayOwn = flattenStatCategories(awayStats.results?.stats?.categories)
-  const awayAllowed = flattenStatCategories(awayStats.results?.opponent)
 
   const lines: TeamStatLine[] = []
   for (const def of SEASON_STAT_DEFS) {
-    const homeValue = def.get(homeOwn, homeAllowed)
-    const awayValue = def.get(awayOwn, awayAllowed)
+    const homeValue = def.get(homeOwn)
+    const awayValue = def.get(awayOwn)
     if (homeValue !== undefined && awayValue !== undefined) {
       lines.push({ label: def.label, homeValue, awayValue, section: def.section, invert: def.invert })
     }
@@ -1597,23 +1595,15 @@ export function normalizeTeamProfile(
   if (response.requestedSeason?.year !== expectedYear) return []
 
   const ownCategories = response.results?.stats?.categories
-  const allowedCategories = response.results?.opponent
   const own = flattenStatCategories(ownCategories)
-  const allowed = flattenStatCategories(allowedCategories)
 
   const rows: TeamProfileStat[] = []
   for (const def of SEASON_STAT_DEFS) {
-    const value = def.get(own, allowed)
+    const value = def.get(own)
     if (value === undefined) continue
-    // The site payload's own-team categories carry no ranks, so an offensive
-    // or turnover row falls back to the core API's season ranks. Defensive
-    // rows keep reading the opponent side, which does carry them and which
-    // the core source has no equivalent of.
-    const rank =
-      showRanks && def.rankKey
-        ? (statRank(def.section === 'defense' ? allowedCategories : ownCategories, def.rankKey) ??
-          (def.section === 'defense' ? undefined : coreRanks?.get(def.rankKey)))
-        : undefined
+    // The site payload's own-team categories carry no ranks, so a row falls
+    // back to the core API's season ranks.
+    const rank = showRanks && def.rankKey ? (statRank(ownCategories, def.rankKey) ?? coreRanks?.get(def.rankKey)) : undefined
     rows.push({ label: def.label, value, section: def.section, rank })
   }
   return rows
