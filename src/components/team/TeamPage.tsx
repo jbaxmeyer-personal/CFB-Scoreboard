@@ -9,7 +9,9 @@ import { formatDayChip, formatKickoffTime } from '../../lib/timezone'
 import { LoadingState } from '../shared/StatusStates'
 import { PlayerCategory } from '../scoreboard/GameStats'
 import { useSeasonPlayerStats } from '../../hooks/useSeasonPlayerStats'
-import { useState } from 'react'
+import { useTeamGameSummaries } from '../../hooks/useTeamGameSummaries'
+import { seasonDefenseRows } from '../../lib/seasonDefense'
+import { useMemo, useState } from 'react'
 
 const SECTION_LABEL: Record<TeamProfileSection, string> = {
   offense: 'Offense',
@@ -103,6 +105,22 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   const missingCoreRanks = ranksApply && coreBackedRows.length > 0 && !coreBackedRows.some((s) => s.rank)
   const safeSchedule = useSpoilerSafeGames(schedule)
 
+  // Defence is not in the season stats response — see seasonDefenseRows. It
+  // is added up from the other side of this team's own box scores, which
+  // means fetching them, which the player totals below need anyway.
+  const teamGames = useTeamGameSummaries(schedule)
+  const defenseRows = useMemo(() => seasonDefenseRows(team.id, teamGames.games), [team.id, teamGames.games])
+  // Offence, then defence, then turnovers — the order the section headers
+  // assume, since they are drawn wherever the section changes.
+  const seasonRows = useMemo(
+    () => [
+      ...stats.filter((s) => s.section === 'offense'),
+      ...defenseRows,
+      ...stats.filter((s) => s.section !== 'offense' && s.section !== 'defense'),
+    ],
+    [stats, defenseRows],
+  )
+
   return (
     <div className="team-page">
       <div className="team-page__bar">
@@ -142,10 +160,10 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
       <section className="team-page__section">
         <h3 className="team-page__title">{year} Season Stats</h3>
         {statsLoading && <LoadingState label="Loading season stats…" />}
-        {!statsLoading && stats.length === 0 && (
+        {!statsLoading && seasonRows.length === 0 && (
           <p className="team-page__hint">{statsError ? 'Couldn’t load season stats.' : `No ${year} season stats posted yet.`}</p>
         )}
-        {stats.length > 0 && <StatRows stats={stats} />}
+        {seasonRows.length > 0 && <StatRows stats={seasonRows} />}
         {/* Only when the rank column is entirely empty: say what the rank
             source actually returned instead of leaving it a mystery. */}
         {missingCoreRanks && <p className="team-page__hint">Rank source: {rankSource}</p>}
@@ -184,8 +202,8 @@ function SeasonPlayerStatsSection({ team, year, schedule }: { team: Team; year: 
       {!requested && (
         <>
           <p className="team-page__hint">
-            Added up from this team&rsquo;s box scores — one request per game played, and none for games already
-            opened.
+            Added up from this team&rsquo;s box scores — the same ones the defensive rows above are built from, so
+            these are already loaded.
           </p>
           <button type="button" className="team-page__load" onClick={() => setRequested(true)} disabled={gamesAvailable === 0}>
             {gamesAvailable === 0 ? 'No games played yet' : `Load player stats (${gamesAvailable} game${gamesAvailable === 1 ? '' : 's'})`}
