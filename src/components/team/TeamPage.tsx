@@ -9,8 +9,7 @@ import { formatDayChip, formatKickoffTime } from '../../lib/timezone'
 import { LoadingState } from '../shared/StatusStates'
 import { PlayerCategory } from '../scoreboard/GameStats'
 import { useSeasonPlayerStats } from '../../hooks/useSeasonPlayerStats'
-import { useTeamGameSummaries } from '../../hooks/useTeamGameSummaries'
-import { seasonDefenseRows } from '../../lib/seasonDefense'
+import { useSeasonDefense } from '../../hooks/useSeasonDefense'
 import { useMemo, useState } from 'react'
 
 const SECTION_LABEL: Record<TeamProfileSection, string> = {
@@ -108,8 +107,7 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   // Defence is not in the season stats response — see seasonDefenseRows. It
   // is added up from the other side of this team's own box scores, which
   // means fetching them, which the player totals below need anyway.
-  const teamGames = useTeamGameSummaries(schedule)
-  const defenseRows = useMemo(() => seasonDefenseRows(team.id, teamGames.games), [team.id, teamGames.games])
+  const defenseRows = useSeasonDefense(team.id, year)
   // Offence, then defence, then turnovers — the order the section headers
   // assume, since they are drawn wherever the section changes.
   const seasonRows = useMemo(

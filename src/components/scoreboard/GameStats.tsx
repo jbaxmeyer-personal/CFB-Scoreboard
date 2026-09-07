@@ -5,6 +5,7 @@ import { useGameSummary } from '../../hooks/useGameSummary'
 import type { CurrentDrive, SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
+import { useSeasonDefense } from '../../hooks/useSeasonDefense'
 import { TeamLogo } from '../shared/TeamLogo'
 
 const REACTIONS = ['🔥', '😱', '👏', '😂', '💀', '🚀']
@@ -63,9 +64,35 @@ const SEASON_SECTION_LABEL: Record<NonNullable<TeamStatLine['section']>, string>
 
 export function SeasonTeamComparison({ home, away, year }: { home: Team; away: Team; year: number }) {
   const { stats, isLoading, isError } = useSeasonTeamStats(home.id, away.id, year)
+  // Defence is not in that response and never was — see seasonDefenseRows.
+  // Both teams' allowed numbers are added up from the other side of their
+  // own box scores, which costs a request per game each has played.
+  const homeDefense = useSeasonDefense(home.id, year)
+  const awayDefense = useSeasonDefense(away.id, year)
+
+  // Paired by label, and only where both sides have the row: a comparison
+  // with one column empty is worse than no row.
+  const allStats = useMemo(() => {
+    const awayByLabel = new Map(awayDefense.map((row) => [row.label, row.value]))
+    const defense: TeamStatLine[] = homeDefense
+      .filter((row) => awayByLabel.has(row.label))
+      .map((row) => ({
+        label: row.label,
+        homeValue: row.value,
+        awayValue: awayByLabel.get(row.label)!,
+        section: 'defense' as const,
+        // Allowing fewer is better, so the bar reads the other way round.
+        invert: true,
+      }))
+    return [
+      ...stats.filter((s) => s.section === 'offense'),
+      ...defense,
+      ...stats.filter((s) => s.section !== 'offense' && s.section !== 'defense'),
+    ]
+  }, [stats, homeDefense, awayDefense])
 
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
-  if (isError || stats.length === 0) return null
+  if (isError || allStats.length === 0) return null
 
   const awayColor = resolveAwayBarColor(home, away)
   let lastSection: TeamStatLine['section'] | undefined
@@ -76,7 +103,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
         <span>{away.abbreviation}</span>
         <span>{home.abbreviation}</span>
       </div>
-      {stats.map((line) => {
+      {allStats.map((line) => {
         const showSectionHeader = line.section !== undefined && line.section !== lastSection
         lastSection = line.section
         return (
