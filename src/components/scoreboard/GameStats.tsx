@@ -353,10 +353,7 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
 export function PlayerCategory({ category }: { category: PlayerStatCategory }) {
   return (
     <div className="player-stats__category">
-      <h4 className="player-stats__heading">
-        {category.label}
-        <span className="player-stats__count">{category.rows.length}</span>
-      </h4>
+      <h4 className="player-stats__heading">{category.label}</h4>
       {/* Its own horizontal scroller: some categories carry eight or nine
           columns, and the page itself must never scroll sideways. */}
       <div className="player-stats__scroll">

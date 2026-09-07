@@ -512,9 +512,6 @@ a.game-stats__notice-retry {
 }
 
 .player-stats__heading {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
   margin: 10px 0 4px;
   color: var(--text-secondary);
   font-family: inherit;
@@ -522,14 +519,6 @@ a.game-stats__notice-retry {
   font-weight: 600;
 }
 
-/* Pushed to the far edge so the category names stay on one left margin. */
-.player-stats__count {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
 
 .player-stats__scroll {
   overflow-x: auto;
