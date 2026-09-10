@@ -81,11 +81,20 @@ body {
    Zero in a browser tab, where Safari's own chrome already does this, so
    nothing changes there. Padding rather than margin so it stays inside the
    100dvh column and the tab bar keeps its footing on the bottom edge. */
+/* The height comes from --app-height (window.innerHeight, set by
+   trackAppHeight) when the app runs standalone, because iOS resolves
+   viewport units against an initial containing block 62px shorter than the
+   screen there — measured on-device: innerHeight 874, clientHeight 812,
+   with the tab bar's sticky bottom edge pinned to 874. On a long page the
+   column is taller than either number and this never binds, which is why
+   the gap only shows on a short one. Falls back to 100dvh everywhere the
+   property isn't set, which is every browser tab. */
 #root {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: var(--app-height, 100dvh);
   padding-top: env(safe-area-inset-top);
 }
 

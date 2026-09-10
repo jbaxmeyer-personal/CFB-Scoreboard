@@ -192,10 +192,10 @@ export function SettingsScreen() {
       <section className="settings-section">
         <h2 className="settings-section__title">Layout Report</h2>
         <p className="settings-section__hint">
-          Measures where this screen&rsquo;s pieces actually sit on this device — the safe-area insets, the viewport,
-          and the tab bar&rsquo;s edges. The gap below the tab bar can&rsquo;t be reproduced where Slate is built, and
-          two different causes fit it equally well; these numbers tell them apart. Take it on the screen where you see
-          the gap.
+          Measures where this screen&rsquo;s pieces actually sit on this device — the safe-area insets, what a
+          viewport unit resolves to, and the tab bar&rsquo;s edges. None of it can be reproduced where Slate is built,
+          so these are the numbers rather than a guess. Take it on the screen where you see the gap, and on a short
+          page (one game, or a day with none) if that&rsquo;s where it shows.
         </p>
         <div className="settings-feed__actions">
           <button type="button" className="settings-feed__button" onClick={() => { setLayout(layoutReport()); setLayoutCopied(false) }}>
