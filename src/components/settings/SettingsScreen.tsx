@@ -8,6 +8,7 @@ import { TeamSearchPicker } from './TeamSearchPicker'
 import { BROADCAST_DELAY_OPTIONS } from '../../lib/broadcastDelay'
 import { buildFeedSample } from '../../lib/feedSample'
 import { probeTeamPlayerSources } from '../../lib/teamPlayerProbe'
+import { layoutReport } from '../../lib/layoutReport'
 import { seasonYearFromDate } from '../../lib/espn'
 import { useViewState } from '../../context/ViewStateContext'
 import type { EspnScoreboardResponse, EspnSummaryResponse } from '../../types/espn'
@@ -31,6 +32,8 @@ export function SettingsScreen() {
   const [probeOutput, setProbeOutput] = useState<string | null>(null)
   const [probing, setProbing] = useState(false)
   const [probeCopied, setProbeCopied] = useState(false)
+  const [layout, setLayout] = useState<string | null>(null)
+  const [layoutCopied, setLayoutCopied] = useState(false)
   const queryClient = useQueryClient()
   const { expandedGameId, teamPageId } = useViewState()
 
@@ -94,6 +97,16 @@ export function SettingsScreen() {
       setProbeCopied(true)
     } catch {
       setProbeCopied(false)
+    }
+  }
+
+  async function copyLayout() {
+    if (!layout) return
+    try {
+      await navigator.clipboard.writeText(layout)
+      setLayoutCopied(true)
+    } catch {
+      setLayoutCopied(false)
     }
   }
 
@@ -174,6 +187,27 @@ export function SettingsScreen() {
           )}
         </div>
         {feedSample && <pre className="settings-feed__sample">{feedSample}</pre>}
+      </section>
+
+      <section className="settings-section">
+        <h2 className="settings-section__title">Layout Report</h2>
+        <p className="settings-section__hint">
+          Measures where this screen&rsquo;s pieces actually sit on this device — the safe-area insets, the viewport,
+          and the tab bar&rsquo;s edges. The gap below the tab bar can&rsquo;t be reproduced where Slate is built, and
+          two different causes fit it equally well; these numbers tell them apart. Take it on the screen where you see
+          the gap.
+        </p>
+        <div className="settings-feed__actions">
+          <button type="button" className="settings-feed__button" onClick={() => { setLayout(layoutReport()); setLayoutCopied(false) }}>
+            Measure layout
+          </button>
+          {layout && (
+            <button type="button" className="settings-feed__button" onClick={copyLayout}>
+              {layoutCopied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
+        {layout && <pre className="settings-feed__sample">{layout}</pre>}
       </section>
 
       <section className="settings-section">
