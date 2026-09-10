@@ -36,10 +36,10 @@ export function ScheduleGrid() {
 
   return (
     <div className="schedule-grid">
-      <AppHeader showDelayBadge>
-        <p className="schedule-grid__zone">
-          Times shown in {zoneLabel(settings.timezoneId)} ({zoneAbbrNow(settings.timezoneId)})
-        </p>
+      <AppHeader
+        showDelayBadge
+        note={`Times in ${zoneLabel(settings.timezoneId)} (${zoneAbbrNow(settings.timezoneId)})`}
+      >
       </AppHeader>
 
       {isLoading && <LoadingState label="Loading the slate…" />}
