@@ -8,8 +8,15 @@ interface AppHeaderProps {
    * tab, where the section and the app share a name and printing it twice
    * would just read as a mistake. */
   section?: string
-  /** Anything the screen wants under the header row, e.g. the timezone note. */
+  /** Anything the screen wants under the header row. */
   children?: ReactNode
+  /** A short aside on the header row itself, right-aligned where `section`
+   * sits on the screens that have one — Slate's timezone note lives here.
+   *
+   * It used to sit on its own line beneath, which cost Slate a row that
+   * Scoreboard didn't have, so the filters and day chips below jumped by
+   * that row's height every time you switched tabs. */
+  note?: ReactNode
   /** Shows the active broadcast delay beside the section name. Set on the
    * screens that render live scores; without it, a held-back score reads as
    * the app being broken rather than as the setting doing its job. */
@@ -25,7 +32,7 @@ interface AppHeaderProps {
  * the same row — branding all three tabs without costing a second line of
  * vertical space, which this layout has none to spare.
  */
-export function AppHeader({ section, children, showDelayBadge }: AppHeaderProps) {
+export function AppHeader({ section, children, note, showDelayBadge }: AppHeaderProps) {
   const { settings } = useSettings()
   const badge = showDelayBadge ? delayBadge(settings.broadcastDelaySeconds) : ''
 
@@ -39,6 +46,7 @@ export function AppHeader({ section, children, showDelayBadge }: AppHeaderProps)
           </span>
         )}
         {section && <span className="app-header__section">{section}</span>}
+        {note && <span className="app-header__note">{note}</span>}
       </div>
       {children}
     </header>
