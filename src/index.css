@@ -37,6 +37,16 @@
   box-sizing: border-box;
 }
 
+/* The page's own backstop. The gradient below is painted by `body` with
+   `background-attachment: fixed`, which iOS does not always paint into the
+   safe-area strips of a standalone web app — anything it misses falls
+   through to the canvas, and an unpainted canvas is black. Giving `html` the
+   base colour means the worst case is a band the same colour as the app
+   instead of a black one. */
+html {
+  background: var(--bg-base);
+}
+
 body {
   margin: 0;
   background: radial-gradient(ellipse 120% 80% at 50% -10%, #171d27 0%, var(--bg-base) 55%);
