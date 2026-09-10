@@ -8,8 +8,17 @@
   bottom: 0;
   flex-shrink: 0;
   z-index: 10;
-  border-top: 1px solid var(--border-subtle);
-  background: rgba(10, 13, 18, 0.9);
+  /* This bar has to *read* as a bar across its full height, home-indicator
+     strip included. It used to be painted rgba(10, 13, 18, 0.9) — the page
+     colour at 90% — so the ~34px reserved below the buttons was
+     indistinguishable from the page and looked like a gap the app had
+     failed to fill. Measured on-device: gapBelowTabBar was 0, the bar's
+     bottom edge was exactly the viewport bottom. Nothing was missing; it
+     just wasn't visibly the bar. Panel colour, near-opaque, with a real
+     border and a lift above it, so the strip reads as chrome. */
+  border-top: 1px solid var(--border-strong);
+  background: rgba(18, 23, 31, 0.94);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(12px);
   /* The bottom inset is the home indicator's strip and stays reserved —
      tap targets sitting under it get swiped away by accident. The padding
