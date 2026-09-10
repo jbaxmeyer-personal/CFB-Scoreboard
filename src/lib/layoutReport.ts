@@ -32,6 +32,15 @@ export function layoutReport(): string {
     return Math.round(probe.getBoundingClientRect().height)
   }
   const insets = { top: inset('top'), bottom: inset('bottom'), left: inset('left'), right: inset('right') }
+  // The number the first report was missing: what a viewport unit actually
+  // resolves to here. `min-height` on the app column is what decides a short
+  // page's height, so if these disagree with innerHeight, that difference is
+  // the gap.
+  const unit = (value: string) => {
+    probe.style.height = value
+    return Math.round(probe.getBoundingClientRect().height)
+  }
+  const viewportUnits = { vh: unit('100vh'), dvh: unit('100dvh'), svh: unit('100svh'), lvh: unit('100lvh') }
   probe.remove()
 
   const barStyle = bar ? getComputedStyle(bar) : undefined
@@ -53,6 +62,8 @@ export function layoutReport(): string {
         scrollTop: Math.round(window.scrollY),
         scrollableBy: document.documentElement.scrollHeight - window.innerHeight,
       },
+      viewportUnits,
+      appHeight: getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim() || null,
       root: rect(root),
       main: rect(main),
       tabBar: rect(bar),
