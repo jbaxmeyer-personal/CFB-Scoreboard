@@ -47,8 +47,13 @@ html {
   background: var(--bg-base);
 }
 
+/* The document itself never scrolls. The app is one screen-sized column
+   (#root) with the scrolling happening inside it, so nothing about document
+   height, the initial containing block or rubber-banding can move the tab
+   bar off the bottom edge. */
 body {
   margin: 0;
+  overflow: hidden;
   background: radial-gradient(ellipse 120% 80% at 50% -10%, #171d27 0%, var(--bg-base) 55%);
   background-attachment: fixed;
   color: var(--text-primary);
@@ -56,72 +61,58 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* TabBar used to be position:fixed, with .app-main reserving bottom padding
-   to clear it — that combination is what produced the huge blank void
-   below the tab bar on real iOS Safari (confirmed on-device, twice: this
-   isn't the ~100px toolbar-collapse gap the earlier 100vh/100dvh fix
-   targeted, it's a much larger, structural mispositioning). position:fixed
-   is positioned relative to the nearest ancestor with certain CSS
-   properties (overflow, transform, filter, etc.) rather than always the
-   true viewport — WebKit is known to get this wrong in ways Chromium
-   doesn't reproduce, which is why this shipped untested on real hardware
-   twice before finally being reported broken. Removed entirely: #root is
-   now the single flexed, full-height column (app-main grows to fill any
-   leftover space so the tab bar still sits flush against the bottom edge
-   on a short page), and TabBar uses position:sticky — anchored to the
-   normal document scroll, never a separate positioning context that can
-   detach. */
 /* Installed to the home screen, Slate runs standalone with
    `viewport-fit=cover` and a translucent status bar, which means the web
    view is the *whole* screen — the clock, Dynamic Island and battery sit on
-   top of the page rather than above it. Without this the wordmark rendered
-   underneath them. Reserving the inset moves the app clear of that band and
-   lets the body gradient show through behind it.
+   top of the page rather than above it. #root reserves the top inset so the
+   wordmark clears them, and the body gradient shows through behind it.
 
-   Zero in a browser tab, where Safari's own chrome already does this, so
-   nothing changes there. Padding rather than margin so it stays inside the
-   100dvh column and the tab bar keeps its footing on the bottom edge. */
-/* The height comes from --app-height (window.innerHeight, set by
-   trackAppHeight) when the app runs standalone, because iOS resolves
-   viewport units against an initial containing block 62px shorter than the
-   screen there — measured on-device: innerHeight 874, clientHeight 812,
-   with the tab bar's sticky bottom edge pinned to 874. On a long page the
-   column is taller than either number and this never binds, which is why
-   the gap only shows on a short one. Falls back to 100dvh everywhere the
-   property isn't set, which is every browser tab. */
+   The tab bar has been position:fixed (mispositioned by WebKit, huge void
+   below it) and position:sticky (pinned to a document whose height iOS
+   resolves 62px short, so it stopped above the bottom edge). It is now
+   neither: the column is exactly one screen tall and the bar is its last
+   child, so the bottom edge is where it lands with no positioning involved
+   at all. */
+/* Exactly one screen tall, and the tab bar is its last child — so the bar
+   sits on the bottom edge by construction, not by sticking to something.
+
+   The height is --app-height (the real screen, published by trackAppHeight)
+   and falls back to `100dvh + the top inset`: iOS standalone resolves
+   viewport units against a containing block that is short by exactly that
+   inset, which is what left a 62px band under the tab bar. In a browser tab
+   the inset is 0 and this is plain 100dvh. */
 #root {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: var(--app-height, 100dvh);
+  overflow: hidden;
+  height: 100vh;
+  height: calc(100dvh + env(safe-area-inset-top));
+  height: var(--app-height, calc(100dvh + env(safe-area-inset-top)));
   padding-top: env(safe-area-inset-top);
 }
 
-/* Anything the app scrolls to must stop below the status bar, not at the
-   very top of the viewport.
-
-   #root's padding moves the app clear of that band, but the page still
-   scrolls normally underneath it, so `scrollIntoView` — which aligns to the
-   viewport edge — parks its target under the clock and battery. Opening a
-   game did it to the panel's Close button; closing one did it to the card
-   being restored. `scroll-margin-top` is the offset scrollIntoView honours,
-   so both stop clear of the bar with a little room to spare. Zero inset in a
-   browser tab leaves just that gap. */
+/* .app-main is the scroll container now, and it already starts below the
+   status bar, so scrollIntoView no longer needs the inset added back — just
+   a little breathing room above whatever it aligns. */
 [data-game-id],
 .game-detail-panel {
-  scroll-margin-top: calc(env(safe-area-inset-top) + 10px);
+  scroll-margin-top: 10px;
 }
 
+/* The scrolling region. min-height:0 lets a flex item shrink below its
+   content so it can actually scroll instead of pushing the tab bar down. */
 .app-main {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
   max-width: 720px;
   width: 100%;
   margin: 0 auto;
+  overflow-y: auto;
   /* Clips horizontal bleed (e.g. Slate's wide scrollable time grid). */
   overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 img {
