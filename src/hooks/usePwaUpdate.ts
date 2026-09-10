@@ -6,6 +6,10 @@ import { registerSW } from 'virtual:pwa-register'
  * more than this does. */
 const POLL_MS = 15 * 60_000
 
+/** Guards against an update that reapplies itself in a loop. */
+const APPLIED_AT = 'slate:update-applied-at'
+const APPLY_COOLDOWN_MS = 60_000
+
 /**
  * Drops the service worker and its caches, then reloads.
  *
@@ -43,10 +47,10 @@ async function applyUpdate(): Promise<void> {
  * headers. Without that the check could run on schedule, find the same bytes
  * it already had, and conclude there was nothing new.
  *
- * Applying it stays a deliberate tap on the Refresh banner. An update is
- * never installed on its own — a reload that arrives unannounced is worse
- * than one you asked for, and the banner is how you know a new build landed
- * at all.
+ * Applying it no longer waits for a tap. A fix can be built, deployed and
+ * green while the installed app quietly keeps serving the build from before
+ * it — which is exactly how a bug already fixed gets reported again. The
+ * banner stays as the visible fallback if the reload doesn't take.
  */
 export function usePwaUpdate() {
   const [needRefresh, setNeedRefresh] = useState(false)
@@ -56,6 +60,25 @@ export function usePwaUpdate() {
 
     let registration: ServiceWorkerRegistration | undefined
     let swUrl = ''
+    let applying = false
+
+    /** Show the banner, then apply it. The guards are only against a reload
+     * loop: once per page load, and never twice inside a minute even across
+     * loads, so a build that somehow always reports itself stale can't spin. */
+    const foundUpdate = () => {
+      setNeedRefresh(true)
+      if (applying) return
+      applying = true
+      const now = Date.now()
+      const last = Number(sessionStorage.getItem(APPLIED_AT) ?? 0)
+      if (now - last < APPLY_COOLDOWN_MS) return
+      try {
+        sessionStorage.setItem(APPLIED_AT, String(now))
+      } catch {
+        // Private mode or a full quota. The reload below still stands.
+      }
+      void applyUpdate()
+    }
 
     const checkForUpdate = async () => {
       if (!registration || registration.installing) return
@@ -72,7 +95,7 @@ export function usePwaUpdate() {
       } catch {
         // Offline, or the check raced a reload. Try again next time.
       }
-      if (registration.waiting) setNeedRefresh(true)
+      if (registration.waiting) foundUpdate()
     }
 
     // Coming back to the app is the moment worth checking: an installed app
@@ -89,7 +112,7 @@ export function usePwaUpdate() {
     registerSW({
       immediate: true,
       onNeedRefresh() {
-        setNeedRefresh(true)
+        foundUpdate()
       },
       onRegisteredSW(url, reg) {
         swUrl = url

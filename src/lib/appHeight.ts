@@ -1,24 +1,21 @@
 /**
- * Pins the app column to the height iOS actually gives a standalone web app.
+ * Publishes the height of the screen the app is actually on as --app-height.
  *
- * The on-device Layout Report showed `innerHeight` 874 but
- * `documentElement.clientHeight` 812 — a 62px disagreement, exactly the top
- * safe-area inset. The tab bar's own rectangle settled which of the two is
- * the real screen: while scrolled, sticky pinned its bottom edge to 874. So
- * 874 is the viewport; 812 is the initial containing block, which is what
- * viewport units resolve against.
+ * On this device the app's own box measured 812px tall inside an 874px
+ * screen — 62px short, exactly the top safe-area inset — because iOS
+ * standalone resolves viewport units against an initial containing block
+ * that size. Anything laid out against `100dvh` therefore ends 62px above
+ * the bottom of the screen, tab bar included.
  *
- * That difference is invisible on a long page, where the column is taller
- * than either number and `min-height` never binds — which is why the first
- * report, captured mid-scroll on a full slate, read a zero gap. On a short
- * page (one game, or an empty day) `min-height: 100dvh` is what decides the
- * column's height, and 62px short of the screen is a visible band under the
- * tab bar.
+ * So the height is taken from the numbers that describe the screen rather
+ * than from a viewport unit, and the largest of them wins: whichever of
+ * innerHeight, visualViewport and "containing block plus the inset it
+ * dropped" is biggest is the one that reaches the bottom edge. They agree
+ * at 874 here; taking the max means no single one of them lying makes the
+ * app come up short.
  *
- * So the height comes from `innerHeight` rather than from a viewport unit.
- * Only in standalone: there is no collapsing browser toolbar there, so the
- * number is stable, whereas in a Safari tab it changes as you scroll and
- * `100dvh` is already the right answer.
+ * Standalone only. In a browser tab the answer is already correct and
+ * innerHeight jumps around as the toolbar collapses.
  */
 const STANDALONE = '(display-mode: standalone)'
 
@@ -30,17 +27,40 @@ function isStandalone(): boolean {
   )
 }
 
+/** env() can't be read from script, so a probe takes it as its own height. */
+function insetTop(): number {
+  const host = document.body ?? document.documentElement
+  const probe = document.createElement('div')
+  probe.style.cssText =
+    'position:absolute;visibility:hidden;top:0;left:0;width:0;height:env(safe-area-inset-top, 0px)'
+  host.appendChild(probe)
+  const height = probe.getBoundingClientRect().height
+  probe.remove()
+  return height
+}
+
+function screenHeight(): number {
+  return Math.round(
+    Math.max(
+      window.innerHeight,
+      window.visualViewport?.height ?? 0,
+      document.documentElement.clientHeight + insetTop(),
+    ),
+  )
+}
+
 export function trackAppHeight(): void {
   const apply = () => {
     if (!isStandalone()) {
       document.documentElement.style.removeProperty('--app-height')
       return
     }
-    document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`)
+    document.documentElement.style.setProperty('--app-height', `${screenHeight()}px`)
   }
 
   apply()
   window.addEventListener('resize', apply)
   window.addEventListener('orientationchange', apply)
+  window.visualViewport?.addEventListener('resize', apply)
   window.matchMedia(STANDALONE).addEventListener('change', apply)
 }
