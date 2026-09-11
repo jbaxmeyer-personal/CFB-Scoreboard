@@ -10,7 +10,7 @@ import { LoadingState } from '../shared/StatusStates'
 import { PlayerCategory } from '../scoreboard/GameStats'
 import { useSeasonPlayerStats } from '../../hooks/useSeasonPlayerStats'
 import { useSeasonDefense } from '../../hooks/useSeasonDefense'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 
 const SECTION_LABEL: Record<TeamProfileSection, string> = {
   offense: 'Offense',
@@ -201,35 +201,26 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
  * request per game played, most of them already in hand — and each one
  * fetched here makes opening that game instant later.
  *
- * Still behind a button. A team deep into a season is a dozen requests, and
- * someone who opened this page for the schedule shouldn't pay for them.
+ * No longer behind a button. The button was there because a team deep into
+ * a season is a dozen requests — but the Defense rows above are built from
+ * those same summaries, under those same keys, and they fetch on open. By
+ * the time the button was on screen its requests had already been made, so
+ * it gated nothing and only stood between the page and its own data.
  */
 function SeasonPlayerStatsSection({ team, year, schedule }: { team: Team; year: number; schedule: Game[] }) {
-  const [requested, setRequested] = useState(false)
   const { categories, isLoading, isError, gamesCounted, gamesAvailable } = useSeasonPlayerStats(
     team.id,
     team.abbreviation,
     schedule,
-    requested,
   )
 
   return (
     <section className="team-page__section">
       <h3 className="team-page__title">{year} Player Stats</h3>
-      {!requested && (
-        <>
-          <p className="team-page__hint">
-            Added up from this team&rsquo;s box scores — the same ones the defensive rows above are built from, so
-            these are already loaded.
-          </p>
-          <button type="button" className="team-page__load" onClick={() => setRequested(true)} disabled={gamesAvailable === 0}>
-            {gamesAvailable === 0 ? 'No games played yet' : `Load player stats (${gamesAvailable} game${gamesAvailable === 1 ? '' : 's'})`}
-          </button>
-        </>
-      )}
+      {gamesAvailable === 0 && <p className="team-page__hint">No games played yet.</p>}
       {isLoading && <LoadingState label="Reading this season&rsquo;s box scores…" />}
       {isError && <p className="team-page__hint">Couldn&rsquo;t load the box scores.</p>}
-      {requested && !isLoading && !isError && categories.length === 0 && (
+      {gamesAvailable > 0 && !isLoading && !isError && categories.length === 0 && (
         <p className="team-page__hint">No {year} player stats posted for this team yet.</p>
       )}
       {categories.map((category) => (
