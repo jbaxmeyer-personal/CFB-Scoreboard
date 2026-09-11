@@ -30,10 +30,10 @@ function teamEntry(summary: EspnSummaryResponse | undefined, teamId: string, abb
 /**
  * One team's season player stats, added up from that team's own games.
  *
- * Fetched only when asked for, and one request per game played — the same
- * per-game summaries the expanded game view uses, under the same query key,
- * so any game already opened costs nothing here and anything fetched here
- * makes opening that game instant.
+ * One request per game played — the same per-game summaries the expanded
+ * game view and the defensive season rows use, under the same query key, so
+ * the page fetches each game once across all three and anything fetched
+ * here makes opening that game instant.
  *
  * Only games that have been played are requested. A fixture that hasn't
  * kicked off has no box score, and asking for one would be a request that
@@ -43,7 +43,6 @@ export function useSeasonPlayerStats(
   teamId: string,
   abbreviation: string | undefined,
   schedule: Game[],
-  enabled: boolean,
 ): SeasonPlayerStatsResult {
   const played = useMemo(() => schedule.filter((game) => game.state !== 'pre'), [schedule])
 
@@ -51,7 +50,6 @@ export function useSeasonPlayerStats(
     queries: played.map((game) => ({
       queryKey: ['gameSummary', game.id],
       queryFn: () => fetchGameSummary(game.id),
-      enabled,
       // A finished game's box score is finished with. This is the same key
       // the live view polls, and that view sets its own interval while the
       // game is in progress; nothing here needs to poll.
@@ -73,7 +71,7 @@ export function useSeasonPlayerStats(
 
   return {
     categories,
-    isLoading: enabled && results.some((r) => r.isLoading),
+    isLoading: results.some((r) => r.isLoading),
     isError: results.length > 0 && results.every((r) => r.isError),
     gamesCounted: summaries.filter((s) => teamEntry(s, teamId, abbreviation)).length,
     gamesAvailable: played.length,
