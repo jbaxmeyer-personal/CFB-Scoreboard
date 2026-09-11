@@ -139,7 +139,10 @@
 }
 
 .team-page__game-opponent {
-  flex: 1 1 auto;
+  /* Doesn't grow: the record sits immediately to the right of the name
+     rather than across the row from it, so the two read as one label. The
+     outcome takes the leftover space instead. */
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -149,8 +152,20 @@
   color: var(--text-primary);
 }
 
+/* Sits with the name, not with the result — it says who the opponent is,
+   the same way the rank badge on their crest does. Tertiary and tabular so
+   it reads as a caption and the column of them lines up. */
+.team-page__game-record {
+  flex: 0 0 auto;
+  margin-left: -2px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
 .team-page__game-outcome {
   flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 8px;
   font-size: 13px;
   color: var(--text-secondary);
 }
