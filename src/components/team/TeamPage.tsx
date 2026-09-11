@@ -108,7 +108,11 @@ interface TeamPageProps {
    * endpoint does that when the year isn't forced). */
   year: number
   onBack: () => void
-  onSelectGame?: (gameId: string) => void
+  /** Opens one of the schedule's games on top of this page. Takes the game
+   * itself, not its id: a fixture in November is nowhere in the day the
+   * scoreboard happens to be showing, so there would be nothing for an id
+   * to resolve against. */
+  onSelectGame?: (game: Game) => void
 }
 
 export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
@@ -160,14 +164,17 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
           <p className="team-page__hint">{scheduleError ? 'Couldn’t load the schedule.' : 'No schedule posted yet.'}</p>
         )}
         <div className="team-page__games">
-          {safeSchedule.map(({ game, isProtected }) => (
+          {safeSchedule.map(({ game, rawGame, isProtected }) => (
             <ScheduleRow
               key={game.id}
               game={game}
               teamId={team.id}
               zoneId={settings.timezoneId}
               isProtected={isProtected}
-              onSelect={onSelectGame ? () => onSelectGame(game.id) : undefined}
+              // The raw game, so the panel it opens in sanitizes it the
+              // same way it does one opened from the grid — passing the
+              // already-sanitized view would strip the score for good.
+              onSelect={onSelectGame ? () => onSelectGame(rawGame) : undefined}
             />
           ))}
         </div>

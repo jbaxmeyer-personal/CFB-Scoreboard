@@ -1,6 +1,22 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NO_FILTERS, type GameFilters } from '../lib/gameFilters'
 import { isKnownConferenceId } from '../data/conferences'
+import type { Game, Team } from '../types/game'
+
+/**
+ * One screen stacked on top of an expanded game: a team's page, or another
+ * game opened from that page's schedule.
+ *
+ * A stack rather than a single "which team page is open" flag, because the
+ * two screens lead to each other without end — a game's teams, a team's
+ * schedule, that game's teams — and Back has to unwind exactly the way you
+ * came. The game is carried by value: a fixture in November is nowhere in
+ * the day you happen to be browsing, so an id alone would have nothing to
+ * resolve against.
+ */
+export type DetailFrame =
+  | { kind: 'team'; team: Team; year: number }
+  | { kind: 'game'; game: Game }
 
 export type Tab = 'schedule' | 'scoreboard' | 'settings'
 
@@ -76,16 +92,20 @@ interface ViewStateValue {
    * Scoreboard unmounting when you switch tabs. */
   scoreboardAnchorDate: string | null
   setScoreboardAnchorDate: (dateKey: string | null) => void
-  /** Team whose page the expanded game is currently showing, or null for
-   * the game itself.
+  /** Screens stacked on top of the expanded game, innermost last. Empty
+   * means the expanded game itself.
    *
    * Deliberately NOT persisted, unlike the tab, day and expanded game. If a
    * team page ever fails to render, persisting it means every reload
    * restores the screen that just broke — a blank page that reloading
    * can't escape. Refresh returns to the expanded game instead, which is
    * one tap away and can't trap anyone. */
+  detailStack: DetailFrame[]
+  pushDetail: (frame: DetailFrame) => void
+  popDetail: () => void
+  /** The team whose page is on top, if one is — what a screen needs when it
+   * only cares about that, like the Settings probe. */
   teamPageId: string | null
-  setTeamPageId: (teamId: string | null) => void
   /** Shared by Slate and Scoreboard, like the selected day: they are two
    * views onto the same slate, so filtering one and not the other would
    * show two different answers to the same question. */
@@ -100,7 +120,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
   const [expandedGameId, setExpandedGameId] = useState<string | null>(() => readStoredString(EXPANDED_GAME_STORAGE_KEY))
   const [scoreboardAnchorDate, setScoreboardAnchorDate] = useState<string | null>(() => readStoredString(SCOREBOARD_ANCHOR_STORAGE_KEY))
-  const [teamPageId, setTeamPageId] = useState<string | null>(null)
+  const [detailStack, setDetailStack] = useState<DetailFrame[]>([])
   const [filters, setFilters] = useState<GameFilters>(readStoredFilters)
 
   useEffect(() => {
@@ -133,19 +153,21 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       expandedGameId,
       setExpandedGameId,
       toggleExpandedGame: (gameId) => {
-        // Switching or closing a game leaves whatever team page it was
-        // showing — otherwise the next game you open opens on a team.
-        setTeamPageId(null)
+        // Switching or closing a game unwinds whatever was stacked on it —
+        // otherwise the next game you open opens on someone else's page.
+        setDetailStack([])
         setExpandedGameId((cur) => (cur === gameId ? null : gameId))
       },
       scoreboardAnchorDate,
       setScoreboardAnchorDate,
-      teamPageId,
-      setTeamPageId,
+      detailStack,
+      pushDetail: (frame) => setDetailStack((cur) => [...cur, frame]),
+      popDetail: () => setDetailStack((cur) => cur.slice(0, -1)),
+      teamPageId: detailStack.at(-1)?.kind === 'team' ? (detailStack.at(-1) as { team: Team }).team.id : null,
       filters,
       setFilters,
     }),
-    [tab, selectedDateKey, expandedGameId, scoreboardAnchorDate, teamPageId, filters],
+    [tab, selectedDateKey, expandedGameId, scoreboardAnchorDate, detailStack, filters],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>

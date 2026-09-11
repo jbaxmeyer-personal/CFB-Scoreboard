@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import './GameDetailPanel.css'
-import type { SafeGameEntry } from '../../hooks/useSpoilerSafeGames'
+import { useSpoilerSafeGames, type SafeGameEntry } from '../../hooks/useSpoilerSafeGames'
+import { useViewState } from '../../context/ViewStateContext'
 import { ExpandedGame } from '../scoreboard/ExpandedGame'
+import { TeamPage } from '../team/TeamPage'
 import { NetworkBadgeList } from './NetworkBadge'
 
 /** How long, after opening a game, the panel keeps trying to bring itself to
@@ -32,6 +34,15 @@ interface GameDetailPanelProps {
  */
 export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId, flush }: GameDetailPanelProps) {
   const entry = entries.find((e) => e.game.id === expandedGameId)
+  const { detailStack, pushDetail, popDetail } = useViewState()
+  const top = detailStack.at(-1)
+
+  // A game reached from a team's schedule is raw feed data like any other,
+  // so it goes through the same choke point before anything renders it — a
+  // protected team's past results must not become visible just because you
+  // arrived at them sideways.
+  const stackedGames = useMemo(() => (top?.kind === 'game' ? [top.game] : []), [top])
+  const stackedEntry = useSpoilerSafeGames(stackedGames)[0]
   const ref = useRef<HTMLDivElement>(null)
   /** Which game this panel has already scrolled to. */
   const scrolledFor = useRef<string | null>(null)
@@ -104,18 +115,47 @@ export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId, flus
 
   if (!entry) return null
 
+  // What the panel is showing: the game it was opened on, or whatever has
+  // been stacked on top of it since.
+  const shown = top?.kind === 'game' && stackedEntry ? stackedEntry : entry
+  const body =
+    top?.kind === 'team' ? (
+      <TeamPage
+        team={top.team}
+        year={top.year}
+        onBack={popDetail}
+        onSelectGame={(game) => pushDetail({ kind: 'game', game })}
+      />
+    ) : (
+      <ExpandedGame
+        game={shown.rawGame}
+        zoneId={zoneId}
+        isProtected={shown.isProtected}
+        isDelayed={shown.isDelayed}
+      />
+    )
+
   return (
     <div className={`game-detail-panel${flush ? ' game-detail-panel--flush' : ''}`} ref={ref}>
       {/* Where you're watching it, opposite the way out. Read from the
           sanitized view rather than the raw game — the network is not a
-          spoiler, but nothing outside the gate should reach for rawGame. */}
+          spoiler, but nothing outside the gate should reach for rawGame.
+
+          Back appears only for a game stacked on top of another screen; a
+          team page draws its own, and the root game has nothing to go back
+          to. Close always unwinds the lot. */}
       <div className="game-detail-panel__header">
-        <NetworkBadgeList networks={entry.game.broadcasts} />
+        {top?.kind === 'game' && (
+          <button type="button" className="game-detail-panel__back" onClick={popDetail}>
+            ‹ Back
+          </button>
+        )}
+        <NetworkBadgeList networks={shown.game.broadcasts} />
         <button type="button" className="game-detail-panel__close" onClick={onClose}>
           Close ×
         </button>
       </div>
-      <ExpandedGame game={entry.rawGame} zoneId={zoneId} isProtected={entry.isProtected} isDelayed={entry.isDelayed} />
+      {body}
     </div>
   )
 }
