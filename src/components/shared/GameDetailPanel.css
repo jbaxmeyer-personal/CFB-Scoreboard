@@ -24,6 +24,19 @@
   margin-bottom: 4px;
 }
 
+/* Same chip as Close, on the opposite end — the way back out of a game you
+   reached from a team's schedule. */
+.game-detail-panel__back {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .game-detail-panel__close {
   /* Holds the right edge whether or not there's a network badge beside it. */
   margin-left: auto;

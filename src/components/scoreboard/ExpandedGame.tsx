@@ -9,7 +9,6 @@ import { useGameSummary } from '../../hooks/useGameSummary'
 import { useViewState } from '../../context/ViewStateContext'
 import { useSettings } from '../../context/SettingsContext'
 import { delayBadge } from '../../lib/broadcastDelay'
-import { TeamPage } from '../team/TeamPage'
 
 /** Logo above name (not side by side) so a long team name gets the
  * identity column's full width instead of being squeezed to the right of
@@ -167,30 +166,21 @@ interface ExpandedGameProps {
 
 export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: ExpandedGameProps) {
   const hasHideableResult = isProtected && game.state !== 'pre'
-  const { teamPageId, setTeamPageId } = useViewState()
+  const { pushDetail } = useViewState()
 
-  // The team page replaces the game detail in place rather than pushing a
-  // new screen, so you stay in the day you were browsing and one Back
-  // returns you to the same expanded game.
-  const openTeam = teamPageId === game.home.id ? game.home : teamPageId === game.away.id ? game.away : null
-  if (openTeam) {
-    return (
-      <div className="expanded-game">
-        <div className="expanded-game__panel">
-          <TeamPage team={openTeam} year={seasonYearFromDate(game.startDate)} onBack={() => setTeamPageId(null)} />
-        </div>
-      </div>
-    )
-  }
+  // Opening a team stacks its page on top of this one — GameDetailPanel owns
+  // that stack, so a game reached from a team's schedule goes through the
+  // same spoiler-safe path as one opened from the grid.
+  const openTeam = (team: Game['home']) => pushDetail({ kind: 'team', team, year: seasonYearFromDate(game.startDate) })
 
   return (
     <div className="expanded-game">
       <div className="expanded-game__panel">
         <div className="expanded-game__bezel">
           <div className="expanded-game__matchup">
-            <TeamIdentity team={game.away} showRecord={game.state === 'pre'} role="away" onOpenTeam={() => setTeamPageId(game.away.id)} />
+            <TeamIdentity team={game.away} showRecord={game.state === 'pre'} role="away" onOpenTeam={() => openTeam(game.away)} />
             <span className="expanded-game__at">@</span>
-            <TeamIdentity team={game.home} showRecord={game.state === 'pre'} role="home" onOpenTeam={() => setTeamPageId(game.home.id)} />
+            <TeamIdentity team={game.home} showRecord={game.state === 'pre'} role="home" onOpenTeam={() => openTeam(game.home)} />
           </div>
 
           <div className={`expanded-game__live-area${hasHideableResult ? ' expanded-game__live-area--gated' : ''}`}>
