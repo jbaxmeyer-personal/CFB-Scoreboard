@@ -14,8 +14,15 @@ const NETWORK_ABBREVIATIONS: Record<string, string> = {
   'espn deportes': 'ESPN Dep.',
 }
 
+/**
+ * Tolerant of a non-string on purpose. Everything that labels a network runs
+ * through here, so this is the single function best placed to make a stray
+ * value from a feed a missing badge rather than a blank screen — which is
+ * what one undefined network name cost once.
+ */
 export function shortNetworkName(name: string): string {
-  return NETWORK_ABBREVIATIONS[name.trim().toLowerCase()] ?? name.trim()
+  const trimmed = typeof name === 'string' ? name.trim() : ''
+  return NETWORK_ABBREVIATIONS[trimmed.toLowerCase()] ?? trimmed
 }
 
 /**

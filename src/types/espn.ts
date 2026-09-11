@@ -82,9 +82,16 @@ export interface EspnStatus {
   type: EspnStatusType
 }
 
+/** Who is showing the game. The scoreboard sends `names: ["NBC"]`; a team's
+ * schedule sends no `names` at all, carrying the network on the broadcast
+ * itself or under `media`. Every field is optional because any of them can
+ * be the one that's missing. */
 export interface EspnBroadcast {
-  market?: string
-  names: string[]
+  market?: string | { id?: string; type?: string }
+  names?: string[]
+  shortName?: string
+  name?: string
+  media?: { shortName?: string; callLetters?: string; name?: string }
 }
 
 export interface EspnSituation {
