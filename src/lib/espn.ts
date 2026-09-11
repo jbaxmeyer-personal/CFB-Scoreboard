@@ -107,8 +107,10 @@ function parseSeasonLeaders(leaders: EspnLeaderCategory[] | undefined): StatLead
 }
 
 function toTeam(competitor: EspnCompetitor): Team {
-  const { team, curatedRank, records, leaders } = competitor
+  const { team, curatedRank, leaders } = competitor
   const rank = curatedRank?.current
+  // Both keys ESPN uses for the same array — see EspnCompetitor.record.
+  const records = competitor.records ?? competitor.record
   const overallRecord = records?.find((r) => r.type === 'total' || r.name === 'overall')?.summary ?? records?.[0]?.summary
   const homeRecord = records?.find((r) => r.type === 'home')?.summary
   const awayRecord = records?.find((r) => r.type === 'road' || r.type === 'away')?.summary

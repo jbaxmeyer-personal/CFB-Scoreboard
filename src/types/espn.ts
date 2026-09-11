@@ -58,6 +58,10 @@ export interface EspnCompetitor {
   score?: string | number | { value?: number; displayValue?: string }
   curatedRank?: EspnCurrentRank
   records?: EspnRecord[]
+  /** Same data under a different key: the scoreboard sends `records`, the
+   * team-schedule endpoint sends `record`. Reading only the first is why a
+   * team's schedule had no opponent records to show. */
+  record?: EspnRecord[]
   leaders?: EspnLeaderCategory[]
 }
 

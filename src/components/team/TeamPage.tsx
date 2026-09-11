@@ -53,7 +53,19 @@ function StatRows({ stats }: { stats: TeamProfileStat[] }) {
  * schedule is a list of finals, which is the most direct way a spoiler
  * could leak into a new surface — so a protected team's past results stay
  * hidden here exactly as they are on Slate and Scoreboard. */
-function ScheduleRow({ game, teamId, zoneId, onSelect }: { game: Game; teamId: string; zoneId: string; onSelect?: () => void }) {
+function ScheduleRow({
+  game,
+  teamId,
+  zoneId,
+  isProtected,
+  onSelect,
+}: {
+  game: Game
+  teamId: string
+  zoneId: string
+  isProtected: boolean
+  onSelect?: () => void
+}) {
   const isHome = game.home.id === teamId
   const opponent = isHome ? game.away : game.home
   const teamScore = isHome ? game.homeScore : game.awayScore
@@ -68,6 +80,12 @@ function ScheduleRow({ game, teamId, zoneId, onSelect }: { game: Game; teamId: s
       <span className="team-page__game-side">{isHome ? 'vs' : '@'}</span>
       <TeamLogo team={opponent} size={22} rank={opponent.rank} />
       <span className="team-page__game-opponent">{opponent.shortName}</span>
+      {/* Withheld on a protected row: the record ESPN sends alongside a
+          played game already counts that game, so showing it would give
+          away the result the rest of the row is hiding. */}
+      {!isProtected && opponent.record && (
+        <span className="team-page__game-record ticker">{opponent.record}</span>
+      )}
       <span className={`team-page__game-outcome ticker${result ? ` team-page__game-outcome--${result.toLowerCase()}` : ''}`}>
         {result ? (
           <>
@@ -142,12 +160,13 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
           <p className="team-page__hint">{scheduleError ? 'Couldn’t load the schedule.' : 'No schedule posted yet.'}</p>
         )}
         <div className="team-page__games">
-          {safeSchedule.map(({ game }) => (
+          {safeSchedule.map(({ game, isProtected }) => (
             <ScheduleRow
               key={game.id}
               game={game}
               teamId={team.id}
               zoneId={settings.timezoneId}
+              isProtected={isProtected}
               onSelect={onSelectGame ? () => onSelectGame(game.id) : undefined}
             />
           ))}
