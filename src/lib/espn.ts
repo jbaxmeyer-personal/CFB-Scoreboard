@@ -8,6 +8,7 @@ import type {
   EspnCoreStatCategory,
   EspnCoreStatisticsResponse,
   EspnBoxscoreTeamEntry,
+  EspnBroadcast,
   EspnCompetitor,
   EspnEvent,
   EspnLeaderCategory,
@@ -106,6 +107,32 @@ function parseSeasonLeaders(leaders: EspnLeaderCategory[] | undefined): StatLead
   return result
 }
 
+function isNetworkName(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+/**
+ * Who is showing the game, from whichever shape the endpoint used.
+ *
+ * The scoreboard sends `names: ["NBC"]`. A team's schedule sends no `names`
+ * at all — reading that key alone put a bare `undefined` in this list, and
+ * the first thing to call `.trim()` on it took down the whole app the moment
+ * a schedule game could be opened. So the names are filtered to actual
+ * non-empty strings, and a broadcast with none of them contributes nothing
+ * rather than a hole.
+ */
+function broadcastNames(broadcasts: EspnBroadcast[] | undefined): string[] {
+  const out: string[] = []
+  for (const broadcast of broadcasts ?? []) {
+    const named = (broadcast.names ?? []).filter(isNetworkName)
+    // `names` when it's there, and only then the singular spellings — so a
+    // scoreboard broadcast doesn't list the same network twice.
+    const values = named.length > 0 ? named : [broadcast.shortName, broadcast.media?.shortName, broadcast.media?.callLetters, broadcast.name, broadcast.media?.name].filter(isNetworkName)
+    for (const value of values) out.push(value.trim())
+  }
+  return [...new Set(out)]
+}
+
 function toTeam(competitor: EspnCompetitor): Team {
   const { team, curatedRank, leaders } = competitor
   const rank = curatedRank?.current
@@ -161,7 +188,7 @@ export function normalizeEvent(event: EspnEvent): Game | null {
   if (!home || !away) return null
 
   const status = competition.status ?? event.status
-  const broadcasts = (competition.broadcasts ?? []).flatMap((b) => b.names)
+  const broadcasts = broadcastNames(competition.broadcasts)
   const sit = competition.situation
   const possessionId = sit?.possession
   const possession =
