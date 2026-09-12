@@ -6,6 +6,7 @@ import type { CurrentDrive, SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
 import { useSeasonDefense } from '../../hooks/useSeasonDefense'
+import { useTeamColors } from '../../hooks/useTeamColors'
 import { TeamLogo } from '../shared/TeamLogo'
 
 const REACTIONS = ['🔥', '😱', '👏', '😂', '💀', '🚀']
@@ -69,6 +70,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   // own box scores, which costs a request per game each has played.
   const { rows: homeDefense, color: homeSeasonColor } = useSeasonDefense(home.id, year)
   const { rows: awayDefense, color: awaySeasonColor } = useSeasonDefense(away.id, year)
+  const teamColors = useTeamColors()
 
   // Paired by label, and only where both sides have the row: a comparison
   // with one column empty is worse than no row.
@@ -94,7 +96,11 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
   if (isError || allStats.length === 0) return null
 
-  const { homeColor, awayColor } = statBarColors(home, away, { homeColor: homeSeasonColor, awayColor: awaySeasonColor })
+  const { homeColor, awayColor } = statBarColors(home, away, {
+    homeColor: teamColors(home.id)?.color ?? homeSeasonColor,
+    awayColor: teamColors(away.id)?.color ?? awaySeasonColor,
+    awayAlternate: teamColors(away.id)?.alternateColor,
+  })
   let lastSection: TeamStatLine['section'] | undefined
   return (
     <div className="game-stats">
@@ -336,16 +342,21 @@ const NEUTRAL_MID = '#5a6478'
  * which team is ahead.
  *
  * The scoreboard's own competitors turn out to carry no color at all, so
- * `found` is whatever the calling screen dug up from the data it already
- * had — a finished game's box score, or a team's schedule and its played
- * games. The neutrals are the last resort, not the normal case.
+ * `found` is where the color actually comes from: the team directory that
+ * useTeamColors keeps, and behind it whatever the calling screen already
+ * had in hand — a finished game's box score, or a team's schedule and its
+ * played games. The neutrals are the last resort, not the normal case.
  */
-function statBarColors(home: Team, away: Team, found?: { homeColor?: string; awayColor?: string }): { homeColor: string; awayColor: string } {
+function statBarColors(
+  home: Team,
+  away: Team,
+  found?: { homeColor?: string; awayColor?: string; awayAlternate?: string },
+): { homeColor: string; awayColor: string } {
   const homeColor = home.color ?? found?.homeColor ?? NEUTRAL_MID
   const awayOwn = away.color ?? found?.awayColor
   if (awayOwn && !readsAsSameColor(homeColor, awayOwn)) return { homeColor, awayColor: awayOwn }
 
-  const awayAlternate = away.alternateColor
+  const awayAlternate = away.alternateColor ?? found?.awayAlternate
   if (awayAlternate && isVisibleOnDarkPanel(awayAlternate) && !readsAsSameColor(homeColor, awayAlternate)) {
     return { homeColor, awayColor: awayAlternate }
   }
@@ -476,12 +487,17 @@ function PlayerBoxScore({ boxScore, home, away }: { boxScore: GameBoxScore; home
 }
 
 function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: Team; away: Team }) {
+  const teamColors = useTeamColors()
   const hasStats = boxScore.teamStats.length > 0
   const hasLeaders = boxScore.homeLeaders.length > 0 || boxScore.awayLeaders.length > 0
   const hasPlayers = boxScore.homePlayers.length > 0 || boxScore.awayPlayers.length > 0
   if (!hasStats && !hasLeaders && !hasPlayers) return null
 
-  const { homeColor, awayColor } = statBarColors(home, away, { homeColor: boxScore.homeColor, awayColor: boxScore.awayColor })
+  const { homeColor, awayColor } = statBarColors(home, away, {
+    homeColor: teamColors(home.id)?.color ?? boxScore.homeColor,
+    awayColor: teamColors(away.id)?.color ?? boxScore.awayColor,
+    awayAlternate: teamColors(away.id)?.alternateColor,
+  })
   return (
     <div className="game-stats">
       {hasStats && (
