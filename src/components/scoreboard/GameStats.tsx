@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import './GameStats.css'
 import type { Game, GameBoxScore, GamePlay, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import type { CurrentDrive, SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
+import { computeLinescore, periodLabel, type LinescorePeriod } from '../../lib/linescore'
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
 import { useSeasonDefense } from '../../hooks/useSeasonDefense'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -664,9 +665,45 @@ function computeLeadStats(plays: GamePlay[]): LeadStats | null {
   return stats
 }
 
+function Linescore({ periods, home, away }: { periods: LinescorePeriod[]; home: Team; away: Team }) {
+  const columns = { '--linescore-columns': periods.length } as CSSProperties
+  const row = (team: Team, side: 'home' | 'away') => (
+    <div className="game-stats__linescore-row">
+      <span className="game-stats__linescore-team">
+        <TeamLogo team={team} size={18} />
+      </span>
+      {periods.map((p) => (
+        <span
+          key={p.period}
+          // The quarter's winner in full white, so the run of a game reads
+          // down the row without having to compare every pair.
+          className={`game-stats__linescore-cell ticker${p[side] > p[side === 'home' ? 'away' : 'home'] ? ' game-stats__linescore-cell--won' : ''}`}
+        >
+          {p[side]}
+        </span>
+      ))}
+    </div>
+  )
+
+  return (
+    <div className="game-stats__linescore" style={columns}>
+      <div className="game-stats__linescore-row game-stats__linescore-row--head">
+        <span className="game-stats__linescore-team">Box</span>
+        {periods.map((p) => (
+          <span key={p.period} className="game-stats__linescore-cell">
+            {periodLabel(p.period)}
+          </span>
+        ))}
+      </div>
+      {row(away, 'away')}
+      {row(home, 'home')}
+    </div>
+  )
+}
+
 function LeadTracker({ stats, home, away }: { stats: LeadStats; home: Team; away: Team }) {
   return (
-    <div className="game-stats__leads">
+    <>
       <h3 className="game-stats__title">
         Biggest Leads · {stats.leadChanges} lead change{stats.leadChanges === 1 ? '' : 's'}
       </h3>
@@ -684,7 +721,7 @@ function LeadTracker({ stats, home, away }: { stats: LeadStats; home: Team; away
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -705,11 +742,17 @@ function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
   const [filter, setFilter] = useState<PlayFilter>(game.state === 'post' ? 'scoring' : 'all')
 
   const leadStats = useMemo(() => computeLeadStats(plays), [plays])
+  const linescore = useMemo(() => computeLinescore(plays), [plays])
   const visiblePlays = filter === 'scoring' ? plays.filter((p) => p.isScoringPlay) : plays
 
   return (
     <>
-      {leadStats && <LeadTracker stats={leadStats} home={game.home} away={game.away} />}
+      {(linescore || leadStats) && (
+        <div className="game-stats__leads">
+          {linescore && <Linescore periods={linescore} home={game.home} away={game.away} />}
+          {leadStats && <LeadTracker stats={leadStats} home={game.home} away={game.away} />}
+        </div>
+      )}
       <div className="game-stats">
         <div className="game-stats__plays-header">
           <h3 className="game-stats__title">Play by Play</h3>
