@@ -147,3 +147,22 @@
   -webkit-user-select: text;
   user-select: text;
 }
+
+/* The one free-text field outside the team picker. 16px for the same reason
+   that one is: iOS Safari zooms the page on focus for anything smaller. */
+.settings-input {
+  width: 100%;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}

@@ -8,6 +8,7 @@ import { TeamSearchPicker } from './TeamSearchPicker'
 import { BROADCAST_DELAY_OPTIONS } from '../../lib/broadcastDelay'
 import { buildFeedSample } from '../../lib/feedSample'
 import { probeTeamPlayerSources } from '../../lib/teamPlayerProbe'
+import { probeCfbd } from '../../lib/cfbdProbe'
 import { layoutReport } from '../../lib/layoutReport'
 import { seasonYearFromDate } from '../../lib/espn'
 import { useViewState } from '../../context/ViewStateContext'
@@ -34,6 +35,10 @@ export function SettingsScreen() {
   const [probeCopied, setProbeCopied] = useState(false)
   const [layout, setLayout] = useState<string | null>(null)
   const [layoutCopied, setLayoutCopied] = useState(false)
+  const [cfbdKey, setCfbdKey] = useState('')
+  const [cfbdOutput, setCfbdOutput] = useState<string | null>(null)
+  const [cfbdProbing, setCfbdProbing] = useState(false)
+  const [cfbdCopied, setCfbdCopied] = useState(false)
   const queryClient = useQueryClient()
   const { expandedGameId, teamPageId } = useViewState()
 
@@ -87,6 +92,31 @@ export function SettingsScreen() {
       setProbeOutput(`Probe failed: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       setProbing(false)
+    }
+  }
+
+  // Asks CollegeFootballData what it serves, from a device that can reach
+  // it. The key, if one is pasted in, lives in this component's state for
+  // the length of the probe and is never written anywhere.
+  async function runCfbdProbe() {
+    setCfbdProbing(true)
+    setCfbdCopied(false)
+    try {
+      setCfbdOutput(await probeCfbd(seasonYearFromDate(new Date().toISOString()), cfbdKey))
+    } catch (e) {
+      setCfbdOutput(`Probe failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setCfbdProbing(false)
+    }
+  }
+
+  async function copyCfbdOutput() {
+    if (!cfbdOutput) return
+    try {
+      await navigator.clipboard.writeText(cfbdOutput)
+      setCfbdCopied(true)
+    } catch {
+      setCfbdCopied(false)
     }
   }
 
@@ -229,6 +259,41 @@ export function SettingsScreen() {
           )}
         </div>
         {probeOutput && <pre className="settings-feed__sample">{probeOutput}</pre>}
+      </section>
+
+      <section className="settings-section">
+        <h2 className="settings-section__title">CollegeFootballData Probe</h2>
+        <p className="settings-section__hint">
+          Asks CollegeFootballData.com what it actually serves, from a device that can reach it — whether a browser
+          request works at all, whether a key is needed, and how many teams come back with a colour. ESPN&rsquo;s
+          scoreboard carries no team colours, which is why the comparison bars have to go looking for one; a single
+          list of teams would replace all of that. Nothing in the app reads this yet. The key is optional: run it
+          empty first, and only paste one in if the answer says one is required. It is used for the requests and
+          never saved.
+        </p>
+        <input
+          className="settings-input"
+          type="text"
+          inputMode="text"
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="API key (optional)"
+          value={cfbdKey}
+          onChange={(e) => setCfbdKey(e.target.value)}
+        />
+        <div className="settings-feed__actions">
+          <button type="button" className="settings-feed__button" onClick={runCfbdProbe} disabled={cfbdProbing}>
+            {cfbdProbing ? 'Asking CFBD…' : 'Run probe'}
+          </button>
+          {cfbdOutput && (
+            <button type="button" className="settings-feed__button" onClick={copyCfbdOutput}>
+              {cfbdCopied ? 'Copied' : 'Copy'}
+            </button>
+          )}
+        </div>
+        {cfbdOutput && <pre className="settings-feed__sample">{cfbdOutput}</pre>}
       </section>
 
       <section className="settings-section">
