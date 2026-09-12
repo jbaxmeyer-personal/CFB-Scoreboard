@@ -29,8 +29,8 @@ interface ConferenceSeed {
   teamIds: string[]
 }
 
-/** Power four first, then the rest alphabetically, independents last — the
- * order someone is most likely to want, not the order a machine would sort. */
+/* Grouped power-four-first here only because that's how the membership was
+ * transcribed; the exported list is sorted before anything renders it. */
 const CONFERENCE_SEEDS: ConferenceSeed[] = [
   {
     id: "SEC",
@@ -111,7 +111,13 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
   },
 ]
 
-export const CONFERENCES: Conference[] = CONFERENCE_SEEDS.map((c) => ({ ...c, teamIds: new Set(c.teamIds) }))
+/** Alphabetical by name, which is the order the picker shows them in and
+ * the only order you can find one in without reading the whole list.
+ * `localeCompare` rather than `<`, so "Pac-12" sorts by its letters instead
+ * of by punctuation, and numeric so "Big 12" lands before "Big Ten". */
+export const CONFERENCES: Conference[] = CONFERENCE_SEEDS.map((c) => ({ ...c, teamIds: new Set(c.teamIds) })).sort(
+  (a, b) => a.name.localeCompare(b.name, 'en', { numeric: true, sensitivity: 'base' }),
+)
 
 export const CONFERENCES_BY_ID = new Map(CONFERENCES.map((c) => [c.id, c]))
 
