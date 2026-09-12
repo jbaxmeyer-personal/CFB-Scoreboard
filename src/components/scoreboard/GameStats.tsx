@@ -67,8 +67,8 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   // Defence is not in that response and never was — see seasonDefenseRows.
   // Both teams' allowed numbers are added up from the other side of their
   // own box scores, which costs a request per game each has played.
-  const homeDefense = useSeasonDefense(home.id, year)
-  const awayDefense = useSeasonDefense(away.id, year)
+  const { rows: homeDefense, color: homeSeasonColor } = useSeasonDefense(home.id, year)
+  const { rows: awayDefense, color: awaySeasonColor } = useSeasonDefense(away.id, year)
 
   // Paired by label, and only where both sides have the row: a comparison
   // with one column empty is worse than no row.
@@ -94,7 +94,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
   if (isError || allStats.length === 0) return null
 
-  const { homeColor, awayColor } = statBarColors(home, away)
+  const { homeColor, awayColor } = statBarColors(home, away, { homeColor: homeSeasonColor, awayColor: awaySeasonColor })
   let lastSection: TeamStatLine['section'] | undefined
   return (
     <div className="game-stats">
@@ -333,12 +333,16 @@ const NEUTRAL_MID = '#5a6478'
  * nothing. Measured on the device: both segments were rendering in the same
  * flat grey on every row of every game, because the fallback for "no color"
  * was one shared value used on both sides, which is a bar that can't show
- * which team is ahead. The box score is asked first — it carries the team
- * objects too, and is a second place the color can turn up.
+ * which team is ahead.
+ *
+ * The scoreboard's own competitors turn out to carry no color at all, so
+ * `found` is whatever the calling screen dug up from the data it already
+ * had — a finished game's box score, or a team's schedule and its played
+ * games. The neutrals are the last resort, not the normal case.
  */
-function statBarColors(home: Team, away: Team, boxScore?: GameBoxScore): { homeColor: string; awayColor: string } {
-  const homeColor = home.color ?? boxScore?.homeColor ?? NEUTRAL_MID
-  const awayOwn = away.color ?? boxScore?.awayColor
+function statBarColors(home: Team, away: Team, found?: { homeColor?: string; awayColor?: string }): { homeColor: string; awayColor: string } {
+  const homeColor = home.color ?? found?.homeColor ?? NEUTRAL_MID
+  const awayOwn = away.color ?? found?.awayColor
   if (awayOwn && !readsAsSameColor(homeColor, awayOwn)) return { homeColor, awayColor: awayOwn }
 
   const awayAlternate = away.alternateColor
@@ -477,7 +481,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   const hasPlayers = boxScore.homePlayers.length > 0 || boxScore.awayPlayers.length > 0
   if (!hasStats && !hasLeaders && !hasPlayers) return null
 
-  const { homeColor, awayColor } = statBarColors(home, away, boxScore)
+  const { homeColor, awayColor } = statBarColors(home, away, { homeColor: boxScore.homeColor, awayColor: boxScore.awayColor })
   return (
     <div className="game-stats">
       {hasStats && (
