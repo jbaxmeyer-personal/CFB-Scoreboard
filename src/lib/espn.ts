@@ -622,6 +622,49 @@ export function snapClockFromText(text: string | undefined): string | undefined 
   return `${Number(match[1])}:${match[2]}`
 }
 
+/** How soon the previous maximum has to come back for a dip to read as a
+ * stale snapshot rather than points actually coming off the board. Two
+ * plays: the case this was measured on recovered on the very next one. */
+const STALE_SCORE_LOOKAHEAD = 2
+
+/**
+ * One side's score on a play, once it's clear whether a decrease was a stale
+ * snapshot or a real one. `rolledBack` says the points are genuinely gone.
+ */
+function settledScore(
+  games: GamePlay[],
+  index: number,
+  side: 'homeScore' | 'awayScore',
+  max: number,
+): { value: number; rolledBack: boolean } {
+  const raw = games[index][side]
+  if (raw >= max) return { value: raw, rolledBack: false }
+
+  const until = Math.min(index + STALE_SCORE_LOOKAHEAD, games.length - 1)
+  for (let j = index + 1; j <= until; j += 1) {
+    // The board comes back to where it was, so nothing actually came off it.
+    if (games[j][side] >= max) return { value: max, rolledBack: false }
+  }
+  return { value: raw, rolledBack: true }
+}
+
+/**
+ * Walks back over the plays already credited with points that have just been
+ * taken off the board, so a called-back touchdown stops reading as one.
+ *
+ * Only the run immediately before it can be affected: everything earlier was
+ * at or below the score being returned to.
+ */
+function uncredit(games: GamePlay[], index: number, side: 'homeScore' | 'awayScore', value: number, team: 'home' | 'away'): void {
+  for (let j = index - 1; j >= 0 && games[j][side] > value; j -= 1) {
+    games[j][side] = value
+    if (games[j].scoringTeam === team) {
+      games[j].isScoringPlay = false
+      games[j].scoringTeam = undefined
+    }
+  }
+}
+
 function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: string }): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
@@ -865,51 +908,58 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   // after the field goal that actually scored). Derive it ourselves instead,
   // walking forward through `games`, which is still oldest-first here.
   //
-  // The test is that a score went *up*, not that it differs. A score that
-  // differs also covers going down, and these snapshots do go down:
-  // confirmed on a finished game, a touchdown carried 14-28 (its two-point
-  // try already counted) and the timeout thirteen seconds later carried
-  // 14-26, then the penalty after that carried 14-28 again. Under a
-  // differs-from-the-last-play test that timeout and that penalty both
-  // registered as scores, which is how they turned up under the "Scoring"
-  // filter.
+  // A score that goes *down* between plays is two completely different
+  // things, and both were seen within a day of each other:
   //
-  // So the baseline is each side's running maximum rather than the previous
-  // play's number. Nobody's score falls in a football game, so a snapshot
-  // below the maximum is a stale one: it scores nothing, and it doesn't
-  // drag the baseline down for the plays after it. It's corrected on the
-  // way past as well, so the score column never reads backwards either.
+  //  - A stale snapshot. On a finished game a touchdown carried 14-28 with
+  //    its two-point try already counted, the timeout thirteen seconds
+  //    later carried 14-26, and the penalty after that was back at 14-28.
+  //    Nothing happened; that middle row just hadn't caught up.
+  //  - Points actually coming off. A touchdown was called back — "TOUCHDOWN!
+  //    nullified by penalty ... NO PLAY" — and the six points went with it,
+  //    for good.
+  //
+  // What tells them apart is whether the higher score ever comes back. A
+  // stale row is a dip: the very next play or two is back where it was. A
+  // nullified score is a step down that stays down. So a decrease is only
+  // ignored when the previous maximum returns within the next couple of
+  // plays; otherwise it is taken at face value, the baseline drops with it,
+  // and the plays that had already been credited with those points are
+  // walked back and uncredited — the touchdown itself included, since it is
+  // no longer a scoring play and no longer shows six points it didn't get.
   //
   // The baseline starts at 0-0, which is where every football game starts.
   // That lets the very first play count — a kickoff returned for a
-  // touchdown is a real thing, and the previous rule could never flag a
-  // first play because it had nothing to compare against. It also makes the
-  // scoring-plays fallback work without a special case, since every entry
-  // in that list scored by definition.
-  //
-  // The cost is a feed that begins mid-game: its first play would read as
-  // having scored everything on the board. This one always covers the whole
-  // game — `drives.previous` is every completed drive — so that case isn't
-  // reachable, and a wrong crest on one row is the worst it could do.
+  // touchdown is a real thing — and it makes the scoring-plays fallback
+  // work without a special case, since every entry in that list scored by
+  // definition.
   let maxHomeScore = 0
   let maxAwayScore = 0
+  for (let i = 0; i < games.length; i += 1) {
+    const play = games[i]
+    const home = settledScore(games, i, 'homeScore', maxHomeScore)
+    const away = settledScore(games, i, 'awayScore', maxAwayScore)
+
+    const homeScored = home.value > maxHomeScore
+    const awayScored = away.value > maxAwayScore
+    play.isScoringPlay = homeScored || awayScored
+    // Who the crest beside it belongs to. The team whose score went up
+    // scored, whoever happened to have the ball.
+    if (play.isScoringPlay) play.scoringTeam = homeScored ? 'home' : 'away'
+
+    if (home.rolledBack) uncredit(games, i, 'homeScore', home.value, 'home')
+    if (away.rolledBack) uncredit(games, i, 'awayScore', away.value, 'away')
+
+    play.homeScore = home.value
+    play.awayScore = away.value
+    maxHomeScore = home.value
+    maxAwayScore = away.value
+  }
+
+  // Applied only once the flags above are settled: a play that gets
+  // uncredited must not keep the wording of a scoring play.
   for (const play of games) {
-    const homeScored = play.homeScore > maxHomeScore
-    const awayScored = play.awayScore > maxAwayScore
-    const scored = homeScored || awayScored
-
-    play.isScoringPlay = scored
-    if (scored) {
-      // Who the crest beside it should belong to. The team whose score went
-      // up scored, whoever happened to have the ball.
-      play.scoringTeam = homeScored ? 'home' : 'away'
-      play.text = cleanPlayText(play.text, true)
-    }
-
-    maxHomeScore = Math.max(maxHomeScore, play.homeScore)
-    maxAwayScore = Math.max(maxAwayScore, play.awayScore)
-    play.homeScore = maxHomeScore
-    play.awayScore = maxAwayScore
+    if (play.isScoringPlay) play.text = cleanPlayText(play.text, true)
   }
 
   return games.reverse()
