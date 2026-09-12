@@ -408,6 +408,9 @@ export interface EspnCorePlaysResponse {
  * parse_team_schedule, which documents the payload as
  * {"events": [...], "season": {...}, "team": {...}, "requestedSeason": {...}}. */
 export interface EspnTeamScheduleResponse {
+  /** The team the schedule belongs to. Carries the fuller team record —
+   * including the colour the scoreboard's competitors come without. */
+  team?: EspnTeam
   events?: EspnEvent[]
   requestedSeason?: { year: number; type: number }
 }

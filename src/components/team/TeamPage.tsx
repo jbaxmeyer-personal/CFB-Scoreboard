@@ -129,7 +129,7 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   // Defence is not in the season stats response — see seasonDefenseRows. It
   // is added up from the other side of this team's own box scores, which
   // means fetching them, which the player totals below need anyway.
-  const defenseRows = useSeasonDefense(team.id, year)
+  const { rows: defenseRows } = useSeasonDefense(team.id, year)
   // Offence, then defence, then turnovers — the order the section headers
   // assume, since they are drawn wherever the section changes.
   const seasonRows = useMemo(
