@@ -94,7 +94,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
   if (isLoading) return <p className="game-stats__hint">Loading season stats…</p>
   if (isError || allStats.length === 0) return null
 
-  const awayColor = resolveAwayBarColor(home, away)
+  const { homeColor, awayColor } = statBarColors(home, away)
   let lastSection: TeamStatLine['section'] | undefined
   return (
     <div className="game-stats">
@@ -109,7 +109,7 @@ export function SeasonTeamComparison({ home, away, year }: { home: Team; away: T
         return (
           <div key={line.label}>
             {showSectionHeader && <div className="game-stats__section-label">{SEASON_SECTION_LABEL[line.section!]}</div>}
-            <StatRow line={line} awayColor={awayColor} homeColor={home.color} />
+            <StatRow line={line} awayColor={awayColor} homeColor={homeColor} />
           </div>
         )
       })}
@@ -312,31 +312,43 @@ function isVisibleOnDarkPanel(hex: string): boolean {
   return hsl !== null && hsl.l > 0.22
 }
 
-/** Neutral stand-in for when a team has no usable distinct color left —
- * deliberately not a tint of their own color, which reads as a *wrong*
- * team color (a lightened maroon looks pink, which is nobody's color). */
-const NEUTRAL_BAR_COLOR = '#c6cede'
+/** Neutral stand-ins for when a team has no usable distinct color left —
+ * deliberately not a tint of their own color, which reads as a *wrong* team
+ * color (a lightened maroon looks pink, which is nobody's color). Two of
+ * them, far enough apart in lightness to tell at a glance, because a bar
+ * drawn in one color twice says nothing at all. */
+const NEUTRAL_LIGHT = '#c6cede'
+const NEUTRAL_MID = '#5a6478'
 
-/** Two solid bar segments in the same color family are unreadable at a
- * glance, so when the primaries clash the away team falls back to its own
- * secondary (alternate) color — a real color that team actually wears —
- * rather than a lightened tint of its primary. If the secondary is also
- * too close to the home color, or is too dark to show up on a dark panel
- * at all, a neutral light slate stands in instead. */
-function resolveAwayBarColor(home: Team, away: Team): string | undefined {
-  const homeColor = home.color
-  const awayColor = away.color
-  if (!homeColor || !awayColor) return awayColor
-  if (!readsAsSameColor(homeColor, awayColor)) return awayColor
+/**
+ * Both segment colors, resolved together in one place so the two screens
+ * that draw these bars can't drift apart.
+ *
+ * Two solid segments in the same color family are unreadable at a glance,
+ * so when the primaries clash the away team falls back to its own secondary
+ * (alternate) color — a real color that team actually wears — rather than a
+ * lightened tint of its primary.
+ *
+ * And when a color is missing outright, a neutral stands in rather than
+ * nothing. Measured on the device: both segments were rendering in the same
+ * flat grey on every row of every game, because the fallback for "no color"
+ * was one shared value used on both sides, which is a bar that can't show
+ * which team is ahead. The box score is asked first — it carries the team
+ * objects too, and is a second place the color can turn up.
+ */
+function statBarColors(home: Team, away: Team, boxScore?: GameBoxScore): { homeColor: string; awayColor: string } {
+  const homeColor = home.color ?? boxScore?.homeColor ?? NEUTRAL_MID
+  const awayOwn = away.color ?? boxScore?.awayColor
+  if (awayOwn && !readsAsSameColor(homeColor, awayOwn)) return { homeColor, awayColor: awayOwn }
 
   const awayAlternate = away.alternateColor
   if (awayAlternate && isVisibleOnDarkPanel(awayAlternate) && !readsAsSameColor(homeColor, awayAlternate)) {
-    return awayAlternate
+    return { homeColor, awayColor: awayAlternate }
   }
-  return NEUTRAL_BAR_COLOR
+  return { homeColor, awayColor: readsAsSameColor(homeColor, NEUTRAL_LIGHT) ? NEUTRAL_MID : NEUTRAL_LIGHT }
 }
 
-function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor?: string; homeColor?: string }) {
+function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor: string; homeColor: string }) {
   const awayNum = parseStatMagnitude(line.awayValue)
   const homeNum = parseStatMagnitude(line.homeValue)
   // A negative value (e.g. turnover margin) can't be shown as a share of a
@@ -360,8 +372,8 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
       </div>
       {bothNonNegative && (
         <div className="game-stats__stat-bar">
-          <span className="game-stats__stat-bar-segment" style={{ width: `${awayPct}%`, background: awayColor ?? 'var(--text-tertiary)' }} />
-          <span className="game-stats__stat-bar-segment" style={{ width: `${100 - awayPct}%`, background: homeColor ?? 'var(--text-tertiary)' }} />
+          <span className="game-stats__stat-bar-segment" style={{ width: `${awayPct}%`, background: awayColor }} />
+          <span className="game-stats__stat-bar-segment" style={{ width: `${100 - awayPct}%`, background: homeColor }} />
           {/* Marks the exact halfway point so it's obvious at a glance which
               side's segment crosses past it — that's always the "ahead" team. */}
           <span className="game-stats__stat-bar-mid" />
@@ -465,7 +477,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   const hasPlayers = boxScore.homePlayers.length > 0 || boxScore.awayPlayers.length > 0
   if (!hasStats && !hasLeaders && !hasPlayers) return null
 
-  const awayColor = resolveAwayBarColor(home, away)
+  const { homeColor, awayColor } = statBarColors(home, away, boxScore)
   return (
     <div className="game-stats">
       {hasStats && (
@@ -476,7 +488,7 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
             <span>{home.abbreviation}</span>
           </div>
           {boxScore.teamStats.map((line) => (
-            <StatRow key={line.label} line={line} awayColor={awayColor} homeColor={home.color} />
+            <StatRow key={line.label} line={line} awayColor={awayColor} homeColor={homeColor} />
           ))}
         </>
       )}

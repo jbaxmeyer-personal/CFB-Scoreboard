@@ -146,8 +146,10 @@ export interface EspnBoxscoreStat {
 
 export interface EspnBoxscoreTeamEntry {
   /** abbreviation is the fallback key for matching drives to a team, since
-   * ESPN's drive objects don't always carry a team id. */
-  team: { id: string; abbreviation?: string }
+   * ESPN's drive objects don't always carry a team id. The colours are
+   * best-effort: a second place the team's own colour can turn up when the
+   * scoreboard didn't carry one, used only if it's actually there. */
+  team: { id: string; abbreviation?: string; color?: string; alternateColor?: string }
   statistics: EspnBoxscoreStat[]
 }
 

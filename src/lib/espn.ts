@@ -1444,6 +1444,8 @@ export function normalizeBoxScore(response: EspnSummaryResponse, home: TeamIdent
   const awayLeaders = parseGameLeaders(awayPlayers)
 
   return {
+    homeColor: homeEntry?.team.color ? `#${homeEntry.team.color}` : undefined,
+    awayColor: awayEntry?.team.color ? `#${awayEntry.team.color}` : undefined,
     teamStats,
     homeLeaders: homeLeaders.length > 0 ? homeLeaders : leadersFromSummary(response, home, away),
     awayLeaders: awayLeaders.length > 0 ? awayLeaders : leadersFromSummary(response, away, home),
