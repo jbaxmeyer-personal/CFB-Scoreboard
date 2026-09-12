@@ -29,7 +29,7 @@
   --shadow-glow-live: 0 0 0 1px rgba(255, 59, 48, 0.5), 0 0 20px rgba(255, 59, 48, 0.35);
   --shadow-glow-favorite: 0 0 0 1px rgba(255, 214, 10, 0.45), 0 0 16px rgba(255, 214, 10, 0.25);
 
-  --font-display: 'Teko', 'Oswald', 'Arial Narrow', sans-serif;
+  --font-display: 'Roboto Slab', 'Zilla Slab', Rockwell, Georgia, serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
