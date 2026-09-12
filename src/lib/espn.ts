@@ -862,31 +862,54 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   // ESPN's own scoringPlay flag isn't reliable — confirmed live, it was set
   // on plays whose score hadn't actually changed (a kickoff and a later
   // first-down completion both showing up under the "Scoring" filter, well
-  // after the field goal that actually scored). Derive it ourselves
-  // instead: the one true signal for "this play scored" is that the
-  // running score differs from the play immediately before it, in
-  // chronological order — `games` is still oldest-first here, so a simple
-  // walk forward does this directly from data we already have.
-  let prevHomeScore: number | undefined
-  let prevAwayScore: number | undefined
+  // after the field goal that actually scored). Derive it ourselves instead,
+  // walking forward through `games`, which is still oldest-first here.
+  //
+  // The test is that a score went *up*, not that it differs. A score that
+  // differs also covers going down, and these snapshots do go down:
+  // confirmed on a finished game, a touchdown carried 14-28 (its two-point
+  // try already counted) and the timeout thirteen seconds later carried
+  // 14-26, then the penalty after that carried 14-28 again. Under a
+  // differs-from-the-last-play test that timeout and that penalty both
+  // registered as scores, which is how they turned up under the "Scoring"
+  // filter.
+  //
+  // So the baseline is each side's running maximum rather than the previous
+  // play's number. Nobody's score falls in a football game, so a snapshot
+  // below the maximum is a stale one: it scores nothing, and it doesn't
+  // drag the baseline down for the plays after it. It's corrected on the
+  // way past as well, so the score column never reads backwards either.
+  //
+  // The baseline starts at 0-0, which is where every football game starts.
+  // That lets the very first play count — a kickoff returned for a
+  // touchdown is a real thing, and the previous rule could never flag a
+  // first play because it had nothing to compare against. It also makes the
+  // scoring-plays fallback work without a special case, since every entry
+  // in that list scored by definition.
+  //
+  // The cost is a feed that begins mid-game: its first play would read as
+  // having scored everything on the board. This one always covers the whole
+  // game — `drives.previous` is every completed drive — so that case isn't
+  // reachable, and a wrong crest on one row is the worst it could do.
+  let maxHomeScore = 0
+  let maxAwayScore = 0
   for (const play of games) {
-    const scored =
-      prevHomeScore !== undefined && prevAwayScore !== undefined && (play.homeScore !== prevHomeScore || play.awayScore !== prevAwayScore)
-    play.isScoringPlay = scored
-    if (scored) play.text = cleanPlayText(play.text, true)
-    prevHomeScore = play.homeScore
-    prevAwayScore = play.awayScore
-  }
+    const homeScored = play.homeScore > maxHomeScore
+    const awayScored = play.awayScore > maxAwayScore
+    const scored = homeScored || awayScored
 
-  // The score-delta walk can't identify the *first* play in a list (there's
-  // nothing before it to differ from). That's the right call for a full
-  // feed, but when the list is the scoring-plays fallback, every entry in
-  // it scored by definition — including the first.
-  if (usingScoringPlaysOnly) {
-    for (const play of games) {
-      play.isScoringPlay = true
+    play.isScoringPlay = scored
+    if (scored) {
+      // Who the crest beside it should belong to. The team whose score went
+      // up scored, whoever happened to have the ball.
+      play.scoringTeam = homeScored ? 'home' : 'away'
       play.text = cleanPlayText(play.text, true)
     }
+
+    maxHomeScore = Math.max(maxHomeScore, play.homeScore)
+    maxAwayScore = Math.max(maxAwayScore, play.awayScore)
+    play.homeScore = maxHomeScore
+    play.awayScore = maxAwayScore
   }
 
   return games.reverse()

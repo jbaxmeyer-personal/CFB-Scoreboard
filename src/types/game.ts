@@ -101,6 +101,12 @@ export interface GamePlay {
   homeScore: number
   awayScore: number
   isScoringPlay: boolean
+  /** Which side's score went up, on a scoring play. Not the same as who had
+   * the ball: a pick-six or a kick return is scored by the team that was on
+   * defence, and putting the offence's crest beside it names the wrong team.
+   * 'home'/'away' rather than an id because the play normalizer never sees
+   * the game's two teams. */
+  scoringTeam?: 'home' | 'away'
 }
 
 export type GameState = 'pre' | 'in' | 'post'
