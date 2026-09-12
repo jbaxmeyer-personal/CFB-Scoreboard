@@ -66,6 +66,11 @@ export interface PlayerStatCategory {
  * final, and only rendered behind the same spoiler gate as the score. */
 export interface GameBoxScore {
   teamStats: TeamStatLine[]
+  /** Team colours as the box score carried them — a second source for the
+   * comparison bars, for when the scoreboard's own team objects came
+   * without one. Undefined when this payload had none either. */
+  homeColor?: string
+  awayColor?: string
   homeLeaders: StatLeader[]
   awayLeaders: StatLeader[]
   /** Every individual's line, by category. The leaders above are the first
