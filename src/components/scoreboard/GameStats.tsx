@@ -532,11 +532,20 @@ function BoxScoreBody({ boxScore, home, away }: { boxScore: GameBoxScore; home: 
   )
 }
 
-/** The team that had the ball, matched against this game's two. ESPN's drive
- * objects don't always carry an id, so the abbreviation is a second key. A
- * play we can't attribute — anything from the core-API fallback, which has no
- * drive team — simply gets no crest rather than a guessed one. */
-function offenseTeam(play: GamePlay, game: Game): Team | undefined {
+/** Whose crest belongs beside a play.
+ *
+ * On a scoring play it is the team that scored, which is not always the team
+ * that had the ball: an interception returned for a touchdown, or a kick
+ * return, is scored by the side that was on defence, and the offence's crest
+ * beside it names the wrong team for the biggest play in the game.
+ *
+ * Otherwise it is whoever had the ball, matched against this game's two.
+ * ESPN's drive objects don't always carry an id, so the abbreviation is a
+ * second key. A play that can't be attributed — anything from the core-API
+ * fallback, which has no drive team — simply gets no crest rather than a
+ * guessed one. */
+function playTeam(play: GamePlay, game: Game): Team | undefined {
+  if (play.scoringTeam) return play.scoringTeam === 'home' ? game.home : game.away
   for (const team of [game.home, game.away]) {
     if (play.offenseTeamId && team.id === play.offenseTeamId) return team
     if (play.offenseTeamAbbr && team.abbreviation === play.offenseTeamAbbr) return team
@@ -736,7 +745,7 @@ function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
               <PlayRow
                 key={play.id}
                 play={play}
-                team={offenseTeam(play, game)}
+                team={playTeam(play, game)}
                 showClock={!repeatsClock}
                 reaction={reactions[key]}
                 onReact={(emoji) => setReaction(key, emoji)}
