@@ -18,7 +18,7 @@ export function ScoreboardOverview() {
   const { settings } = useSettings()
   const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame, scoreboardAnchorDate, setScoreboardAnchorDate } =
     useViewState()
-  const { games: allGames, dateKeys, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
+  const { games: allGames, dateKeys, season, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
   // Filtered before grouping, so the day strip reflects the filter too: a
   // day with no Top 25 games shouldn't offer a tab that leads to nothing.
   const { games, filtersActive, filterSummary } = useFilteredGames(allGames)
@@ -37,6 +37,21 @@ export function ScoreboardOverview() {
     return dateKeys.flatMap((dateKey) => byKey.get(dateKey) ?? [])
   }, [grouped, dateKeys])
 
+  // The strip offers the whole season when the payload said which days have
+  // games, rather than only the ten days this screen fetched: a date it
+  // hasn't fetched is still worth a tab, because selecting one re-anchors
+  // the window and goes and gets it. Days in the window that have games are
+  // unioned in, so a day the season calendar didn't mention — a midweek
+  // game added late — doesn't disappear from a strip built off it.
+  //
+  // With no season calendar this is exactly the fetched window, which is
+  // what the screen showed before.
+  const stripDateKeys = useMemo(() => {
+    const keys = new Set(days.map((d) => d.dateKey))
+    for (const date of season.dates) keys.add(date)
+    return [...keys].sort()
+  }, [days, season.dates])
+
   // The anchor day when it has games, otherwise the nearest day that does,
   // looking forward first: landing on an empty Tuesday should show you
   // Thursday's games rather than last Saturday's. `days` is in window
@@ -48,7 +63,10 @@ export function ScoreboardOverview() {
     return (days.find((d) => d.dateKey > anchorKey) ?? days[days.length - 1])?.dateKey
   }, [days, dateKeys])
 
-  const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : defaultDateKey
+  // A day the strip offers but the window hasn't reached yet still counts as
+  // the selection — picking it re-anchors the window, and the selection
+  // shouldn't visibly bounce back to another tab while that lands.
+  const activeDateKey = selectedDateKey && stripDateKeys.includes(selectedDateKey) ? selectedDateKey : defaultDateKey
 
   useEffect(() => {
     if (!selectedDateKey && activeDateKey) setSelectedDateKey(activeDateKey)
@@ -62,6 +80,9 @@ export function ScoreboardOverview() {
   }
 
   const activeDay = days.find((d) => d.dateKey === activeDateKey)
+  // Selected, offered by the season calendar, and not fetched yet: that's a
+  // day still on its way, not a day with no games.
+  const awaitingDay = activeDateKey !== undefined && activeDay === undefined && stripDateKeys.includes(activeDateKey)
   const safeGames = useSpoilerSafeGames(activeDay?.games ?? [])
 
   return (
@@ -75,14 +96,18 @@ export function ScoreboardOverview() {
 
       {!isLoading && !isError && (
         <DayTabs
-          days={days}
+          dateKeys={stripDateKeys}
           selectedDateKey={activeDateKey ?? ''}
-          onSelect={setSelectedDateKey}
+          onSelect={pickDate}
           onPickDate={pickDate}
+          minDateKey={season.start}
+          maxDateKey={season.end}
         />
       )}
 
-      {!isLoading && !isError && (activeDay?.games.length ?? 0) === 0 && (
+      {!isLoading && !isError && awaitingDay && <LoadingState label="Loading that day…" />}
+
+      {!isLoading && !isError && !awaitingDay && (activeDay?.games.length ?? 0) === 0 && (
         <EmptyState message={filtersActive ? `No games match ${filterSummary}.` : undefined} />
       )}
 

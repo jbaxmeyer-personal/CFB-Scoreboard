@@ -53,7 +53,7 @@ export function ScheduleGrid() {
       {!isLoading && !isError && <FilterBar />}
 
       {!isLoading && !isError && days.length > 0 && (
-        <DayTabs days={days} selectedDateKey={activeDateKey ?? ''} onSelect={setSelectedDateKey} />
+        <DayTabs dateKeys={days.map((d) => d.dateKey)} selectedDateKey={activeDateKey ?? ''} onSelect={setSelectedDateKey} />
       )}
 
       {!isLoading && !isError && days.length === 0 && (
