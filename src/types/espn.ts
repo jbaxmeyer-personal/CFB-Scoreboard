@@ -113,6 +113,10 @@ export interface EspnCompetition {
   competitors: EspnCompetitor[]
   status: EspnStatus
   broadcasts?: EspnBroadcast[]
+  /** False when the kickoff time isn't set yet. ESPN still sends a `date`
+   * for such a game — midnight Eastern on the day it will be played — which
+   * is a placeholder, not a time. */
+  timeValid?: boolean
   situation?: EspnSituation
   venue?: { fullName?: string }
 }

@@ -94,7 +94,7 @@ function ScheduleRow({
         ) : game.state === 'in' ? (
           'LIVE'
         ) : (
-          formatKickoffTime(game.startDate, zoneId)
+          game.timeTBD ? 'TBD' : formatKickoffTime(game.startDate, zoneId)
         )}
       </span>
     </button>

@@ -49,6 +49,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-1',
     competitionId: 'mock-1',
+    timeTBD: false,
     startDate: '2026-08-28T00:00:00Z', // 8:00 PM ET Thu
     shortName: 'KSU @ ISU',
     venue: 'Jack Trice Stadium',
@@ -63,6 +64,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-2',
     competitionId: 'mock-2',
+    timeTBD: false,
     startDate: '2026-08-28T02:30:00Z', // 10:30 PM ET Thu
     shortName: 'HAW @ STAN',
     venue: 'Stanford Stadium',
@@ -82,6 +84,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-3',
     competitionId: 'mock-3',
+    timeTBD: false,
     startDate: '2026-08-28T23:30:00Z', // 7:30 PM ET Fri
     shortName: 'M-OH @ ND',
     venue: 'Notre Dame Stadium',
@@ -94,6 +97,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-4',
     competitionId: 'mock-4',
+    timeTBD: false,
     startDate: '2026-08-29T00:00:00Z', // 8:00 PM ET Fri
     shortName: 'COL @ GT',
     venue: 'Bobby Dodd Stadium',
@@ -108,6 +112,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-5',
     competitionId: 'mock-5',
+    timeTBD: false,
     startDate: '2026-08-29T16:00:00Z', // 12:00 PM ET Sat
     shortName: 'TEX @ OSU',
     venue: 'Ohio Stadium',
@@ -120,6 +125,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-6',
     competitionId: 'mock-6',
+    timeTBD: false,
     startDate: '2026-08-29T16:00:00Z', // 12:00 PM ET Sat, live
     shortName: 'USU @ MICH',
     venue: 'Michigan Stadium',
@@ -137,6 +143,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-7',
     competitionId: 'mock-7',
+    timeTBD: false,
     startDate: '2026-08-29T19:30:00Z', // 3:30 PM ET Sat
     shortName: 'FSU @ ALA',
     venue: 'Bryant-Denny Stadium',
@@ -149,6 +156,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-8',
     competitionId: 'mock-8',
+    timeTBD: false,
     startDate: '2026-08-29T20:00:00Z', // 4:00 PM ET Sat, final — spoiler candidate
     shortName: 'NEV @ ORE',
     venue: 'Autzen Stadium',
@@ -163,6 +171,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-9',
     competitionId: 'mock-9',
+    timeTBD: false,
     startDate: '2026-08-29T23:30:00Z', // 7:30 PM ET Sat
     shortName: 'CLEM @ LSU',
     venue: 'Tiger Stadium',
@@ -175,6 +184,7 @@ const RAW_GAMES: Game[] = [
   {
     id: 'mock-10',
     competitionId: 'mock-10',
+    timeTBD: false,
     startDate: '2026-08-30T02:30:00Z', // 10:30 PM ET Sat
     shortName: 'NW @ USC',
     venue: 'United Airlines Field at the Coliseum',
