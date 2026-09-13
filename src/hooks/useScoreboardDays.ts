@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import { fetchScoreboard, normalizeScoreboard } from '../lib/espn'
 import { toEspnDateParam } from '../lib/timezone'
 import { windowDateKeys } from '../lib/dayWindow'
+import { mergeSeasonCalendars, parseSeasonCalendar, type SeasonCalendar } from '../lib/seasonCalendar'
 import type { Game } from '../types/game'
 import { hasLiveGame, useLivePolling } from './useLivePolling'
 
@@ -18,6 +19,11 @@ export interface ScoreboardDaysResult {
   dateKeys: string[]
   isLoading: boolean
   isError: boolean
+  /** The season's own schedule, as the payload described it — the days that
+   * have games where ESPN lists them, and the season's extent either way.
+   * Empty when the payload carried nothing usable, which leaves the screen
+   * on the fetched window it used before. */
+  season: SeasonCalendar
   refetch: () => void
 }
 
@@ -77,9 +83,19 @@ export function useScoreboardDays(anchorDateKey: string | null, zoneId: string):
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results.map((r) => r.dataUpdatedAt).join(',')])
 
+  // Every day's response carries the same season calendar, so this takes
+  // whichever of them have arrived. No extra request: these are the
+  // responses the screen is already built from.
+  const season = useMemo(
+    () => mergeSeasonCalendars(results.filter((r) => r.data).map((r) => parseSeasonCalendar(r.data))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [results.map((r) => r.dataUpdatedAt).join(',')],
+  )
+
   return {
     games,
     dateKeys,
+    season,
     isLoading: isLoading && !hasAnyData,
     isError,
     refetch: () => {
