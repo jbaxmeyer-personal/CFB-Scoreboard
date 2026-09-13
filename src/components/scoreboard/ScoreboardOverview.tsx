@@ -78,7 +78,6 @@ export function ScoreboardOverview() {
           days={days}
           selectedDateKey={activeDateKey ?? ''}
           onSelect={setSelectedDateKey}
-          zoneId={settings.timezoneId}
           onPickDate={pickDate}
         />
       )}

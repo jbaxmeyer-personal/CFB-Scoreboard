@@ -83,7 +83,11 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
   const status = liveStatus && isStatusAhead(liveStatus, game) ? liveStatus : game
 
   if (game.state === 'pre') {
-    return <span className="ticker expanded-game__clock">{formatKickoff(game.startDate, zoneId)}</span>
+    return (
+      <span className="ticker expanded-game__clock">
+        {game.timeTBD ? 'TIME TBD' : formatKickoff(game.startDate, zoneId)}
+      </span>
+    )
   }
 
   // The score fields are stripped while the delay holds this game, and the

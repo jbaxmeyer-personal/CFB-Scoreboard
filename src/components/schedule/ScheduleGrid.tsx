@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import './ScheduleGrid.css'
 import { useScoreboard } from '../../hooks/useScoreboard'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
@@ -22,7 +22,12 @@ export function ScheduleGrid() {
   // Filtered before grouping, so the day strip reflects the filter too: a
   // day with no Top 25 games shouldn't offer a tab that leads to nothing.
   const { games, filtersActive, filterSummary } = useFilteredGames(allGames)
-  const days = useGamesByDay(games, settings.timezoneId)
+  // Slate is a time grid, and a game with no kickoff time has no place on
+  // one: its placeholder is midnight Eastern, which would drag the day's
+  // span back across the previous evening and open the slate with hours of
+  // dead space. Scoreboard lists those games, marked TBD.
+  const timed = useMemo(() => games.filter((game) => !game.timeTBD), [games])
+  const days = useGamesByDay(timed, settings.timezoneId)
   useScrollToCollapsedGame(expandedGameId)
 
   const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : days[0]?.dateKey
@@ -48,7 +53,7 @@ export function ScheduleGrid() {
       {!isLoading && !isError && <FilterBar />}
 
       {!isLoading && !isError && days.length > 0 && (
-        <DayTabs days={days} selectedDateKey={activeDateKey ?? ''} onSelect={setSelectedDateKey} zoneId={settings.timezoneId} />
+        <DayTabs days={days} selectedDateKey={activeDateKey ?? ''} onSelect={setSelectedDateKey} />
       )}
 
       {!isLoading && !isError && days.length === 0 && (

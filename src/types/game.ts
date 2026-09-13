@@ -122,6 +122,12 @@ export interface FieldSituation {
 }
 
 export interface Game {
+  /** The kickoff time isn't set yet, so `startDate` is ESPN's placeholder —
+   * midnight Eastern on the day of the game — rather than a real time. Such
+   * a game shows TBD, and is grouped by its Eastern date: converting the
+   * placeholder to a zone west of Eastern moves it to the day before, which
+   * is how five Saturday games came to be listed under Friday. */
+  timeTBD: boolean
   id: string
   /** ESPN's competition id. Usually equal to the event id, but it is a
    * distinct field and the core API addresses games by

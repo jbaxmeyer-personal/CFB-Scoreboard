@@ -22,6 +22,7 @@ import type {
   EspnTeamStatEntry,
   EspnTeamStatisticsResponse,
 } from '../types/espn'
+import { isScheduleMidnight } from './timezone'
 import type { Game, GameBoxScore, GamePlay, GameState, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../types/game'
 
 export const FBS_GROUP = 80
@@ -202,6 +203,9 @@ export function normalizeEvent(event: EspnEvent): Game | null {
     id: event.id,
     competitionId: competition.id ?? event.id,
     startDate: event.date,
+    // ESPN's own flag first; the midnight-Eastern placeholder behind it, for
+    // a payload that doesn't carry the flag.
+    timeTBD: competition.timeValid === false || isScheduleMidnight(event.date),
     shortName: event.shortName,
     venue: competition.venue?.fullName,
     home: toTeam(home),

@@ -63,16 +63,56 @@ export function formatDayLabel(isoUtc: string, zoneId: string): string {
   return DateTime.fromISO(isoUtc, { zone }).toFormat('cccc, LLL d')
 }
 
+/** Short day label for a yyyy-MM-dd key, e.g. "Sat 8/30". The key already
+ * names the day, so it is read as a plain date rather than converted from
+ * an instant — a tab labelled from a game's kickoff said "Fri" for a
+ * Saturday slate whose times weren't announced. */
+export function formatDayKeyChip(dateKey: string): string {
+  const dt = DateTime.fromISO(dateKey)
+  return dt.isValid ? dt.toFormat('ccc M/d') : dateKey
+}
+
 /** Short day label for tab chips, e.g. "Sat 8/30". */
 export function formatDayChip(isoUtc: string, zoneId: string): string {
   const zone = resolveZone(zoneId)
   return DateTime.fromISO(isoUtc, { zone }).toFormat('ccc M/d')
 }
 
+/** The zone college football's schedule is written in: a kickoff with no
+ * time set carries midnight here. */
+const SCHEDULE_ZONE = 'America/New_York'
+
+/** True when a kickoff lands exactly on midnight Eastern, which is ESPN's
+ * placeholder for "time not announced" rather than a game at midnight.
+ * Belt and braces behind the `timeValid` flag, for a payload that omits it. */
+export function isScheduleMidnight(isoUtc: string): boolean {
+  const dt = DateTime.fromISO(isoUtc, { zone: SCHEDULE_ZONE })
+  return dt.isValid && dt.hour === 0 && dt.minute === 0
+}
+
+/** YYYY-MM-DD in the zone the schedule is written in, which is the day a
+ * game is actually played even when its time is still TBD. */
+export function scheduleDateKey(isoUtc: string): string {
+  return DateTime.fromISO(isoUtc, { zone: SCHEDULE_ZONE }).toFormat('yyyy-MM-dd')
+}
+
 /** YYYY-MM-DD local-date key in the given zone, used to group games by day. */
 export function localDateKey(isoUtc: string, zoneId: string): string {
   const zone = resolveZone(zoneId)
   return DateTime.fromISO(isoUtc, { zone }).toFormat('yyyy-MM-dd')
+}
+
+/**
+ * The day a game belongs to.
+ *
+ * Normally the viewer's own local date. But a game whose kickoff time isn't
+ * set carries midnight Eastern as a placeholder, and converting that to any
+ * zone west of Eastern lands it on the day before — which is how a Saturday
+ * slate came to be listed under Friday for a viewer in Central. For those,
+ * the Eastern date is the real one.
+ */
+export function gameDayKey(game: { startDate: string; timeTBD: boolean }, zoneId: string): string {
+  return game.timeTBD ? scheduleDateKey(game.startDate) : localDateKey(game.startDate, zoneId)
 }
 
 /** yyyyMMdd for the ESPN `dates` query param, in the given zone. */
