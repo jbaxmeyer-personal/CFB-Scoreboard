@@ -17,10 +17,32 @@ const queryClient = new QueryClient({
   },
 })
 
+/**
+ * Landscape on a phone isn't a layout this app has. The time grid, the card
+ * pairs and the tab bar are all built for a tall, narrow screen, and there
+ * is no way to stop the phone turning: the manifest's `orientation` is
+ * honoured on Android but ignored by iOS Safari, and `screen.orientation
+ * .lock()` doesn't exist there at all. So rather than lock the screen, the
+ * app covers it and asks for the phone back the other way up.
+ *
+ * Phone landscape only — the media query needs a short viewport as well as a
+ * wide one, so a tablet or a desktop browser window, where the layout is
+ * perfectly usable, never sees this.
+ */
+function RotateNotice() {
+  return (
+    <div className="rotate-notice" role="alert">
+      <p className="rotate-notice__title">Turn your phone upright</p>
+      <p className="rotate-notice__hint">Slate is built for portrait.</p>
+    </div>
+  )
+}
+
 function Shell() {
   const { tab } = useViewState()
   return (
     <>
+      <RotateNotice />
       <main className="app-main">
         {tab === 'schedule' && <ScheduleGrid />}
         {tab === 'scoreboard' && <ScoreboardOverview />}

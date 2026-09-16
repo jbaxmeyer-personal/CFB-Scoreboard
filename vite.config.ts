@@ -28,6 +28,9 @@ export default defineConfig({
         start_url: '/CFB-Scoreboard/',
         scope: '/CFB-Scoreboard/',
         display: 'standalone',
+        // Honoured by Android; iOS Safari ignores it, which is why the app
+        // also covers landscape itself — see .rotate-notice in index.css.
+        orientation: 'portrait',
         background_color: '#0b0f14',
         theme_color: '#0b0f14',
         icons: [
