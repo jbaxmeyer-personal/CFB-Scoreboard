@@ -5,6 +5,18 @@
   overflow: hidden;
 }
 
+/* Same as .game-chip--favorite on Slate: the whole game marked, in the
+   app's favourite amber. Listed before --selected and --live so those still
+   win the border when a favourite is also open or in progress. */
+.game-card--favorite {
+  border-color: rgba(255, 214, 10, 0.55);
+  /* Layered over the panel colour rather than replacing it. Setting
+     `background` outright drops var(--bg-panel) and leaves the card
+     translucent; a flat gradient is a wash *on top of* the panel. */
+  background-image: linear-gradient(rgba(255, 214, 10, 0.07), rgba(255, 214, 10, 0.07));
+  box-shadow: 0 0 14px rgba(255, 214, 10, 0.18);
+}
+
 .game-card--live {
   border-color: rgba(255, 59, 48, 0.4);
 }
@@ -43,7 +55,7 @@
 }
 
 .game-card__team-row--favorite {
-  background: rgba(255, 214, 10, 0.08);
+  background: rgba(255, 214, 10, 0.16);
 }
 
 .game-card__team-name {
