@@ -13,20 +13,18 @@ import type { Conference } from '../data/conferences'
 
 /** ESPN files its conference logos under its own group ids. The `dark/`
  * variant is the one drawn for dark backgrounds, which is every background
- * in this app, so it's tried first. */
+ * in this app.
+ *
+ * Only that variant is used. The plain shields are dark ink on transparent
+ * — Dynasty Tracker draws the same assets and has to sit them on white to
+ * make them show — and a backing behind a logo is the circle that came off
+ * the team logos on purpose. So where there is no dark variant the badge
+ * goes to its text chip rather than drawing something invisible. */
 const CONFERENCE_LOGO_BASE = 'https://a.espncdn.com/i/teamlogos/ncaa_conf/500'
 
-export interface ConferenceLogoSources {
-  dark: string
-  light: string
-}
-
-export function conferenceLogoSources(conference: Conference): ConferenceLogoSources | undefined {
+export function conferenceLogoUrl(conference: Conference): string | undefined {
   if (!conference.espnId) return undefined
-  return {
-    dark: `${CONFERENCE_LOGO_BASE}/dark/${conference.espnId}.png`,
-    light: `${CONFERENCE_LOGO_BASE}/${conference.espnId}.png`,
-  }
+  return `${CONFERENCE_LOGO_BASE}/dark/${conference.espnId}.png`
 }
 
 /**
