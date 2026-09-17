@@ -21,14 +21,17 @@ export interface FilteredGamesResult {
 export function useFilteredGames(games: Game[]): FilteredGamesResult {
   const { filters } = useViewState()
   const { byId } = useConferences()
-  const conference = filters.conferenceId ? byId.get(filters.conferenceId) : undefined
+  const chosen = useMemo(
+    () => filters.conferenceIds.flatMap((id) => byId.get(id) ?? []),
+    [filters.conferenceIds, byId],
+  )
 
   return useMemo(
     () => ({
-      games: filterGames(games, filters, conference),
+      games: filterGames(games, filters, chosen),
       filtersActive: hasActiveFilters(filters),
-      filterSummary: describeFilters(filters, conference),
+      filterSummary: describeFilters(filters, chosen),
     }),
-    [games, filters, conference],
+    [games, filters, chosen],
   )
 }

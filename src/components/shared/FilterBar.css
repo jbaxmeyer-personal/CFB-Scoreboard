@@ -54,6 +54,15 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
 }
 
+/* A fixed column for the tick, so the conference names line up down the
+   menu whether or not each one is chosen. */
+.filter-bar__option-tick {
+  display: inline-block;
+  width: 14px;
+  margin-right: 6px;
+  color: var(--accent-primary);
+}
+
 .filter-bar__option {
   display: block;
   width: 100%;
