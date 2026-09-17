@@ -4,6 +4,8 @@
    looking at. */
 .conference-badge {
   flex-shrink: 0;
+  /* Width follows the artwork's aspect ratio; only the height is set. */
+  width: auto;
   object-fit: contain;
   opacity: 0.75;
 }

@@ -13,15 +13,14 @@ interface ConferenceBadgeProps {
  * The conference shield on a conference game, and nothing at all on a
  * non-conference one — the badge's presence is half of what it says.
  *
- * ESPN's dark-background shield, and nothing at all when there isn't one.
- * Nothing sits behind the logo either: the plain shields would need a light
- * backing to show on these panels, and that is the circle that came off the
- * team logos on purpose.
+ * The shield is a file in the repo, in each conference's own reverse
+ * (white) artwork, so nothing sits behind it and nothing is requested at
+ * runtime. A conference with no shield yet simply isn't badged.
  *
- * The group ids are ESPN's own and match the ones Dynasty Tracker ships
- * against the same asset path, so a missing shield should be rare. When it
- * happens the game reads as though it weren't a conference game, which is
- * the accepted cost of not drawing a substitute for the logo.
+ * Sized by height, not as a square. These are wordmarks — the ACC's is
+ * 202x59 — and forcing one into a square box letterboxes it down to a few
+ * pixels tall. Height is the dimension that has to match the row; width
+ * follows the artwork.
  */
 export function ConferenceBadge({ game, size = 18 }: ConferenceBadgeProps) {
   const { conferences } = useConferences()
@@ -37,9 +36,10 @@ export function ConferenceBadge({ game, size = 18 }: ConferenceBadgeProps) {
       src={url}
       alt={`${conference.name} conference game`}
       title={`${conference.name} conference game`}
-      width={size}
       height={size}
       loading="lazy"
+      // A local file can't answer with a placeholder the way ESPN did, but
+      // a filename typo would still draw a broken image. Hide instead.
       onError={() => setMissing(true)}
     />
   )
