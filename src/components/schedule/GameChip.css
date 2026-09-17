@@ -36,6 +36,15 @@
   flex: 1;
 }
 
+/* Matches .game-card__team-row--favorite on Scoreboard — same colour, same
+   weight, so a favourite reads identically on both screens. */
+.game-chip__team--favorite {
+  background: rgba(255, 214, 10, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  margin: -1px -4px;
+}
+
 .game-chip__team {
   display: flex;
   align-items: center;
