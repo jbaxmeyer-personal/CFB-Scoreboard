@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo } from 'react'
 import './ScoreboardOverview.css'
 import { DAYS_BEFORE, useScoreboardDays } from '../../hooks/useScoreboardDays'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
-import { useSpoilerSafeGames } from '../../hooks/useSpoilerSafeGames'
+import { useSpoilerSafeGames, type SafeGameEntry } from '../../hooks/useSpoilerSafeGames'
 import { useSettings } from '../../context/SettingsContext'
 import { useViewState } from '../../context/ViewStateContext'
 import { DayTabs } from '../shared/DayTabs'
@@ -15,7 +15,7 @@ import { useFilteredGames } from '../../hooks/useFilteredGames'
 import { useScrollToCollapsedGame } from '../../hooks/useScrollToCollapsedGame'
 
 export function ScoreboardOverview() {
-  const { settings } = useSettings()
+  const { settings, isFavoriteTeam } = useSettings()
   const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame, scoreboardAnchorDate, setScoreboardAnchorDate } =
     useViewState()
   const { games: allGames, dateKeys, season, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
@@ -85,6 +85,20 @@ export function ScoreboardOverview() {
   const awaitingDay = activeDateKey !== undefined && activeDay === undefined && stripDateKeys.includes(activeDateKey)
   const safeGames = useSpoilerSafeGames(activeDay?.games ?? [])
 
+  // Games with a team you follow come first. Sort is stable, so within the
+  // favourites and within the rest the day still runs in kickoff order —
+  // this lifts your games to the top without scrambling the day around them.
+  //
+  // Scoreboard only. Slate is a time grid, where a game's position *is* its
+  // kickoff; reordering there would be moving games to the wrong time.
+  const orderedGames = useMemo(() => {
+    const isFavoriteGame = (entry: SafeGameEntry) =>
+      isFavoriteTeam(entry.game.home.id) || isFavoriteTeam(entry.game.away.id)
+    return [...safeGames].sort((a, b) => Number(isFavoriteGame(b)) - Number(isFavoriteGame(a)))
+    // isFavoriteTeam closes over the settings, so the list is what to watch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safeGames, settings.favoriteTeamIds])
+
   return (
     <div className="scoreboard-overview">
       <AppHeader section="Scoreboard" showDelayBadge />
@@ -113,7 +127,7 @@ export function ScoreboardOverview() {
 
       {!isLoading && !isError && activeDay && activeDay.games.length > 0 && (
         <div className="scoreboard-overview__grid">
-          {chunkIntoRows(safeGames, 2).map((row) => (
+          {chunkIntoRows(orderedGames, 2).map((row) => (
             <Fragment key={row[0].game.id}>
               {row.map(({ game, isProtected }) => (
                 <GameCard
