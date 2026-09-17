@@ -23,10 +23,10 @@ export interface Conference {
    * under. Absent for Independent, which has no logo because it isn't a
    * conference — see conferenceForGame.
    *
-   * These ids could not be checked from the build environment, which cannot
-   * reach ESPN at all. A wrong one 404s and the badge falls back to the
-   * conference's short name, so a bad id costs the artwork and nothing
-   * else. */
+   * All ten match the ids Dynasty-Tracker ships against the same ESPN asset
+   * path, which is the only corroboration available: the build environment
+   * cannot reach ESPN at all. A wrong one 404s and the badge draws nothing,
+   * so that game reads as a non-conference game. */
   espnId?: string
   teamIds: Set<string>
 }

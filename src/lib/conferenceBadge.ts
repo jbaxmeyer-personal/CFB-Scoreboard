@@ -19,7 +19,7 @@ import type { Conference } from '../data/conferences'
  * — Dynasty Tracker draws the same assets and has to sit them on white to
  * make them show — and a backing behind a logo is the circle that came off
  * the team logos on purpose. So where there is no dark variant the badge
- * goes to its text chip rather than drawing something invisible. */
+ * draws nothing, rather than something invisible or a stand-in for it. */
 const CONFERENCE_LOGO_BASE = 'https://a.espncdn.com/i/teamlogos/ncaa_conf/500'
 
 export function conferenceLogoUrl(conference: Conference): string | undefined {

@@ -12,22 +12,3 @@
 .game-card:hover .conference-badge {
   opacity: 1;
 }
-
-/* Shown when ESPN has no shield at that id. The short name says the same
-   thing the shield would, so a missing image costs the artwork and not the
-   information. */
-.conference-badge--text {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  padding: 0 3px;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--text-tertiary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
-  overflow: hidden;
-}
