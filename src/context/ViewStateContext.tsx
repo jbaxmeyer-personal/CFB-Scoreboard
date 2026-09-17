@@ -52,14 +52,21 @@ function readStoredFilters(): GameFilters {
   try {
     const raw = localStorage.getItem(FILTERS_STORAGE_KEY)
     if (!raw) return NO_FILTERS
-    const parsed = JSON.parse(raw) as Partial<GameFilters>
-    // A conference id this build doesn't know — one saved when conferences
-    // were keyed by ESPN's numeric group ids, or a hand-edited value — would
-    // match no games at all, leaving an empty slate with a filter chip
-    // nobody could explain. Unknown reads as no conference filter.
-    const conferenceId =
-      typeof parsed.conferenceId === 'string' && isKnownConferenceId(parsed.conferenceId) ? parsed.conferenceId : null
-    return { rankedOnly: parsed.rankedOnly === true, conferenceId }
+    const parsed = JSON.parse(raw) as Partial<GameFilters> & { conferenceId?: unknown }
+    // The filter used to hold a single id. A stored one is carried over
+    // rather than dropped, so nobody's saved filter quietly turns itself off
+    // the first time they open the new build.
+    const stored = Array.isArray(parsed.conferenceIds)
+      ? parsed.conferenceIds
+      : typeof parsed.conferenceId === 'string'
+        ? [parsed.conferenceId]
+        : []
+    // An id this build doesn't know — one saved when conferences were keyed
+    // by ESPN's numeric group ids, or a hand-edited value — would match no
+    // games at all, leaving an empty slate with a filter chip nobody could
+    // explain. Unknown ids are dropped; the ones that still resolve stay.
+    const conferenceIds = [...new Set(stored.filter((id): id is string => typeof id === 'string' && isKnownConferenceId(id)))]
+    return { rankedOnly: parsed.rankedOnly === true, conferenceIds }
   } catch {
     return NO_FILTERS
   }
