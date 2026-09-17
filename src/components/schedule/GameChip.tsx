@@ -1,8 +1,11 @@
+import type { CSSProperties } from 'react'
 import './GameChip.css'
 import type { Game } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { ProtectedToggle } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
+import { favoriteHighlightColor } from '../../lib/teamHighlight'
+import { useTeamColors } from '../../hooks/useTeamColors'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
 import { GAME_ANCHOR_ATTR } from '../../hooks/useScrollToCollapsedGame'
 
@@ -21,9 +24,14 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
   const homeFavorite = isFavoriteTeam(game.home.id)
   const awayFavorite = isFavoriteTeam(game.away.id)
   const isFavoriteGame = homeFavorite || awayFavorite
-  /** The same amber wash Scoreboard puts behind a favourite's row, so which
-   * team you follow reads the same on both screens. The chip's glow says
-   * "one of yours is in this"; this says which one. */
+  // The lighter of the favourite's two colours — see teamHighlightColor.
+  // Undefined when neither is light enough to see, and the amber in the CSS
+  // takes over.
+  const teamColors = useTeamColors()
+  const highlight = favoriteHighlightColor(game.home, game.away, isFavoriteTeam, teamColors)
+  /** The same wash Scoreboard puts behind a favourite's row, in the same
+   * colour, so which team you follow reads the same on both screens. The
+   * chip's glow says "one of yours is in this"; this says which one. */
   const teamRow = (favorite: boolean) => `game-chip__team${favorite ? ' game-chip__team--favorite' : ''}`
   // `game` is already the spoiler-sanitized view by the time it reaches here,
   // so a protected game's scores are already stripped — no separate check needed.
@@ -48,7 +56,7 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
       role="button"
       tabIndex={0}
       className={classes}
-      style={{ left, top, width }}
+      style={{ left, top, width, ...(highlight ? ({ '--favorite-highlight': highlight } as CSSProperties) : {}) }}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

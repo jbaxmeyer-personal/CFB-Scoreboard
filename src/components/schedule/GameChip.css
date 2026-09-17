@@ -26,21 +26,29 @@
 /* The whole chip, not a strip inside it — at this size a wash behind one
    team's row is almost nothing to see.
 
-   In the app's own favourite amber rather than the team's colour. This used
-   to mix the team's own hex into the border and the glow, which works for a
-   team that wears something bright and disappears entirely for one that
-   doesn't: Notre Dame's #0c2340 mixed toward black is a near-black edge on a
-   near-black panel, which is exactly the highlight that couldn't be seen. */
+   --favorite-highlight is the lighter of the favourite team's two colours,
+   set by the component; the amber is the fallback for a team with neither
+   colour light enough to show. Every part of the mark is mixed from that one
+   value, so a team's own colour carries the border, the wash and the glow
+   together. Mixed with `transparent` rather than `black`, which is what the
+   first version did: mixing toward black on a near-black panel is how a navy
+   became invisible. */
 .game-chip--favorite {
-  border-color: rgba(255, 214, 10, 0.55);
-  /* A wash over the panel colour, not instead of it — see the same rule on
-     .game-card--favorite. */
-  background-image: linear-gradient(rgba(255, 214, 10, 0.07), rgba(255, 214, 10, 0.07));
-  box-shadow: 0 0 14px rgba(255, 214, 10, 0.22);
+  border-color: color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 60%, transparent);
+  /* A wash over the panel colour, not instead of it — setting `background`
+     outright drops var(--bg-panel) and leaves the chip translucent. */
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 8%, transparent),
+    color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 8%, transparent)
+  );
+  box-shadow: 0 0 14px color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 25%, transparent);
 }
 
 .game-chip--favorite:hover {
-  background-image: linear-gradient(rgba(255, 214, 10, 0.12), rgba(255, 214, 10, 0.12));
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 14%, transparent),
+    color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 14%, transparent)
+  );
 }
 
 .game-chip__matchup {
@@ -54,7 +62,7 @@
 /* Matches .game-card__team-row--favorite on Scoreboard — same colour, same
    weight, so a favourite reads identically on both screens. */
 .game-chip__team--favorite {
-  background: rgba(255, 214, 10, 0.16);
+  background: color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 18%, transparent);
   border-radius: var(--radius-sm);
   padding: 1px 4px;
   margin: -1px -4px;

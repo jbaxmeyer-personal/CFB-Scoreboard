@@ -1,9 +1,12 @@
+import type { CSSProperties } from 'react'
 import './GameCard.css'
 import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { ProtectedToggle } from '../shared/SpoilerGate'
 import { useSettings } from '../../context/SettingsContext'
+import { favoriteHighlightColor } from '../../lib/teamHighlight'
+import { useTeamColors } from '../../hooks/useTeamColors'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
 import { GAME_ANCHOR_ATTR } from '../../hooks/useScrollToCollapsedGame'
 
@@ -48,6 +51,8 @@ interface GameCardProps {
 export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: GameCardProps) {
   const { toggleProtectedGame, isFavoriteTeam } = useSettings()
   const isFavoriteGame = isFavoriteTeam(game.home.id) || isFavoriteTeam(game.away.id)
+  const teamColors = useTeamColors()
+  const highlight = favoriteHighlightColor(game.home, game.away, isFavoriteTeam, teamColors)
   // ESPN reports score "0" for competitors even before kickoff, so a pre-game
   // check is required on top of definedness — and definedness is still
   // required because a protected *live* game reports state 'in' (to show the
@@ -63,6 +68,7 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
     <div
       {...{ [GAME_ANCHOR_ATTR]: game.id }}
       className={`game-card${isFavoriteGame ? ' game-card--favorite' : ''}${isSelected ? ' game-card--selected' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}
+      style={highlight ? ({ '--favorite-highlight': highlight } as CSSProperties) : undefined}
     >
       <div
         role="button"

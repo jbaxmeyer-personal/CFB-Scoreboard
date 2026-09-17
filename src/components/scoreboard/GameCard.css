@@ -6,15 +6,20 @@
 }
 
 /* Same as .game-chip--favorite on Slate: the whole game marked, in the
-   app's favourite amber. Listed before --selected and --live so those still
-   win the border when a favourite is also open or in progress. */
+   lighter of the favourite team's two colours (--favorite-highlight, set by
+   the component) or the app's amber when neither shows. Listed before
+   --selected and --live so those still win the border when a favourite is
+   also open or in progress. */
 .game-card--favorite {
-  border-color: rgba(255, 214, 10, 0.55);
+  border-color: color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 60%, transparent);
   /* Layered over the panel colour rather than replacing it. Setting
      `background` outright drops var(--bg-panel) and leaves the card
      translucent; a flat gradient is a wash *on top of* the panel. */
-  background-image: linear-gradient(rgba(255, 214, 10, 0.07), rgba(255, 214, 10, 0.07));
-  box-shadow: 0 0 14px rgba(255, 214, 10, 0.18);
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 8%, transparent),
+    color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 8%, transparent)
+  );
+  box-shadow: 0 0 14px color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 20%, transparent);
 }
 
 .game-card--live {
@@ -55,7 +60,7 @@
 }
 
 .game-card__team-row--favorite {
-  background: rgba(255, 214, 10, 0.16);
+  background: color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 18%, transparent);
 }
 
 .game-card__team-name {
