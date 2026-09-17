@@ -46,7 +46,8 @@ interface GameCardProps {
 }
 
 export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: GameCardProps) {
-  const { toggleProtectedGame } = useSettings()
+  const { toggleProtectedGame, isFavoriteTeam } = useSettings()
+  const isFavoriteGame = isFavoriteTeam(game.home.id) || isFavoriteTeam(game.away.id)
   // ESPN reports score "0" for competitors even before kickoff, so a pre-game
   // check is required on top of definedness — and definedness is still
   // required because a protected *live* game reports state 'in' (to show the
@@ -59,7 +60,10 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
   const awayWins = isFinal && game.awayScore! > game.homeScore!
 
   return (
-    <div {...{ [GAME_ANCHOR_ATTR]: game.id }} className={`game-card${isSelected ? ' game-card--selected' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}>
+    <div
+      {...{ [GAME_ANCHOR_ATTR]: game.id }}
+      className={`game-card${isFavoriteGame ? ' game-card--favorite' : ''}${isSelected ? ' game-card--selected' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}
+    >
       <div
         role="button"
         tabIndex={0}

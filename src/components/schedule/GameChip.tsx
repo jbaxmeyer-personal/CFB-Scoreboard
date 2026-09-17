@@ -21,7 +21,6 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
   const homeFavorite = isFavoriteTeam(game.home.id)
   const awayFavorite = isFavoriteTeam(game.away.id)
   const isFavoriteGame = homeFavorite || awayFavorite
-  const glowColor = homeFavorite ? game.home.color : game.away.color
   /** The same amber wash Scoreboard puts behind a favourite's row, so which
    * team you follow reads the same on both screens. The chip's glow says
    * "one of yours is in this"; this says which one. */
@@ -49,7 +48,7 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
       role="button"
       tabIndex={0}
       className={classes}
-      style={{ left, top, width, ...(isFavoriteGame && glowColor ? ({ '--favorite-glow': glowColor } as React.CSSProperties) : {}) }}
+      style={{ left, top, width }}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
