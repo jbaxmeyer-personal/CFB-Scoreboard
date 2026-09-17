@@ -84,25 +84,20 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
           }
         }}
       >
+        {/* The shield rides in the header, between the network and the lock.
+            These are wordmarks, not roundels — the ACC's is 202x59, which
+            comes out 68px wide beside a 26px team logo — and next to the
+            team rows that width came straight off the abbreviations: UNC
+            rendered as "UI". The header has a wide empty middle and nothing
+            in it to squeeze, and the conference belongs with the network
+            anyway: both are facts about the game rather than either team. */}
         <div className="game-card__header">
           <NetworkBadgeList networks={game.broadcasts} />
+          <ConferenceBadge game={game} size={16} />
           <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} />
         </div>
-        {/* The badge sits beside both rows rather than in either one,
-            because the conference is a fact about the game, not about a
-            team. It's a column of its own rather than something floated over
-            the middle: centred over the rows it landed on top of the team
-            abbreviations, which are as wide as UMASS or KSTATE. Here the
-            rows simply give up the width, so it cannot collide with
-            anything, and a non-conference game renders nothing and keeps the
-            full width. */}
-        <div className="game-card__teams">
-          <div className="game-card__teams-rows">
-            <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} />
-            <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} />
-          </div>
-          <ConferenceBadge game={game} size={20} />
-        </div>
+        <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} />
+        <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} />
         <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
           {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
           {kickoffOrStatus(game, zoneId)}

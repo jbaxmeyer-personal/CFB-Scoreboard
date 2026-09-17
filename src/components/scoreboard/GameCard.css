@@ -51,17 +51,12 @@
   gap: 6px;
 }
 
-/* The two team rows and the conference badge beside them; see GameCard.tsx
-   for why the badge is a column rather than an overlay. */
-.game-card__teams {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.game-card__teams-rows {
-  flex: 1;
+/* Takes the header's slack rather than a fixed slot, so it centres between
+   the network and the lock however wide either of them is, and shrinks
+   before the network chip does if a game carries several networks. */
+.game-card__header > .conference-badge {
   min-width: 0;
+  margin-inline: auto;
 }
 
 .game-card__team-row {

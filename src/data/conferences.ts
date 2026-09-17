@@ -19,15 +19,20 @@ export interface Conference {
   id: string
   name: string
   shortName: string
-  /** ESPN's own group id, which is what its conference logos are filed
-   * under. Absent for Independent, which has no logo because it isn't a
-   * conference — see conferenceForGame.
+  /** Filename of this conference's shield under public/conferences.
    *
-   * These ids could not be checked from the build environment, which cannot
-   * reach ESPN at all. A wrong one 404s and the badge falls back to the
-   * conference's short name, so a bad id costs the artwork and nothing
-   * else. */
-  espnId?: string
+   * Vendored rather than requested from ESPN. The app used to build an ESPN
+   * asset URL from a group id, which could not be checked from a build
+   * environment with no route to ESPN — and on the device it came back as a
+   * question mark, because ESPN answers an unknown shield with a
+   * placeholder image rather than a 404. A file in the repo cannot do that:
+   * it is there or it is not, and it is the same every time, offline
+   * included.
+   *
+   * Absent means no badge. Independent has none because it isn't a
+   * conference (see conferenceForGame); the rest are absent only until
+   * their logo is added. */
+  logo?: string
   teamIds: Set<string>
 }
 
@@ -35,7 +40,7 @@ interface ConferenceSeed {
   id: string
   name: string
   shortName: string
-  espnId?: string
+  logo?: string
   teamIds: string[]
 }
 
@@ -46,7 +51,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "SEC",
     name: "SEC",
     shortName: "SEC",
-    espnId: '8',
     // Alabama, Arkansas, Auburn, Florida, Georgia, Kentucky, LSU, Mississippi St, Missouri, Oklahoma, Ole Miss, South Carolina, Tennessee, Texas, Texas A&M, Vanderbilt
     teamIds: ['333', '8', '2', '57', '61', '96', '99', '344', '142', '201', '145', '2579', '2633', '251', '245', '238'],
   },
@@ -54,7 +58,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "Big Ten",
     name: "Big Ten",
     shortName: "B1G",
-    espnId: '5',
     // Illinois, Indiana, Iowa, Maryland, Michigan, Michigan State, Minnesota, Nebraska, Northwestern, Ohio State, Oregon, Penn State, Purdue, Rutgers, UCLA, USC, Washington, Wisconsin
     teamIds: ['356', '84', '2294', '120', '130', '127', '135', '158', '77', '194', '2483', '213', '2509', '164', '26', '30', '264', '275'],
   },
@@ -62,7 +65,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "Big 12",
     name: "Big 12",
     shortName: "B12",
-    espnId: '4',
     // Arizona, Arizona State, BYU, Baylor, Cincinnati, Colorado, Houston, Iowa State, Kansas, Kansas State, Oklahoma State, TCU, Texas Tech, UCF, Utah, West Virginia
     teamIds: ['12', '9', '252', '239', '2132', '38', '248', '66', '2305', '2306', '197', '2628', '2641', '2116', '254', '277'],
   },
@@ -70,7 +72,7 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "ACC",
     name: "ACC",
     shortName: "ACC",
-    espnId: '1',
+    logo: 'acc.svg',
     // Boston College, California, Clemson, Duke, Florida State, Georgia Tech, Louisville, Miami, NC State, North Carolina, Pittsburgh, SMU, Stanford, Syracuse, Virginia, Virginia Tech, Wake Forest
     teamIds: ['103', '25', '228', '150', '52', '59', '97', '2390', '152', '153', '221', '2567', '24', '183', '258', '259', '154'],
   },
@@ -78,7 +80,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "AAC",
     name: "AAC",
     shortName: "AAC",
-    espnId: '151',
     // Army, Charlotte, East Carolina, Fla Atlantic, Memphis, Navy, North Texas, Rice, Temple, Tulane, Tulsa, UAB, USF, UTSA
     teamIds: ['349', '2429', '151', '2226', '235', '2426', '249', '242', '218', '2655', '202', '5', '58', '2636'],
   },
@@ -86,7 +87,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "CUSA",
     name: "CUSA",
     shortName: "CUSA",
-    espnId: '12',
     // Delaware, FIU, Jax State, Kennesaw St., Liberty, Middle Tenn, Missouri State, New Mexico St., Sam Houston, W. Kentucky
     teamIds: ['48', '2229', '55', '338', '2335', '2393', '2623', '166', '2534', '98'],
   },
@@ -94,7 +94,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "MAC",
     name: "MAC",
     shortName: "MAC",
-    espnId: '15',
     // Akron, Ball State, Bowling Green, Buffalo, C. Michigan, E. Michigan, Kent State, Miami (OH), Ohio, Toledo, UMass, W. Michigan
     teamIds: ['2006', '2050', '189', '2084', '2117', '2199', '2309', '193', '195', '2649', '113', '2711'],
   },
@@ -102,7 +101,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "Mountain West",
     name: "Mountain West",
     shortName: "MWC",
-    espnId: '17',
     // Air Force, Hawai'i, N. Illinois, NDSU, Nevada, New Mexico, San Jose State, UNLV, UTEP, Wyoming
     teamIds: ['2005', '62', '2459', '2449', '2440', '167', '23', '2439', '2638', '2751'],
   },
@@ -110,7 +108,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "Pac-12",
     name: "Pac-12",
     shortName: "P12",
-    espnId: '9',
     // Boise State, Colorado State, Fresno State, Oregon State, San Diego St., Texas State, Utah State, Washington St.
     teamIds: ['68', '36', '278', '204', '21', '326', '328', '265'],
   },
@@ -118,7 +115,6 @@ const CONFERENCE_SEEDS: ConferenceSeed[] = [
     id: "Sun Belt",
     name: "Sun Belt",
     shortName: "SBC",
-    espnId: '37',
     // App St., Arkansas State, C. Carolina, GA Southern, Georgia State, James Madison, Louisiana, Louisiana Tech, Marshall, Old Dominion, South Alabama, Southern Miss, Troy, UL Monroe
     teamIds: ['2026', '2032', '324', '290', '2247', '256', '309', '2348', '276', '295', '6', '2572', '2653', '2433'],
   },
