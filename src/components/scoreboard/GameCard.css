@@ -51,6 +51,19 @@
   gap: 6px;
 }
 
+/* The two team rows and the conference badge beside them; see GameCard.tsx
+   for why the badge is a column rather than an overlay. */
+.game-card__teams {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-card__teams-rows {
+  flex: 1;
+  min-width: 0;
+}
+
 .game-card__team-row {
   display: flex;
   align-items: center;

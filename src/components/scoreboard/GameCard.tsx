@@ -4,6 +4,7 @@ import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { NetworkBadgeList } from '../shared/NetworkBadge'
 import { ProtectedToggle } from '../shared/SpoilerGate'
+import { ConferenceBadge } from '../shared/ConferenceBadge'
 import { useSettings } from '../../context/SettingsContext'
 import { favoriteHighlightColor } from '../../lib/teamHighlight'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -87,8 +88,21 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
           <NetworkBadgeList networks={game.broadcasts} />
           <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} />
         </div>
-        <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} />
-        <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} />
+        {/* The badge sits beside both rows rather than in either one,
+            because the conference is a fact about the game, not about a
+            team. It's a column of its own rather than something floated over
+            the middle: centred over the rows it landed on top of the team
+            abbreviations, which are as wide as UMASS or KSTATE. Here the
+            rows simply give up the width, so it cannot collide with
+            anything, and a non-conference game renders nothing and keeps the
+            full width. */}
+        <div className="game-card__teams">
+          <div className="game-card__teams-rows">
+            <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} />
+            <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} />
+          </div>
+          <ConferenceBadge game={game} size={20} />
+        </div>
         <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
           {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
           {kickoffOrStatus(game, zoneId)}
