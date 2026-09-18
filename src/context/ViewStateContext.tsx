@@ -136,6 +136,13 @@ interface ViewStateValue {
   expandedGameId: string | null
   setExpandedGameId: (id: string | null) => void
   toggleExpandedGame: (gameId: string) => void
+  /** Which week Scoreboard is showing, as that week's start date, or null
+   * for "the one containing today". Lives here because switching tabs
+   * unmounts Scoreboard, and a week you chose should still be the week you
+   * are on when you come back. Not persisted: a reload opens on the current
+   * week, which is what opening the app means. */
+  scoreboardWeekStart: string | null
+  setScoreboardWeekStart: (weekStart: string | null) => void
   /** Screens stacked on top of the expanded game, innermost last. Empty
    * means the expanded game itself. Per-tab for the same reason the
    * expanded game is: a team page belongs to the game it was opened from,
@@ -166,6 +173,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
   const [expandedByTab, setExpandedByTab] = useState<ExpandedByTab>(readStoredExpanded)
   const [stackByTab, setStackByTab] = useState<Record<GameTab, DetailFrame[]>>({ schedule: [], scoreboard: [] })
+  const [scoreboardWeekStart, setScoreboardWeekStart] = useState<string | null>(null)
 
   const current = gameTab(tab)
   const expandedGameId = expandedByTab[current]
@@ -203,6 +211,8 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
         setStackByTab((cur) => ({ ...cur, [current]: [] }))
         setExpandedByTab((cur) => ({ ...cur, [current]: cur[current] === gameId ? null : gameId }))
       },
+      scoreboardWeekStart,
+      setScoreboardWeekStart,
       detailStack,
       pushDetail: (frame) => setStackByTab((cur) => ({ ...cur, [current]: [...cur[current], frame] })),
       popDetail: () => setStackByTab((cur) => ({ ...cur, [current]: cur[current].slice(0, -1) })),
@@ -210,7 +220,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       filters,
       setFilters,
     }),
-    [tab, current, selectedDateKey, expandedByTab, expandedGameId, stackByTab, detailStack, filters],
+    [tab, current, selectedDateKey, expandedByTab, expandedGameId, scoreboardWeekStart, stackByTab, detailStack, filters],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>
