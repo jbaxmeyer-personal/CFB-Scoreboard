@@ -114,6 +114,53 @@ function inclusiveEnd(end: string): string {
   return day.toISOString().slice(0, 10)
 }
 
+const DAY_MS = 24 * 60 * 60_000
+
+function addDays(dateKey: string, days: number): string {
+  const day = new Date(`${dateKey}T00:00:00Z`)
+  day.setUTCDate(day.getUTCDate() + days)
+  return day.toISOString().slice(0, 10)
+}
+
+/** 0 is Sunday, 6 is Saturday. */
+function weekday(dateKey: string): number {
+  return new Date(`${dateKey}T00:00:00Z`).getUTCDay()
+}
+
+/**
+ * Splits Week 0 out of the season's opening entry.
+ *
+ * ESPN does not have a Week 0. It folds the opening Saturday into Week 1,
+ * which for 2026 makes "Week 1" run 22 August to 7 September — seventeen
+ * days holding three Saturdays. College football does have one, and the
+ * games on it are Week 0's, so listing them under Week 1 is wrong.
+ *
+ * The split is derived rather than dated: the *last* Saturday in the span
+ * is the one Week 1 is named for, so Week 1 starts on the Sunday before it
+ * and everything earlier becomes Week 0. An opening entry holding a single
+ * Saturday is a normal week and is left alone, which is what happens in a
+ * season with no Week 0.
+ */
+function splitWeekZero(weeks: SeasonWeek[]): SeasonWeek[] {
+  const first = weeks[0]
+  if (!first || first.section !== 'Regular Season') return weeks
+  if ((Date.parse(`${first.end}T00:00:00Z`) - Date.parse(`${first.start}T00:00:00Z`)) / DAY_MS < 8) return weeks
+
+  // The last Saturday the entry covers: the week ESPN actually labelled.
+  let lastSaturday = first.end
+  while (lastSaturday > first.start && weekday(lastSaturday) !== 6) lastSaturday = addDays(lastSaturday, -1)
+  if (weekday(lastSaturday) !== 6) return weeks
+
+  const weekOneStart = addDays(lastSaturday, -6)
+  if (weekOneStart <= first.start) return weeks
+
+  return [
+    { label: 'Week 0', section: first.section, start: first.start, end: addDays(weekOneStart, -1) },
+    { ...first, start: weekOneStart },
+    ...weeks.slice(1),
+  ]
+}
+
 /** The weeks under each season type, in order. Only entries with both a
  * start and an end are weeks; anything else is not something to navigate. */
 function collectWeeks(calendar: unknown): SeasonWeek[] {
@@ -130,7 +177,7 @@ function collectWeeks(calendar: unknown): SeasonWeek[] {
       weeks.push({ label: week.label, section: sectionLabel, start, end: end >= start ? end : start })
     }
   }
-  return weeks.sort((a, b) => a.start.localeCompare(b.start))
+  return splitWeekZero(weeks.sort((a, b) => a.start.localeCompare(b.start)))
 }
 
 export function parseSeasonCalendar(response: unknown): SeasonCalendar {
