@@ -40,17 +40,15 @@ export interface ScoreboardDaysResult {
 export function useScoreboardDays(
   anchorDateKey: string | null,
   zoneId: string,
-  extraBefore = 0,
-  extraAfter = 0,
-  /** Fetch exactly these days instead of a window around the anchor. What
-   * week-based navigation passes: a week is a known span, so there is
-   * nothing to anchor or grow. */
+  /** Fetch exactly these days rather than a window around the anchor. A
+   * week is a known span, so week navigation names its days outright; the
+   * window is only what the first pass uses to learn the calendar. */
   explicitDateKeys?: string[],
 ): ScoreboardDaysResult {
   const explicitKey = explicitDateKeys?.join(',')
   const dateKeys = useMemo(
-    () => (explicitKey ? explicitKey.split(',') : windowDateKeys(anchorDateKey, zoneId, extraBefore, extraAfter)),
-    [explicitKey, anchorDateKey, zoneId, extraBefore, extraAfter],
+    () => (explicitKey ? explicitKey.split(',') : windowDateKeys(anchorDateKey, zoneId)),
+    [explicitKey, anchorDateKey, zoneId],
   )
 
   const results = useQueries({

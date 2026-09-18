@@ -56,8 +56,6 @@ export function ScoreboardWeeks() {
   const { games: allGames, season, isLoading, isError, refetch } = useScoreboardDays(
     null,
     settings.timezoneId,
-    0,
-    0,
     explicitDays,
   )
 

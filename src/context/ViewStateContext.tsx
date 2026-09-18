@@ -33,7 +33,6 @@ const TAB_STORAGE_KEY = 'slate.tab.v1'
 const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v1'
 const EXPANDED_GAME_STORAGE_KEY = 'slate.expandedGame.v1'
 const EXPANDED_GAMES_STORAGE_KEY = 'slate.expandedGames.v2'
-const SCOREBOARD_ANCHOR_STORAGE_KEY = 'slate.scoreboardAnchor.v1'
 const FILTERS_STORAGE_KEY = 'slate.filters.v1'
 const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'settings']
 
@@ -137,19 +136,6 @@ interface ViewStateValue {
   expandedGameId: string | null
   setExpandedGameId: (id: string | null) => void
   toggleExpandedGame: (gameId: string) => void
-  /** The day Scoreboard's ten-day window is centred on (yyyy-MM-dd), or
-   * null for "anchored on today". Set by the date picker when you jump to a
-   * specific date. Lives here (not local state in the hook) so it survives
-   * Scoreboard unmounting when you switch tabs. */
-  scoreboardAnchorDate: string | null
-  setScoreboardAnchorDate: (dateKey: string | null) => void
-  /** How far Scoreboard's day strip has been grown past its default window,
-   * in days at each end. Lives here rather than in the screen for the same
-   * reason the anchor does: switching tabs unmounts Scoreboard, and losing
-   * this would collapse a strip you had scrolled a month into back to ten
-   * days every time you glanced at Slate. */
-  scoreboardGrown: { before: number; after: number }
-  setScoreboardGrown: (grown: { before: number; after: number }) => void
   /** Screens stacked on top of the expanded game, innermost last. Empty
    * means the expanded game itself. Per-tab for the same reason the
    * expanded game is: a team page belongs to the game it was opened from,
@@ -179,10 +165,6 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>(readStoredTab)
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
   const [expandedByTab, setExpandedByTab] = useState<ExpandedByTab>(readStoredExpanded)
-  const [scoreboardAnchorDate, setScoreboardAnchorDate] = useState<string | null>(() => readStoredString(SCOREBOARD_ANCHOR_STORAGE_KEY))
-  // Not persisted: a reload is a fresh start, and restoring a month-wide
-  // window would fire a month of requests before anything rendered.
-  const [scoreboardGrown, setScoreboardGrown] = useState({ before: 0, after: 0 })
   const [stackByTab, setStackByTab] = useState<Record<GameTab, DetailFrame[]>>({ schedule: [], scoreboard: [] })
 
   const current = gameTab(tab)
@@ -203,10 +185,6 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   }, [expandedByTab])
 
   useEffect(() => {
-    writeStoredValue(SCOREBOARD_ANCHOR_STORAGE_KEY, scoreboardAnchorDate)
-  }, [scoreboardAnchorDate])
-
-  useEffect(() => {
     writeStoredValue(FILTERS_STORAGE_KEY, JSON.stringify(filters))
   }, [filters])
 
@@ -225,10 +203,6 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
         setStackByTab((cur) => ({ ...cur, [current]: [] }))
         setExpandedByTab((cur) => ({ ...cur, [current]: cur[current] === gameId ? null : gameId }))
       },
-      scoreboardAnchorDate,
-      setScoreboardAnchorDate,
-      scoreboardGrown,
-      setScoreboardGrown,
       detailStack,
       pushDetail: (frame) => setStackByTab((cur) => ({ ...cur, [current]: [...cur[current], frame] })),
       popDetail: () => setStackByTab((cur) => ({ ...cur, [current]: cur[current].slice(0, -1) })),
@@ -236,7 +210,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       filters,
       setFilters,
     }),
-    [tab, current, selectedDateKey, expandedByTab, expandedGameId, scoreboardAnchorDate, scoreboardGrown, stackByTab, detailStack, filters],
+    [tab, current, selectedDateKey, expandedByTab, expandedGameId, stackByTab, detailStack, filters],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>
