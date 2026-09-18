@@ -8,6 +8,7 @@ import { useSettings } from '../../context/SettingsContext'
 import { useViewState } from '../../context/ViewStateContext'
 import { GameCard } from './GameCard'
 import { GameDetailPanel } from '../shared/GameDetailPanel'
+import { WeekTabs } from './WeekTabs'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 import { AppHeader } from '../shared/AppHeader'
 import { FilterBar } from '../shared/FilterBar'
@@ -33,8 +34,13 @@ import { resolveZone } from '../../lib/timezone'
  */
 export function ScoreboardWeeks() {
   const { settings, isFavoriteTeam } = useSettings()
-  const { expandedGameId, setExpandedGameId, toggleExpandedGame } = useViewState()
-  const [chosenWeekStart, setChosenWeekStart] = useState<string | null>(null)
+  const {
+    expandedGameId,
+    setExpandedGameId,
+    toggleExpandedGame,
+    scoreboardWeekStart: chosenWeekStart,
+    setScoreboardWeekStart: setChosenWeekStart,
+  } = useViewState()
   useScrollToCollapsedGame(expandedGameId)
 
   const todayKey = useMemo(
@@ -93,30 +99,25 @@ export function ScoreboardWeeks() {
 
   const nothingThisWeek = !isLoading && !isError && byDay.every((d) => d.entries.length === 0)
 
+  // The controls stay put while a week loads. Putting them behind the
+  // loading state meant tapping an unfetched week took the pills off the
+  // screen and put them back — which flashed, and returned the strip to
+  // scroll position zero with no sign of where you had been. Only the games
+  // below them are actually waiting on anything.
+  const knownWeeks = weeks.filter(Boolean) as NonNullable<ReturnType<typeof weekForDate>>[]
+
   return (
     <div className="scoreboard-overview">
       <AppHeader section="Scoreboard" showDelayBadge />
 
-      {isLoading && <LoadingState label="Loading the scoreboard…" />}
-      {isError && <ErrorState onRetry={refetch} />}
+      {!isError && <FilterBar />}
 
-      {!isLoading && !isError && <FilterBar />}
-
-      {!isLoading && !isError && weeks.length > 0 && (
-        <div className="week-tabs scrollbar-hide" role="tablist" aria-label="Select week">
-          {(weeks.filter(Boolean) as NonNullable<ReturnType<typeof weekForDate>>[]).map((week) => (
-            <button
-              key={week.start}
-              role="tab"
-              aria-selected={week.start === activeWeek?.start}
-              className={`week-tabs__tab${week.start === activeWeek?.start ? ' week-tabs__tab--active' : ''}`}
-              onClick={() => setChosenWeekStart(week.start)}
-            >
-              {week.label}
-            </button>
-          ))}
-        </div>
+      {!isError && knownWeeks.length > 0 && (
+        <WeekTabs weeks={knownWeeks} activeWeekStart={activeWeek?.start} onSelect={setChosenWeekStart} />
       )}
+
+      {isLoading && <LoadingState label="Loading that week…" />}
+      {isError && <ErrorState onRetry={refetch} />}
 
       {nothingThisWeek && <EmptyState message={filtersActive ? `No games match ${filterSummary}.` : undefined} />}
 
