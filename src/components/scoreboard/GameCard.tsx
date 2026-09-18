@@ -122,7 +122,7 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
         <div className="game-card__teams">
           <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} row={1} />
           <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} row={2} />
-          <ConferenceBadge game={game} size={10} />
+          <ConferenceBadge game={game} size={22} maxWidth={33} />
         </div>
         <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
           {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}

@@ -190,7 +190,7 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
                 is where that reads. Nothing on a non-conference game, and
                 the "@" stays put either way. */}
             <div className="expanded-game__between">
-              <ConferenceBadge game={game} size={18} />
+              <ConferenceBadge game={game} size={28} maxWidth={64} />
               <span className="expanded-game__at">@</span>
             </div>
             <TeamIdentity team={game.home} showRecord={game.state === 'pre'} role="home" onOpenTeam={() => openTeam(game.home)} />
