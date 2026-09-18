@@ -37,8 +37,16 @@ export interface ScoreboardDaysResult {
  * same reason Slate's window is — ESPN's `dates=` day boundary isn't the
  * viewer's, so a late kickoff comes back in two adjacent days' payloads.
  */
-export function useScoreboardDays(anchorDateKey: string | null, zoneId: string): ScoreboardDaysResult {
-  const dateKeys = useMemo(() => windowDateKeys(anchorDateKey, zoneId), [anchorDateKey, zoneId])
+export function useScoreboardDays(
+  anchorDateKey: string | null,
+  zoneId: string,
+  extraBefore = 0,
+  extraAfter = 0,
+): ScoreboardDaysResult {
+  const dateKeys = useMemo(
+    () => windowDateKeys(anchorDateKey, zoneId, extraBefore, extraAfter),
+    [anchorDateKey, zoneId, extraBefore, extraAfter],
+  )
 
   const results = useQueries({
     queries: dateKeys.map((dateKey) => {
