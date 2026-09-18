@@ -25,10 +25,29 @@
  * pathologically nested payload; three levels covers every shape above. */
 const MAX_DEPTH = 4
 
+/** One of ESPN's weeks: a label and the span it covers. This is the part
+ * of the calendar that is actually populated — the individual days never
+ * are — so it is what week-based navigation is built from. */
+export interface SeasonWeek {
+  /** "Week 3", "Bowls", "CFP". */
+  label: string
+  /** Which season type it belongs to: "Regular Season", "Postseason". */
+  section: string
+  /** yyyy-MM-dd, inclusive. */
+  start: string
+  /** yyyy-MM-dd, inclusive. ESPN ends a week at 06:59Z on the following
+   * day, which is the small hours Eastern; the last day it really covers
+   * is the day before. */
+  end: string
+}
+
 export interface SeasonCalendar {
   /** yyyy-MM-dd, ascending, de-duplicated. Empty when the payload only
-   * described weeks. */
+   * described weeks — which, for college football, is always. */
   dates: string[]
+  /** The season's weeks in order, which is the one thing its calendar
+   * reliably carries. */
+  weeks: SeasonWeek[]
   /** yyyy-MM-dd bounds of the season, when they could be determined. */
   start?: string
   end?: string
@@ -86,18 +105,50 @@ function collect(node: unknown, depth: number, dates: Set<string>, bounds: strin
   if (start && (!end || end === start)) dates.add(start)
 }
 
+/** A week's last day. ESPN closes a week at 06:59Z on the morning after
+ * it ends — the small hours Eastern — so the date on that timestamp is one
+ * day past what the week actually covers. */
+function inclusiveEnd(end: string): string {
+  const day = new Date(`${end}T00:00:00Z`)
+  day.setUTCDate(day.getUTCDate() - 1)
+  return day.toISOString().slice(0, 10)
+}
+
+/** The weeks under each season type, in order. Only entries with both a
+ * start and an end are weeks; anything else is not something to navigate. */
+function collectWeeks(calendar: unknown): SeasonWeek[] {
+  const weeks: SeasonWeek[] = []
+  for (const section of Array.isArray(calendar) ? calendar : []) {
+    const record = (section ?? {}) as Record<string, unknown>
+    const sectionLabel = typeof record.label === 'string' ? record.label : ''
+    for (const entry of Array.isArray(record.entries) ? record.entries : []) {
+      const week = (entry ?? {}) as Record<string, unknown>
+      const start = utcDateKey(week.startDate)
+      const rawEnd = utcDateKey(week.endDate)
+      if (!start || !rawEnd || typeof week.label !== 'string') continue
+      const end = inclusiveEnd(rawEnd)
+      weeks.push({ label: week.label, section: sectionLabel, start, end: end >= start ? end : start })
+    }
+  }
+  return weeks.sort((a, b) => a.start.localeCompare(b.start))
+}
+
 export function parseSeasonCalendar(response: unknown): SeasonCalendar {
   const leagues = (response as { leagues?: unknown[] } | undefined)?.leagues
   const dates = new Set<string>()
   const bounds: string[] = []
+  const weeks: SeasonWeek[] = []
 
   for (const league of Array.isArray(leagues) ? leagues : []) {
-    collect((league as { calendar?: unknown } | undefined)?.calendar, 0, dates, bounds)
+    const calendar = (league as { calendar?: unknown } | undefined)?.calendar
+    collect(calendar, 0, dates, bounds)
+    weeks.push(...collectWeeks(calendar))
   }
 
   bounds.sort()
   return {
     dates: [...dates].sort(),
+    weeks,
     start: bounds[0],
     end: bounds[bounds.length - 1],
   }
@@ -108,11 +159,39 @@ export function parseSeasonCalendar(response: unknown): SeasonCalendar {
 export function mergeSeasonCalendars(calendars: SeasonCalendar[]): SeasonCalendar {
   const dates = new Set<string>()
   const bounds: string[] = []
+  const weeks = new Map<string, SeasonWeek>()
   for (const calendar of calendars) {
     for (const date of calendar.dates) dates.add(date)
+    // Keyed by start, since every response carries the same weeks.
+    for (const week of calendar.weeks) weeks.set(week.start, week)
     if (calendar.start) bounds.push(calendar.start)
     if (calendar.end) bounds.push(calendar.end)
   }
   bounds.sort()
-  return { dates: [...dates].sort(), start: bounds[0], end: bounds[bounds.length - 1] }
+  return {
+    dates: [...dates].sort(),
+    weeks: [...weeks.values()].sort((a, b) => a.start.localeCompare(b.start)),
+    start: bounds[0],
+    end: bounds[bounds.length - 1],
+  }
+}
+
+/** Every day in a week, as yyyy-MM-dd keys. A week is a known span, so its
+ * days are simply enumerated — no window, no growing, nothing to anchor. */
+export function weekDateKeys(week: SeasonWeek): string[] {
+  const keys: string[] = []
+  const day = new Date(`${week.start}T00:00:00Z`)
+  const last = new Date(`${week.end}T00:00:00Z`)
+  // Bounded rather than trusting the dates: a malformed span should not
+  // spin here, and no real week runs past a bowl period's six weeks.
+  for (let i = 0; i < 45 && day <= last; i++) {
+    keys.push(day.toISOString().slice(0, 10))
+    day.setUTCDate(day.getUTCDate() + 1)
+  }
+  return keys
+}
+
+/** The week containing a day, or the nearest one after it. */
+export function weekForDate(weeks: SeasonWeek[], dateKey: string): SeasonWeek | undefined {
+  return weeks.find((w) => dateKey >= w.start && dateKey <= w.end) ?? weeks.find((w) => w.start > dateKey)
 }
