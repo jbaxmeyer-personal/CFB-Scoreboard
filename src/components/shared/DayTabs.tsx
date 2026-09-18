@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import './DayTabs.css'
 import { formatDayKeyChip } from '../../lib/timezone'
 
@@ -6,6 +6,15 @@ import { formatDayKeyChip } from '../../lib/timezone'
  * about half a chip: near enough to mean "you are looking at the end",
  * far enough that the fetch is already underway when you get there. */
 const EDGE_SLACK_PX = 48
+
+/** How long the strip must stop moving before reaching an edge counts.
+ *
+ * A flick on a touch screen keeps firing scroll events after the finger
+ * has gone, and acting on them mid-flight is what made this run away:
+ * growth fired, the momentum carried straight back into the edge zone, and
+ * it fired again, and again. Waiting for the strip to come to rest turns a
+ * whole gesture into one question, however long its tail. */
+const SETTLE_MS = 180
 
 interface DayTabsProps {
   /** yyyy-MM-dd, in order. Plain keys rather than the days' games, because
@@ -40,10 +49,13 @@ export function DayTabs({
   onReachEnd,
 }: DayTabsProps) {
   const stripRef = useRef<HTMLDivElement>(null)
-  // Which edge we have already asked about. Cleared on leaving that edge, so
-  // scrolling back to it asks again — without this, sitting at the end fires
-  // on every scroll event and runs the window off the end of the season.
-  const asked = useRef<'start' | 'end' | null>(null)
+  // Fires the edge check once the strip has come to rest; see SETTLE_MS.
+  const settling = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Whether the selected day has been brought into view yet. Until it has,
+  // the strip is sitting at scrollLeft 0 — which is not "the day you are
+  // looking at", it is the earliest day loaded, and asking the edge about
+  // it would grow the strip backwards from a position nobody chose.
+  const placed = useRef(false)
   // The day at the strip's left edge, and how far into it that edge falls.
   //
   // Anchoring to a *day* rather than to a width. The first cut remembered
@@ -79,29 +91,53 @@ export function DayTabs({
         el.scrollLeft += tab.getBoundingClientRect().left - el.getBoundingClientRect().left - held.offset
       }
     }
-    // More days arrived, so the edge we asked about is a different edge now
-    // and may be asked about again. Without this the only thing that clears
-    // the flag is scrolling back through the middle — and at the end of a
-    // strip you are dragging *towards* the edge, not away from it, so the
-    // second pull would do nothing.
-    asked.current = null
   }, [dateKeys])
 
-  const onScroll = useCallback(() => {
+  useEffect(() => () => clearTimeout(settling.current), [])
+
+  /**
+   * Put the selected day on screen.
+   *
+   * A scroll container opens at 0, and 0 is the earliest day that has been
+   * loaded — which was near enough to today while the window was a fixed
+   * ten days, and is weeks in the past now that the strip keeps whatever it
+   * has been grown to. So every return from Slate opened the strip at the
+   * start of the season, and every one of those also sat inside the start
+   * edge zone and asked for more days from there.
+   *
+   * Runs when the selected day is off screen: on mount, and after a date
+   * jump re-centres the window. Tapping a day already in view leaves the
+   * strip where it is, because moving it under the finger that just tapped
+   * is its own kind of jarring.
+   */
+  useLayoutEffect(() => {
     const el = stripRef.current
-    if (!el) return
+    if (!el || !selectedDateKey) return
+    const tab = el.querySelector<HTMLElement>(`[data-day="${CSS.escape(selectedDateKey)}"]`)
+    if (!tab) return
+    const box = tab.getBoundingClientRect()
+    const view = el.getBoundingClientRect()
+    const onScreen = box.left >= view.left && box.right <= view.right
+    if (placed.current && onScreen) return
+    el.scrollLeft = Math.max(0, tab.offsetLeft - (el.clientWidth - tab.offsetWidth) / 2)
     rememberAnchor()
-    const atStart = el.scrollLeft <= EDGE_SLACK_PX
-    const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - EDGE_SLACK_PX
-    if (atStart && asked.current !== 'start') {
-      asked.current = 'start'
-      onReachStart?.()
-    } else if (atEnd && asked.current !== 'end') {
-      asked.current = 'end'
-      onReachEnd?.()
-    } else if (!atStart && !atEnd) {
-      asked.current = null
-    }
+    placed.current = true
+  }, [selectedDateKey, dateKeys, rememberAnchor])
+
+  const onScroll = useCallback(() => {
+    rememberAnchor()
+    // Restarted on every scroll event, so it only fires once the strip has
+    // actually stopped — one question per gesture rather than one per frame
+    // of a flick's momentum.
+    clearTimeout(settling.current)
+    settling.current = setTimeout(() => {
+      const el = stripRef.current
+      // Not before the selected day has been placed: until then the strip
+      // is at 0 by default rather than by choice.
+      if (!el || !placed.current) return
+      if (el.scrollLeft <= EDGE_SLACK_PX) onReachStart?.()
+      else if (el.scrollLeft + el.clientWidth >= el.scrollWidth - EDGE_SLACK_PX) onReachEnd?.()
+    }, SETTLE_MS)
   }, [rememberAnchor, onReachStart, onReachEnd])
 
   return (
