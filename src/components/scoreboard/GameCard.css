@@ -105,6 +105,12 @@
 
 .game-card__team-record {
   grid-column: 4;
+  /* Right-aligned like the score in the same column. Without this the span
+     stretches to the column's width and the digits sit against its left
+     edge, which is invisible while every record is three characters wide
+     and ragged the moment one team reaches double digits: 10-2 above 2-0
+     put them 7px out of line. */
+  justify-self: end;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-tertiary);
