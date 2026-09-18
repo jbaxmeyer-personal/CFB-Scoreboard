@@ -62,6 +62,9 @@
 }
 
 .expanded-game__record {
+  /* Fixed-width digits, for the reason given on .game-card__team-record:
+     the two teams' records sit one above the other here too. */
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-tertiary);
