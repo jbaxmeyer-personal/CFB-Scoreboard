@@ -20,9 +20,19 @@ export type DetailFrame =
 
 export type Tab = 'schedule' | 'scoreboard' | 'settings'
 
+/** The two tabs that show games, and so the two that can have one open. */
+export type GameTab = 'schedule' | 'scoreboard'
+
+/** Settings shows no games; anything asked of it answers for Slate, which
+ * is inert because neither screen is mounted while Settings is up. */
+function gameTab(tab: Tab): GameTab {
+  return tab === 'scoreboard' ? 'scoreboard' : 'schedule'
+}
+
 const TAB_STORAGE_KEY = 'slate.tab.v1'
 const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v1'
 const EXPANDED_GAME_STORAGE_KEY = 'slate.expandedGame.v1'
+const EXPANDED_GAMES_STORAGE_KEY = 'slate.expandedGames.v2'
 const SCOREBOARD_ANCHOR_STORAGE_KEY = 'slate.scoreboardAnchor.v1'
 const FILTERS_STORAGE_KEY = 'slate.filters.v1'
 const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'settings']
@@ -41,6 +51,36 @@ function readStoredString(key: string): string | null {
     return localStorage.getItem(key)
   } catch {
     return null
+  }
+}
+
+type ExpandedByTab = Record<GameTab, string | null>
+
+const NO_EXPANDED: ExpandedByTab = { schedule: null, scoreboard: null }
+
+/**
+ * Which game each screen has open, remembered separately.
+ *
+ * A value saved by the old build was a single id shared by both screens. It
+ * is restored to whichever tab was last open, because that is the screen it
+ * was actually expanded on — giving it to both would put a game on Slate
+ * that was only ever opened on Scoreboard.
+ */
+function readStoredExpanded(): ExpandedByTab {
+  try {
+    const raw = localStorage.getItem(EXPANDED_GAMES_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ExpandedByTab>
+      return {
+        schedule: typeof parsed.schedule === 'string' ? parsed.schedule : null,
+        scoreboard: typeof parsed.scoreboard === 'string' ? parsed.scoreboard : null,
+      }
+    }
+    const legacy = localStorage.getItem(EXPANDED_GAME_STORAGE_KEY)
+    if (!legacy) return NO_EXPANDED
+    return { ...NO_EXPANDED, [gameTab(readStoredTab())]: legacy }
+  } catch {
+    return NO_EXPANDED
   }
 }
 
@@ -88,8 +128,12 @@ interface ViewStateValue {
   setTab: (tab: Tab) => void
   selectedDateKey: string | null
   setSelectedDateKey: (key: string) => void
-  /** Shared between Slate and Scoreboard — both are views onto the same
-   * data, so the same game shows expanded on either screen. */
+  /** The game open on the *current* tab, and nothing to do with the other
+   * one. Slate and Scoreboard each remember their own, so leaving a game
+   * open on Scoreboard and switching to Slate gives you Slate — and coming
+   * back gives you the game again. They are two ways of reading a day, not
+   * one screen rendered twice; carrying the open game between them meant
+   * arriving somewhere already buried in a panel you never opened there. */
   expandedGameId: string | null
   setExpandedGameId: (id: string | null) => void
   toggleExpandedGame: (gameId: string) => void
@@ -100,7 +144,9 @@ interface ViewStateValue {
   scoreboardAnchorDate: string | null
   setScoreboardAnchorDate: (dateKey: string | null) => void
   /** Screens stacked on top of the expanded game, innermost last. Empty
-   * means the expanded game itself.
+   * means the expanded game itself. Per-tab for the same reason the
+   * expanded game is: a team page belongs to the game it was opened from,
+   * so it has to travel with it rather than hang over the other screen.
    *
    * Deliberately NOT persisted, unlike the tab, day and expanded game. If a
    * team page ever fails to render, persisting it means every reload
@@ -125,9 +171,13 @@ const ViewStateContext = createContext<ViewStateValue | null>(null)
 export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [tab, setTab] = useState<Tab>(readStoredTab)
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
-  const [expandedGameId, setExpandedGameId] = useState<string | null>(() => readStoredString(EXPANDED_GAME_STORAGE_KEY))
+  const [expandedByTab, setExpandedByTab] = useState<ExpandedByTab>(readStoredExpanded)
   const [scoreboardAnchorDate, setScoreboardAnchorDate] = useState<string | null>(() => readStoredString(SCOREBOARD_ANCHOR_STORAGE_KEY))
-  const [detailStack, setDetailStack] = useState<DetailFrame[]>([])
+  const [stackByTab, setStackByTab] = useState<Record<GameTab, DetailFrame[]>>({ schedule: [], scoreboard: [] })
+
+  const current = gameTab(tab)
+  const expandedGameId = expandedByTab[current]
+  const detailStack = stackByTab[current]
   const [filters, setFilters] = useState<GameFilters>(readStoredFilters)
 
   useEffect(() => {
@@ -139,8 +189,8 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   }, [selectedDateKey])
 
   useEffect(() => {
-    writeStoredValue(EXPANDED_GAME_STORAGE_KEY, expandedGameId)
-  }, [expandedGameId])
+    writeStoredValue(EXPANDED_GAMES_STORAGE_KEY, JSON.stringify(expandedByTab))
+  }, [expandedByTab])
 
   useEffect(() => {
     writeStoredValue(SCOREBOARD_ANCHOR_STORAGE_KEY, scoreboardAnchorDate)
@@ -158,23 +208,23 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       selectedDateKey,
       setSelectedDateKey,
       expandedGameId,
-      setExpandedGameId,
+      setExpandedGameId: (id) => setExpandedByTab((cur) => ({ ...cur, [current]: id })),
       toggleExpandedGame: (gameId) => {
         // Switching or closing a game unwinds whatever was stacked on it —
         // otherwise the next game you open opens on someone else's page.
-        setDetailStack([])
-        setExpandedGameId((cur) => (cur === gameId ? null : gameId))
+        setStackByTab((cur) => ({ ...cur, [current]: [] }))
+        setExpandedByTab((cur) => ({ ...cur, [current]: cur[current] === gameId ? null : gameId }))
       },
       scoreboardAnchorDate,
       setScoreboardAnchorDate,
       detailStack,
-      pushDetail: (frame) => setDetailStack((cur) => [...cur, frame]),
-      popDetail: () => setDetailStack((cur) => cur.slice(0, -1)),
+      pushDetail: (frame) => setStackByTab((cur) => ({ ...cur, [current]: [...cur[current], frame] })),
+      popDetail: () => setStackByTab((cur) => ({ ...cur, [current]: cur[current].slice(0, -1) })),
       teamPageId: detailStack.at(-1)?.kind === 'team' ? (detailStack.at(-1) as { team: Team }).team.id : null,
       filters,
       setFilters,
     }),
-    [tab, selectedDateKey, expandedGameId, scoreboardAnchorDate, detailStack, filters],
+    [tab, current, selectedDateKey, expandedByTab, expandedGameId, scoreboardAnchorDate, stackByTab, detailStack, filters],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>
