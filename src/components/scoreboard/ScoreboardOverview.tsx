@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import './ScoreboardOverview.css'
 import { DAYS_BEFORE, useScoreboardDays } from '../../hooks/useScoreboardDays'
 import { useGamesByDay } from '../../hooks/useGamesByDay'
@@ -14,11 +14,49 @@ import { FilterBar } from '../shared/FilterBar'
 import { useFilteredGames } from '../../hooks/useFilteredGames'
 import { useScrollToCollapsedGame } from '../../hooks/useScrollToCollapsedGame'
 
+/** Days added to each end of the window when the strip reaches it. A week
+ * at a time: enough that scrolling doesn't stall on every other chip, small
+ * enough that reaching an edge isn't a burst of requests for days nobody
+ * asked to see. */
+const GROW_BY_DAYS = 7
+
 export function ScoreboardOverview() {
   const { settings, isFavoriteTeam } = useSettings()
   const { selectedDateKey, setSelectedDateKey, expandedGameId, setExpandedGameId, toggleExpandedGame, scoreboardAnchorDate, setScoreboardAnchorDate } =
     useViewState()
-  const { games: allGames, dateKeys, season, isLoading, isError, refetch } = useScoreboardDays(scoreboardAnchorDate, settings.timezoneId)
+  // How far the strip has been grown past its default window, in days at
+  // each end. ESPN's season calendar only describes weeks as spans — it
+  // never says which days inside one have games — so the days on the strip
+  // have to come from the games themselves, which means fetching them.
+  // Growing on demand keeps that to the part of the season you actually
+  // scroll to.
+  const [grown, setGrown] = useState({ before: 0, after: 0 })
+  const { games: allGames, dateKeys, season, isLoading, isError, refetch } = useScoreboardDays(
+    scoreboardAnchorDate,
+    settings.timezoneId,
+    grown.before,
+    grown.after,
+  )
+
+  // Jumping to a date re-centres the window, so the growth that belonged to
+  // the old centre goes with it.
+  useEffect(() => {
+    setGrown({ before: 0, after: 0 })
+  }, [scoreboardAnchorDate])
+
+  // Stop at the season's own edges, which the calendar does give us even
+  // though the individual days aren't there. Without this, scrolling to the
+  // end would keep fetching into an off-season that answers with nothing.
+  const reachedSeasonStart = season.start !== undefined && dateKeys[0] !== undefined && dateKeys[0] <= season.start
+  const reachedSeasonEnd =
+    season.end !== undefined && dateKeys[dateKeys.length - 1] !== undefined && dateKeys[dateKeys.length - 1] >= season.end
+
+  const growBefore = useCallback(() => {
+    if (!reachedSeasonStart) setGrown((g) => ({ ...g, before: g.before + GROW_BY_DAYS }))
+  }, [reachedSeasonStart])
+  const growAfter = useCallback(() => {
+    if (!reachedSeasonEnd) setGrown((g) => ({ ...g, after: g.after + GROW_BY_DAYS }))
+  }, [reachedSeasonEnd])
   // Filtered before grouping, so the day strip reflects the filter too: a
   // day with no Top 25 games shouldn't offer a tab that leads to nothing.
   const { games, filtersActive, filterSummary } = useFilteredGames(allGames)
@@ -49,8 +87,14 @@ export function ScoreboardOverview() {
   const stripDateKeys = useMemo(() => {
     const keys = new Set(days.map((d) => d.dateKey))
     for (const date of season.dates) keys.add(date)
-    return [...keys].sort()
-  }, [days, season.dates])
+    // Trimmed to the season. Growing stops once the window's far edge
+    // reaches a bound, but the block that reached it overshoots by up to a
+    // week, and a day outside the season has no business on the strip
+    // whatever came back for it.
+    return [...keys]
+      .filter((key) => (!season.start || key >= season.start) && (!season.end || key <= season.end))
+      .sort()
+  }, [days, season.dates, season.start, season.end])
 
   // The anchor day when it has games, otherwise the nearest day that does,
   // looking forward first: landing on an empty Tuesday should show you
@@ -72,11 +116,22 @@ export function ScoreboardOverview() {
     if (!selectedDateKey && activeDateKey) setSelectedDateKey(activeDateKey)
   }, [activeDateKey, selectedDateKey, setSelectedDateKey])
 
-  // Picking a date re-centres the window on it, so you can keep browsing
+  // Jumping to a date re-centres the window on it, so you can keep browsing
   // outward from wherever you landed.
-  const pickDate = (dateKey: string) => {
+  const jumpToDate = (dateKey: string) => {
     setScoreboardAnchorDate(dateKey)
     setSelectedDateKey(dateKey)
+  }
+
+  // Tapping a day already in the window just selects it. Re-anchoring there
+  // would rebuild the window around it and throw away everything the strip
+  // had been grown to hold — scroll out three weeks, tap a Saturday, and the
+  // strip you just scrolled would collapse back to its opening ten days.
+  // A day the strip offers but the window hasn't reached still re-anchors,
+  // because that is what goes and fetches it.
+  const selectDate = (dateKey: string) => {
+    if (dateKeys.includes(dateKey)) setSelectedDateKey(dateKey)
+    else jumpToDate(dateKey)
   }
 
   const activeDay = days.find((d) => d.dateKey === activeDateKey)
@@ -112,10 +167,12 @@ export function ScoreboardOverview() {
         <DayTabs
           dateKeys={stripDateKeys}
           selectedDateKey={activeDateKey ?? ''}
-          onSelect={pickDate}
-          onPickDate={pickDate}
+          onSelect={selectDate}
+          onPickDate={jumpToDate}
           minDateKey={season.start}
           maxDateKey={season.end}
+          onReachStart={growBefore}
+          onReachEnd={growAfter}
         />
       )}
 
