@@ -111,6 +111,12 @@
      and ragged the moment one team reaches double digits: 10-2 above 2-0
      put them 7px out of line. */
   justify-self: end;
+  /* Fixed-width digits. A record stacks directly above another one, and
+     iOS renders these in SF Pro, whose figures are proportional by default:
+     1 is narrower than 0 or 3, so 1-1 and 0-3 are different widths and
+     right-aligning them still leaves the hyphens out of line. The scores in
+     the same column already get this from .ticker. */
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-tertiary);
