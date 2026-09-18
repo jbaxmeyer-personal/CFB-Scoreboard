@@ -79,15 +79,10 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
           {showScore && <span className={`game-chip__score ticker${homeWins ? ' game-chip__score--winner' : ''}`}>{game.homeScore}</span>}
         </div>
       </div>
-      {/* Out of the flow, in the chip's top-left corner. Inline it cost
-          width the chip does not have: a three-hour window is 267px, which
-          leaves 4px of slack once the matchup and the kickoff have theirs,
-          so a badge of any size clipped 4-character pairs like SCAR @ TENN
-          down to "TEN…". The chip is 56px tall around a single 20px row, so
-          the corners are empty in a way the middle is not. Left rather than
-          right because these are wordmarks: 48px of ACC in the right corner
-          sat directly on top of the kickoff. */}
-      <ConferenceBadge game={game} size={14} />
+      {/* Between the matchup and the kickoff. The chip is space-between,
+          so a middle child lands in the slack there. That slack only exists
+          because the grid scale was widened to make it — see PX_PER_HOUR. */}
+      <ConferenceBadge game={game} size={12} />
       <div className="game-chip__meta">
         <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} size={12} />
         <span className={`game-chip__status ticker${game.state === 'in' ? ' game-chip__status--live' : ''}`}>
