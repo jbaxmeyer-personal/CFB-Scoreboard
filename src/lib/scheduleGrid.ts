@@ -8,7 +8,19 @@ import { networkRank, shortNetworkName } from './networks'
 // length — long enough that the grid reads like a real broadcast schedule
 // (games overlapping into the next kickoff slot) rather than implying every
 // game wraps in under an hour.
-export const PX_PER_HOUR = 78
+//
+// The scale was 78, which put a 3.5-hour game in a 267px chip. That was
+// exactly as much as the matchup and the kickoff needed and no more, so
+// the conference shield had nowhere to go: inline it took 41px straight off
+// the team abbreviations and UNC came out "U..". At 94 the same game gets
+// 323px, which fits the shield and still leaves the longest ACC pairings —
+// WAKE @ CLEM, PITT @ SYR, UNC @ NCST — unclipped.
+//
+// 90 is where the clipping actually stops; the extra is headroom, because
+// this is measured in Chromium and the text is laid out by iOS. The cost is
+// horizontal scrolling: about 3.5 hours of the day are on screen at once
+// rather than 4.3.
+export const PX_PER_HOUR = 94
 export const LABEL_WIDTH = 68
 export const ASSUMED_DURATION_MIN = 210 // ~3.5 hours
 const MIN_SPAN_HOURS = 5
