@@ -143,6 +143,13 @@ interface ViewStateValue {
    * Scoreboard unmounting when you switch tabs. */
   scoreboardAnchorDate: string | null
   setScoreboardAnchorDate: (dateKey: string | null) => void
+  /** How far Scoreboard's day strip has been grown past its default window,
+   * in days at each end. Lives here rather than in the screen for the same
+   * reason the anchor does: switching tabs unmounts Scoreboard, and losing
+   * this would collapse a strip you had scrolled a month into back to ten
+   * days every time you glanced at Slate. */
+  scoreboardGrown: { before: number; after: number }
+  setScoreboardGrown: (grown: { before: number; after: number }) => void
   /** Screens stacked on top of the expanded game, innermost last. Empty
    * means the expanded game itself. Per-tab for the same reason the
    * expanded game is: a team page belongs to the game it was opened from,
@@ -173,6 +180,9 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
   const [expandedByTab, setExpandedByTab] = useState<ExpandedByTab>(readStoredExpanded)
   const [scoreboardAnchorDate, setScoreboardAnchorDate] = useState<string | null>(() => readStoredString(SCOREBOARD_ANCHOR_STORAGE_KEY))
+  // Not persisted: a reload is a fresh start, and restoring a month-wide
+  // window would fire a month of requests before anything rendered.
+  const [scoreboardGrown, setScoreboardGrown] = useState({ before: 0, after: 0 })
   const [stackByTab, setStackByTab] = useState<Record<GameTab, DetailFrame[]>>({ schedule: [], scoreboard: [] })
 
   const current = gameTab(tab)
@@ -217,6 +227,8 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       },
       scoreboardAnchorDate,
       setScoreboardAnchorDate,
+      scoreboardGrown,
+      setScoreboardGrown,
       detailStack,
       pushDetail: (frame) => setStackByTab((cur) => ({ ...cur, [current]: [...cur[current], frame] })),
       popDetail: () => setStackByTab((cur) => ({ ...cur, [current]: cur[current].slice(0, -1) })),
@@ -224,7 +236,7 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       filters,
       setFilters,
     }),
-    [tab, current, selectedDateKey, expandedByTab, expandedGameId, scoreboardAnchorDate, stackByTab, detailStack, filters],
+    [tab, current, selectedDateKey, expandedByTab, expandedGameId, scoreboardAnchorDate, scoreboardGrown, stackByTab, detailStack, filters],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>
