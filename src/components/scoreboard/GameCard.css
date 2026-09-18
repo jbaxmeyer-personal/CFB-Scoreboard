@@ -51,12 +51,13 @@
   gap: 6px;
 }
 
-/* Takes the header's slack rather than a fixed slot, so it centres between
-   the network and the lock however wide either of them is, and shrinks
-   before the network chip does if a game carries several networks. */
-.game-card__header > .conference-badge {
-  min-width: 0;
-  margin-inline: auto;
+/* The kickoff on the left, the conference shield on the right; see
+   GameCard.tsx for why the shield is down here and not in the header. */
+.game-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .game-card__team-row {
