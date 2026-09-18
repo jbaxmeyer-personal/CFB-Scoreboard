@@ -51,11 +51,11 @@ export function DayTabs({
   const stripRef = useRef<HTMLDivElement>(null)
   // Fires the edge check once the strip has come to rest; see SETTLE_MS.
   const settling = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  // Whether the selected day has been brought into view yet. Until it has,
-  // the strip is sitting at scrollLeft 0 — which is not "the day you are
-  // looking at", it is the earliest day loaded, and asking the edge about
-  // it would grow the strip backwards from a position nobody chose.
-  const placed = useRef(false)
+  // The day the strip has already been positioned for, or null before it
+  // has been positioned at all. Keyed by day rather than a bare flag so
+  // that growing the strip — which changes the list but not the selection —
+  // cannot be mistaken for a reason to move it.
+  const placedFor = useRef<string | null>(null)
   // The day at the strip's left edge, and how far into it that edge falls.
   //
   // Anchoring to a *day* rather than to a width. The first cut remembered
@@ -105,23 +105,29 @@ export function DayTabs({
    * start of the season, and every one of those also sat inside the start
    * edge zone and asked for more days from there.
    *
-   * Runs when the selected day is off screen: on mount, and after a date
-   * jump re-centres the window. Tapping a day already in view leaves the
-   * strip where it is, because moving it under the finger that just tapped
-   * is its own kind of jarring.
+   * Runs once per selected day: on mount, and again when a date jump picks
+   * a different one. Explicitly NOT when the strip merely grows — growing
+   * changes the list while you are reading some other part of the season,
+   * and re-centring on the selected day there drags you back to today from
+   * wherever you had scrolled to.
+   *
+   * Tapping a day already in view leaves the strip where it is, because
+   * moving it under the finger that just tapped is its own kind of jarring.
    */
   useLayoutEffect(() => {
     const el = stripRef.current
-    if (!el || !selectedDateKey) return
+    if (!el || !selectedDateKey || placedFor.current === selectedDateKey) return
     const tab = el.querySelector<HTMLElement>(`[data-day="${CSS.escape(selectedDateKey)}"]`)
+    // Not on the strip yet — the day's games are still arriving. Try again
+    // on the render that adds it.
     if (!tab) return
     const box = tab.getBoundingClientRect()
     const view = el.getBoundingClientRect()
-    const onScreen = box.left >= view.left && box.right <= view.right
-    if (placed.current && onScreen) return
-    el.scrollLeft = Math.max(0, tab.offsetLeft - (el.clientWidth - tab.offsetWidth) / 2)
-    rememberAnchor()
-    placed.current = true
+    if (box.left < view.left || box.right > view.right) {
+      el.scrollLeft = Math.max(0, tab.offsetLeft - (el.clientWidth - tab.offsetWidth) / 2)
+      rememberAnchor()
+    }
+    placedFor.current = selectedDateKey
   }, [selectedDateKey, dateKeys, rememberAnchor])
 
   const onScroll = useCallback(() => {
@@ -134,7 +140,7 @@ export function DayTabs({
       const el = stripRef.current
       // Not before the selected day has been placed: until then the strip
       // is at 0 by default rather than by choice.
-      if (!el || !placed.current) return
+      if (!el || placedFor.current === null) return
       if (el.scrollLeft <= EDGE_SLACK_PX) onReachStart?.()
       else if (el.scrollLeft + el.clientWidth >= el.scrollWidth - EDGE_SLACK_PX) onReachEnd?.()
     }, SETTLE_MS)
