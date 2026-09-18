@@ -4,8 +4,10 @@
    looking at. */
 .conference-badge {
   flex-shrink: 0;
-  /* Width follows the artwork's aspect ratio; only the height is set. */
+  /* Both dimensions follow the artwork; the max-height and max-width set by
+     the component bound the box it has to fit inside. */
   width: auto;
+  height: auto;
   object-fit: contain;
   opacity: 0.75;
 }

@@ -82,7 +82,7 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
       {/* Between the matchup and the kickoff. The chip is space-between,
           so a middle child lands in the slack there. That slack only exists
           because the grid scale was widened to make it — see PX_PER_HOUR. */}
-      <ConferenceBadge game={game} size={12} />
+      <ConferenceBadge game={game} size={18} maxWidth={42} />
       <div className="game-chip__meta">
         <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} size={12} />
         <span className={`game-chip__status ticker${game.state === 'in' ? ' game-chip__status--live' : ''}`}>

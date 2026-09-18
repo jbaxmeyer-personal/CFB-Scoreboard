@@ -6,7 +6,10 @@ import { conferenceForGame, conferenceLogoUrl } from '../../lib/conferenceBadge'
 
 interface ConferenceBadgeProps {
   game: Game
+  /** Tallest the shield may be. */
   size?: number
+  /** Widest it may be. Whichever bound bites first decides the size. */
+  maxWidth?: number
 }
 
 /**
@@ -17,12 +20,14 @@ interface ConferenceBadgeProps {
  * (white) artwork, so nothing sits behind it and nothing is requested at
  * runtime. A conference with no shield yet simply isn't badged.
  *
- * Sized by height, not as a square. These are wordmarks — the ACC's is
- * 202x59 — and forcing one into a square box letterboxes it down to a few
- * pixels tall. Height is the dimension that has to match the row; width
- * follows the artwork.
+ * Sized to a box rather than to one dimension. These ten are not one shape:
+ * the ACC's is a 3.4:1 wordmark, the SEC's and the Pac-12's are circular
+ * crests. Pinning the height makes a wordmark 41px wide and a crest 12px
+ * square — the crest ends up a smudge while the wordmark is comfortable.
+ * Bounding both lets each use whichever it can, so the wordmarks run wide
+ * and the crests stand tall, and neither exceeds the space the surface has.
  */
-export function ConferenceBadge({ game, size = 18 }: ConferenceBadgeProps) {
+export function ConferenceBadge({ game, size = 18, maxWidth = 64 }: ConferenceBadgeProps) {
   const { conferences } = useConferences()
   const conference = conferenceForGame(game, conferences)
   const url = conference ? conferenceLogoUrl(conference) : undefined
@@ -36,7 +41,7 @@ export function ConferenceBadge({ game, size = 18 }: ConferenceBadgeProps) {
       src={url}
       alt={`${conference.name} conference game`}
       title={`${conference.name} conference game`}
-      height={size}
+      style={{ maxHeight: size, maxWidth }}
       loading="lazy"
       // A local file can't answer with a placeholder the way ESPN did, but
       // a filename typo would still draw a broken image. Hide instead.
