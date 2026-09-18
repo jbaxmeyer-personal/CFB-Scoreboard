@@ -84,23 +84,26 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
           }
         }}
       >
-        {/* The shield rides in the header, between the network and the lock.
-            These are wordmarks, not roundels — the ACC's is 202x59, which
-            comes out 68px wide beside a 26px team logo — and next to the
-            team rows that width came straight off the abbreviations: UNC
-            rendered as "UI". The header has a wide empty middle and nothing
-            in it to squeeze, and the conference belongs with the network
-            anyway: both are facts about the game rather than either team. */}
         <div className="game-card__header">
           <NetworkBadgeList networks={game.broadcasts} />
-          <ConferenceBadge game={game} size={16} />
           <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} />
         </div>
         <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} />
         <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} />
-        <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
-          {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
-          {kickoffOrStatus(game, zoneId)}
+        {/* The shield sits on the kickoff row, opposite the time, and
+            deliberately nowhere near the network badge. Half these
+            conferences own a channel — ACC Network, BTN, SEC Network — so a
+            conference mark beside a network mark reads as a second channel
+            rather than as what the game is. Distance is the only thing that
+            separates them; the artwork can't. This row is empty to the
+            right of the time in every state, and a wordmark is the right
+            shape for it. */}
+        <div className="game-card__footer">
+          <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
+            {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
+            {kickoffOrStatus(game, zoneId)}
+          </div>
+          <ConferenceBadge game={game} size={14} />
         </div>
       </div>
     </div>
