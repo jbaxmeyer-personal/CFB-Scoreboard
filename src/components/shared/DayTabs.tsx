@@ -44,25 +44,41 @@ export function DayTabs({
   // scrolling back to it asks again — without this, sitting at the end fires
   // on every scroll event and runs the window off the end of the season.
   const asked = useRef<'start' | 'end' | null>(null)
-  // What the strip measured before this render, for restoring the scroll
-  // position when days are added to the *front*: prepending shifts every
-  // chip right by the width of what was added, and the day you were looking
-  // at would slide off under your thumb.
-  const before = useRef<{ first: string | undefined; scrollWidth: number; scrollLeft: number }>({
-    first: undefined,
-    scrollWidth: 0,
-    scrollLeft: 0,
-  })
+  // The day at the strip's left edge, and how far into it that edge falls.
+  //
+  // Anchoring to a *day* rather than to a width. The first cut remembered
+  // scrollWidth and shifted scrollLeft by however much it grew, which is
+  // right in principle and wrong in practice: the widths it compared came
+  // from different renders, so the correction was routinely zero and the
+  // view stayed pinned to the left edge. Each backward pull then showed the
+  // seven days it had just added, and pulling a few times in a row walked
+  // the strip back to the start of the season. Restoring a known day to a
+  // known offset cannot drift that way.
+  const anchor = useRef<{ key: string; offset: number } | null>(null)
+
+  const rememberAnchor = useCallback(() => {
+    const el = stripRef.current
+    if (!el) return
+    const edge = el.getBoundingClientRect().left
+    for (const tab of el.querySelectorAll<HTMLElement>('[data-day]')) {
+      const box = tab.getBoundingClientRect()
+      if (box.right > edge + 4) {
+        anchor.current = { key: tab.dataset.day ?? '', offset: box.left - edge }
+        return
+      }
+    }
+  }, [])
 
   useLayoutEffect(() => {
     const el = stripRef.current
     if (!el) return
-    const prev = before.current
-    const prepended = prev.first !== undefined && dateKeys[0] !== undefined && dateKeys[0] < prev.first
-    if (prepended) {
-      el.scrollLeft = prev.scrollLeft + (el.scrollWidth - prev.scrollWidth)
+    const held = anchor.current
+    if (held) {
+      const tab = el.querySelector<HTMLElement>(`[data-day="${CSS.escape(held.key)}"]`)
+      if (tab) {
+        el.scrollLeft += tab.getBoundingClientRect().left - el.getBoundingClientRect().left - held.offset
+      }
     }
-    before.current = { first: dateKeys[0], scrollWidth: el.scrollWidth, scrollLeft: el.scrollLeft }
     // More days arrived, so the edge we asked about is a different edge now
     // and may be asked about again. Without this the only thing that clears
     // the flag is scrolling back through the middle — and at the end of a
@@ -74,7 +90,7 @@ export function DayTabs({
   const onScroll = useCallback(() => {
     const el = stripRef.current
     if (!el) return
-    before.current = { first: dateKeys[0], scrollWidth: el.scrollWidth, scrollLeft: el.scrollLeft }
+    rememberAnchor()
     const atStart = el.scrollLeft <= EDGE_SLACK_PX
     const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - EDGE_SLACK_PX
     if (atStart && asked.current !== 'start') {
@@ -86,7 +102,7 @@ export function DayTabs({
     } else if (!atStart && !atEnd) {
       asked.current = null
     }
-  }, [dateKeys, onReachStart, onReachEnd])
+  }, [rememberAnchor, onReachStart, onReachEnd])
 
   return (
     <div className="day-tabs scrollbar-hide" role="tablist" aria-label="Select day" ref={stripRef} onScroll={onScroll}>
@@ -98,6 +114,7 @@ export function DayTabs({
             role="tab"
             aria-selected={isActive}
             className={`day-tabs__tab${isActive ? ' day-tabs__tab--active' : ''}`}
+            data-day={dateKey}
             onClick={() => onSelect(dateKey)}
           >
             {formatDayKeyChip(dateKey)}
