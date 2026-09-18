@@ -51,34 +51,48 @@
   gap: 6px;
 }
 
-/* The kickoff on the left, the conference shield on the right; see
-   GameCard.tsx for why the shield is down here and not in the header. */
-.game-card__footer {
-  display: flex;
+/* Both teams on one grid: logo, name, the conference shield, then the
+   record or score. The shield needs a column of its own because it spans
+   the two lines — it describes the game, not either team — and a column is
+   the only way it can do that without being floated over the names. */
+.game-card__teams {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  column-gap: 8px;
+  row-gap: 2px;
+  padding: 0 4px;
 }
 
-.game-card__team-row {
+.game-card__teams > .conference-badge {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  justify-self: center;
+}
+
+.game-card__team-logo {
+  grid-column: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 4px;
+}
+
+/* Painted behind its line, full width. A grid row isn't an element, so the
+   favourite wash has to be a cell of its own rather than a background. */
+.game-card__team-wash {
+  grid-column: 1 / -1;
+  margin: -2px -4px;
   border-radius: var(--radius-sm);
-}
-
-.game-card__team-row--favorite {
   background: color-mix(in srgb, var(--favorite-highlight, var(--accent-favorite)) 18%, transparent);
 }
 
+.game-card__teams > *:not(.game-card__team-wash) {
+  position: relative;
+}
+
 .game-card__team-name {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  grid-column: 2;
   font-weight: 600;
   font-size: 13px;
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -90,13 +104,16 @@
 }
 
 .game-card__team-record {
+  grid-column: 4;
   font-size: 11px;
   font-weight: 500;
   color: var(--text-tertiary);
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .game-card__score {
+  grid-column: 4;
+  justify-self: end;
   font-size: 20px;
   font-weight: 600;
   color: var(--text-primary);

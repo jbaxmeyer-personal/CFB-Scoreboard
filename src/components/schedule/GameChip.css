@@ -129,6 +129,6 @@
    single row, vertically centred. */
 .game-chip > .conference-badge {
   position: absolute;
-  bottom: 4px;
-  right: 10px;
+  top: 4px;
+  left: 10px;
 }

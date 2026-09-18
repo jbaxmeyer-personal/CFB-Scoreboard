@@ -11,30 +11,59 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
 import { GAME_ANCHOR_ATTR } from '../../hooks/useScrollToCollapsedGame'
 
+/**
+ * One team's line, emitted as cells of the shared grid on .game-card__teams
+ * rather than as a row of its own.
+ *
+ * It has to be cells because the conference shield sits in a column between
+ * the names and the records and spans both lines — one mark for the game,
+ * not one per team. Two independent flex rows have no column either of them
+ * could share, so the shield would have to be floated over them, and
+ * floated over them it landed on top of the abbreviations.
+ *
+ * The favourite wash is its own cell spanning the full width behind the
+ * line, because a grid row cannot carry a background itself.
+ */
 function TeamCompactRow({
   team,
   score,
   showScore,
   showRecord,
   isWinner,
+  row,
 }: {
   team: Team
   score?: number
   showScore: boolean
   showRecord: boolean
   isWinner: boolean
+  /** Which of the two grid lines this team occupies. */
+  row: 1 | 2
 }) {
   const { isFavoriteTeam } = useSettings()
   const favorite = isFavoriteTeam(team.id)
   return (
-    <div className={`game-card__team-row${favorite ? ' game-card__team-row--favorite' : ''}`}>
-      <TeamLogo team={team} size={26} rank={team.rank} />
-      <span className={`game-card__team-name${isWinner ? ' game-card__team-name--winner' : ''}`}>{team.abbreviation}</span>
+    <>
+      {favorite && <div className="game-card__team-wash" style={{ gridRow: row }} />}
+      <div className="game-card__team-logo" style={{ gridRow: row }}>
+        <TeamLogo team={team} size={26} rank={team.rank} />
+      </div>
+      <span className={`game-card__team-name${isWinner ? ' game-card__team-name--winner' : ''}`} style={{ gridRow: row }}>
+        {team.abbreviation}
+      </span>
       {/* Only pre-game: a live/final record can itself reflect this game's
           outcome, which would leak a protected result. */}
-      {showRecord && team.record && <span className="game-card__team-record">{team.record}</span>}
-      {showScore && <span className={`game-card__score ticker${isWinner ? ' game-card__score--winner' : ''}`}>{score ?? 0}</span>}
-    </div>
+      {showRecord && team.record && (
+        <span className="game-card__team-record" style={{ gridRow: row }}>
+          {team.record}
+        </span>
+      )}
+      {showScore && (
+        <span className={`game-card__score ticker${isWinner ? ' game-card__score--winner' : ''}`} style={{ gridRow: row }}>
+          {score ?? 0}
+        </span>
+      )}
+    </>
   )
 }
 
@@ -88,22 +117,16 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
           <NetworkBadgeList networks={game.broadcasts} />
           <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} />
         </div>
-        <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} />
-        <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} />
-        {/* The shield sits on the kickoff row, opposite the time, and
-            deliberately nowhere near the network badge. Half these
-            conferences own a channel — ACC Network, BTN, SEC Network — so a
-            conference mark beside a network mark reads as a second channel
-            rather than as what the game is. Distance is the only thing that
-            separates them; the artwork can't. This row is empty to the
-            right of the time in every state, and a wordmark is the right
-            shape for it. */}
-        <div className="game-card__footer">
-          <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
-            {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
-            {kickoffOrStatus(game, zoneId)}
-          </div>
-          <ConferenceBadge game={game} size={14} />
+        {/* The shield in its own column between the names and the records,
+            spanning both lines — one mark for the game. */}
+        <div className="game-card__teams">
+          <TeamCompactRow team={game.away} score={game.awayScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={awayWins} row={1} />
+          <TeamCompactRow team={game.home} score={game.homeScore} showScore={showScore} showRecord={game.state === 'pre'} isWinner={homeWins} row={2} />
+          <ConferenceBadge game={game} size={10} />
+        </div>
+        <div className={`game-card__status ticker${game.state === 'in' ? ' game-card__status--live' : ''}`}>
+          {game.state === 'in' && <span className="live-dot" aria-hidden="true" />}
+          {kickoffOrStatus(game, zoneId)}
         </div>
       </div>
     </div>

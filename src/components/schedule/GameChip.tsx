@@ -84,11 +84,9 @@ export function GameChip({ game, isProtected, zoneId, left, top, width, onSelect
           leaves 4px of slack once the matchup and the kickoff have theirs,
           so a badge of any size clipped 4-character pairs like SCAR @ TENN
           down to "TEN…". The chip is 56px tall around a single 20px row, so
-          the corners are empty in a way the middle is not. The bottom-right
-          one specifically: the network rail runs down the left of the grid,
-          and a conference mark alongside it reads as a second channel —
-          several of these conferences own one. Below the kickoff it is
-          clear of both. */}
+          the corners are empty in a way the middle is not. Left rather than
+          right because these are wordmarks: 48px of ACC in the right corner
+          sat directly on top of the kickoff. */}
       <ConferenceBadge game={game} size={14} />
       <div className="game-chip__meta">
         <ProtectedToggle isProtected={isProtected} onToggle={() => toggleProtectedGame(game.id)} size={12} />
