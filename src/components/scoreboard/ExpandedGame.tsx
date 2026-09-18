@@ -2,6 +2,7 @@ import './ExpandedGame.css'
 import type { Game, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { SpoilerGate } from '../shared/SpoilerGate'
+import { ConferenceBadge } from '../shared/ConferenceBadge'
 import { SeasonLeaders, SeasonTeamComparison, GameSummarySections, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 import { seasonYearFromDate, isStatusAhead } from '../../lib/espn'
@@ -183,7 +184,15 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
         <div className="expanded-game__bezel">
           <div className="expanded-game__matchup">
             <TeamIdentity team={game.away} showRecord={game.state === 'pre'} role="away" onOpenTeam={() => openTeam(game.away)} />
-            <span className="expanded-game__at">@</span>
+            {/* The shield stacks above the "@", between the two crests: on
+                this screen the conference is the one thing about the game
+                that belongs to neither side, and the middle of the matchup
+                is where that reads. Nothing on a non-conference game, and
+                the "@" stays put either way. */}
+            <div className="expanded-game__between">
+              <ConferenceBadge game={game} size={18} />
+              <span className="expanded-game__at">@</span>
+            </div>
             <TeamIdentity team={game.home} showRecord={game.state === 'pre'} role="home" onOpenTeam={() => openTeam(game.home)} />
           </div>
 

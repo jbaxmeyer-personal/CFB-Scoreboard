@@ -72,6 +72,17 @@
   opacity: 0.8;
 }
 
+/* The conference shield sits above the "@" in the gap between the crests.
+   A column so the "@" keeps its own place whether or not there is a shield
+   above it. */
+.expanded-game__between {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .expanded-game__at {
   color: var(--text-tertiary);
   font-size: 11px;
