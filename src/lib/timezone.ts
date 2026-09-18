@@ -72,6 +72,15 @@ export function formatDayKeyChip(dateKey: string): string {
   return dt.isValid ? dt.toFormat('ccc M/d') : dateKey
 }
 
+/** Full weekday and date for a day section heading, e.g.
+ * ["Saturday", "Sep 19"]. The two parts are returned separately because the
+ * heading sets them differently: the day of the week is what you are
+ * looking for, the date is confirmation. */
+export function formatDayHeading(dateKey: string): [string, string] {
+  const dt = DateTime.fromISO(dateKey)
+  return dt.isValid ? [dt.toFormat('cccc'), dt.toFormat('LLL d')] : [dateKey, '']
+}
+
 /** Short day label for tab chips, e.g. "Sat 8/30". */
 export function formatDayChip(isoUtc: string, zoneId: string): string {
   const zone = resolveZone(zoneId)
