@@ -31,6 +31,16 @@ const SCOREBOARD_URL =
   'https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard'
 const SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/summary'
 
+/**
+ * ESPN's public gamecast page for a game. Slate links out rather than
+ * duplicating everything ESPN shows, and the same id is what the summary
+ * endpoint is keyed on, so one helper covers both the link and any hand
+ * check of what the feed actually returned for a game.
+ */
+export function espnGameUrl(gameId: string): string {
+  return `https://www.espn.com/college-football/game/_/gameId/${gameId}`
+}
+
 export function buildScoreboardUrl(dateParam: string, group = FBS_GROUP): string {
   const params = new URLSearchParams({
     dates: dateParam,

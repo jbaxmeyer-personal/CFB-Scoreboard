@@ -189,6 +189,25 @@
   text-overflow: ellipsis;
 }
 
+/* Sits opposite the venue on the footer row. flex-shrink: 0 so a long venue
+   name ellipsises instead of squeezing the link, which is the whole point of
+   the row. */
+.expanded-game__source {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+}
+
+.expanded-game__source:active {
+  color: var(--text-primary);
+}
+
 /* The identity block is a button now (it opens the team page), so strip the
    native button chrome and keep the layout it had as a div. */
 .expanded-game__identity--tappable {
