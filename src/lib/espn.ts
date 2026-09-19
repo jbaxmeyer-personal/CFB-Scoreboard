@@ -981,6 +981,10 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
     let creditIndex = i
     if (scored && cannotHaveScored(play.text)) {
       for (let j = i - 1; j >= 0 && i - j <= SCORE_LAG_LOOKBACK; j -= 1) {
+        // Never across a quarter boundary: points moved into the previous
+        // quarter come straight off the box score, which is worked out from
+        // these same snapshots.
+        if (games[j].period !== play.period) break
         if (!cannotHaveScored(games[j].text)) {
           creditIndex = j
           break
