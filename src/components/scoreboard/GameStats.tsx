@@ -642,12 +642,11 @@ interface LeadStats {
  * fetch — no new endpoint, no new risk. */
 function computeLeadStats(plays: GamePlay[]): LeadStats | null {
   if (plays.length === 0) return null
-  const chronological = [...plays].reverse()
   let leadChanges = 0
   let prevLeader: 'home' | 'away' | 'tie' = 'tie'
   const stats: LeadStats = { leadChanges: 0, homeBiggestLead: 0, awayBiggestLead: 0 }
 
-  for (const play of chronological) {
+  for (const play of plays) {
     const diff = play.homeScore - play.awayScore
     const leader = diff > 0 ? 'home' : diff < 0 ? 'away' : 'tie'
     if (leader !== 'tie' && prevLeader !== 'tie' && leader !== prevLeader) leadChanges++

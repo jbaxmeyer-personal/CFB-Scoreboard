@@ -32,7 +32,7 @@ export function computeLinescore(plays: GamePlay[]): LinescorePeriod[] | null {
   let lastPeriod = 0
   // plays is newest-first; walking it in reverse leaves each period mapped
   // to the score after its final play.
-  for (const play of [...plays].reverse()) {
+  for (const play of plays) {
     if (!play.period) continue
     closing.set(play.period, { home: play.homeScore, away: play.awayScore })
     lastPeriod = Math.max(lastPeriod, play.period)

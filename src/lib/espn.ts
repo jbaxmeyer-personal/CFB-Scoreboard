@@ -696,18 +696,44 @@ function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: st
 }
 
 /**
- * Flattens ESPN's drives into a single newest-first play list. `previous` is
+ * Flattens ESPN's drives into a single chronological play list. `previous` is
  * assumed oldest-drive-first and each drive's own plays oldest-first (the
  * usual convention for this endpoint, unverified in this environment) — so
- * the chronological feed is every previous drive's plays followed by the
- * in-progress drive's plays, then reversed for a newest-first display order
- * matching a live play-by-play feed. A scoring play sometimes shows up in
+ * the feed is every previous drive's plays followed by the in-progress
+ * drive's plays. A scoring play sometimes shows up in
  * both the drive it ended *and* as the lead-in to the next (kickoff) drive
  * — confirmed live, and confirmed under a *different* play id each time
  * (an id-based dedupe alone didn't catch it), so this dedupes by the
  * play's actual content — period + clock + text — instead, keeping the
  * first (oldest) occurrence.
  */
+/**
+ * A play that cannot itself have scored: the clock-management and
+ * ball-changing-hands rows a game is full of.
+ *
+ * This is needed because the score a play carries is a *snapshot*, and the
+ * snapshot lags. A safety showed 31-20 and the free kick after it showed
+ * 33-20, so crediting whichever play first reports the higher number put a
+ * kickoff under the Scoring filter with the safety nowhere in it. Points
+ * belong to the play that scored them, not to the next row to notice.
+ *
+ * Checked positively first: a kickoff *returned* for a touchdown is a
+ * scoring play whose text says "kickoff", and a blocked punt returned for
+ * one is the same. Only once nothing in the text claims a score does the
+ * administrative vocabulary rule the play out.
+ */
+function cannotHaveScored(text: string): boolean {
+  if (/\btouchdown\b|\bsafety\b/i.test(text)) return false
+  // "Field Goal GOOD" scores; "Field Goal MISSED" or blocked does not.
+  if (/field goal/i.test(text) && !/no good|missed|blocked/i.test(text)) return false
+  if (/(extra point|two[- ]point|pat).{0,20}(good|success)/i.test(text)) return false
+  return /\b(kickoff|punt|timeout|penalty|end of|two[- ]minute warning|coin toss|kneel|spike)\b/i.test(text)
+}
+
+/** How far back to look for the play a lagging score really belongs to.
+ * A snapshot trails by a row or two, not by a drive. */
+const SCORE_LAG_LOOKBACK = 5
+
 /** "12:04" / "0:37" -> seconds remaining in the period. */
 function clockSeconds(display: string | undefined): number | undefined {
   const match = display?.match(/^(\d+):(\d{2})$/)
@@ -946,10 +972,33 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
 
     const homeScored = home.value > maxHomeScore
     const awayScored = away.value > maxAwayScore
-    play.isScoringPlay = homeScored || awayScored
-    // Who the crest beside it belongs to. The team whose score went up
-    // scored, whoever happened to have the ball.
-    if (play.isScoringPlay) play.scoringTeam = homeScored ? 'home' : 'away'
+    const scored = homeScored || awayScored
+
+    // The score went up on a row that cannot have scored — a lagging
+    // snapshot. Give the points to the most recent play that could have
+    // scored them, and carry the new score forward from there so the rows
+    // in between stop reporting the old one.
+    let creditIndex = i
+    if (scored && cannotHaveScored(play.text)) {
+      for (let j = i - 1; j >= 0 && i - j <= SCORE_LAG_LOOKBACK; j -= 1) {
+        if (!cannotHaveScored(games[j].text)) {
+          creditIndex = j
+          break
+        }
+      }
+    }
+
+    if (scored) {
+      const scorer = games[creditIndex]
+      scorer.isScoringPlay = true
+      // Who the crest beside it belongs to. The team whose score went up
+      // scored, whoever happened to have the ball.
+      scorer.scoringTeam = homeScored ? 'home' : 'away'
+      for (let j = creditIndex; j < i; j += 1) {
+        games[j].homeScore = home.value
+        games[j].awayScore = away.value
+      }
+    }
 
     if (home.rolledBack) uncredit(games, i, 'homeScore', home.value, 'home')
     if (away.rolledBack) uncredit(games, i, 'awayScore', away.value, 'away')
@@ -966,7 +1015,11 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
     if (play.isScoringPlay) play.text = cleanPlayText(play.text, true)
   }
 
-  return games.reverse()
+  // Chronological, oldest first: the order the game was played in. It used
+  // to be reversed here for a newest-first feed, which meant the play-by-play
+  // read backwards — Q4 before Q3, and inside a quarter the later play above
+  // the earlier one.
+  return games
 }
 
 /** What the summary response actually contained, for the "what came back?"

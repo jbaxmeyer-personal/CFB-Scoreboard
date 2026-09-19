@@ -111,7 +111,8 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
   // (plays, polled every 20s for just this game while live) can briefly
   // disagree right after a score — prefer the newest play's score once
   // there is one, since that endpoint is both more granular and faster.
-  const latestPlay = plays[0]
+  // Plays are chronological, so the newest one is the last.
+  const latestPlay = plays.at(-1)
   const awayScore = latestPlay?.awayScore ?? game.awayScore ?? 0
   const homeScore = latestPlay?.homeScore ?? game.homeScore ?? 0
 
