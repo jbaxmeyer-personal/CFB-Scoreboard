@@ -38,14 +38,27 @@ export function linescoreFromSummary(response: EspnSummaryResponse | undefined):
 
   const periods: LinescorePeriod[] = []
   for (let i = 0; i < home.length; i += 1) {
-    const h = home[i]?.value
-    const a = away[i]?.value
-    // A missing or non-numeric entry means this line can't be trusted as a
+    const h = periodPoints(home[i])
+    const a = periodPoints(away[i])
+    // A missing or unreadable entry means this line can't be trusted as a
     // whole; fall back rather than render a quarter as a silent zero.
-    if (typeof h !== 'number' || typeof a !== 'number') return null
+    if (h === undefined || a === undefined) return null
     periods.push({ period: i + 1, home: h, away: a })
   }
   return periods
+}
+
+/** One team's points in one period.
+ *
+ * Confirmed against a real payload: ESPN sends these as `displayValue`
+ * strings only — `{"displayValue":"17"}` — with no numeric `value` field at
+ * all. Reading `value` alone found nothing and silently fell back to the
+ * derived line, so both are read, the number first. */
+function periodPoints(entry: { value?: number; displayValue?: string } | undefined): number | undefined {
+  if (typeof entry?.value === 'number' && Number.isFinite(entry.value)) return entry.value
+  const text = entry?.displayValue?.trim()
+  if (!text || !/^\d+$/.test(text)) return undefined
+  return Number(text)
 }
 
 /**

@@ -902,6 +902,86 @@ export function normalizeCurrentDrive(response: EspnSummaryResponse | undefined)
   }
 }
 
+/**
+ * ESPN's own account of the scoring, keyed by play id — ground truth for
+ * the running score, when it can be shown to be complete.
+ *
+ * The drives feed's per-play scores are not reliable. Confirmed against a
+ * real payload (Miami at Wake Forest): Miami went 21 to 24 on a field goal
+ * at the end of the 2nd, then 24 to 31 on a touchdown in the 3rd, and was
+ * never on 27 at any point in the game — yet "End of 2nd quarter." and the
+ * first six plays of the 3rd all carry 27-7. That is not a snapshot lagging
+ * behind, it is a scoreline that never existed, and it put three of Miami's
+ * points in the wrong quarter of the box score.
+ *
+ * `scoringPlays` was right for all nine scores in that same payload, and
+ * every one of its ids appears in the drives list, so the scores can simply
+ * be grafted back on.
+ *
+ * The completeness check is what makes this safe to trust: the last scoring
+ * play must agree with the official score in the header. If a score is
+ * missing from the list, it won't, and the caller keeps its existing
+ * heuristics rather than freezing the game at a stale total. That holds for
+ * a live game too, where the "final" score is simply the current one.
+ */
+function authoritativeScores(response: EspnSummaryResponse): Map<string, { home: number; away: number }> | null {
+  const scoring = response.scoringPlays
+  if (!Array.isArray(scoring) || scoring.length === 0) return null
+
+  const competitors = response.header?.competitions?.[0]?.competitors
+  const officialHome = officialScore(competitors?.find((c) => c?.homeAway === 'home')?.score)
+  const officialAway = officialScore(competitors?.find((c) => c?.homeAway === 'away')?.score)
+  if (officialHome === undefined || officialAway === undefined) return null
+
+  const byId = new Map<string, { home: number; away: number }>()
+  for (const play of scoring) {
+    const id = play?.id
+    const home = play?.homeScore
+    const away = play?.awayScore
+    if (!id || typeof home !== 'number' || typeof away !== 'number') return null
+    byId.set(String(id), { home, away })
+  }
+
+  const last = scoring[scoring.length - 1]
+  if (last?.homeScore !== officialHome || last?.awayScore !== officialAway) return null
+  return byId
+}
+
+function officialScore(value: string | number | undefined): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+  if (typeof value !== 'string' || !/^\d+$/.test(value.trim())) return undefined
+  return Number(value.trim())
+}
+
+/**
+ * Rewrites every play's running score from ESPN's scoring plays.
+ *
+ * Each play carries the score as of the last scoring play at or before it,
+ * which is what a running score means. The scoring flags come from the same
+ * source, so the Scoring filter and the crest beside a play agree with the
+ * box score by construction instead of by two sets of heuristics happening
+ * to land in the same place.
+ */
+function applyAuthoritativeScores(games: GamePlay[], byId: Map<string, { home: number; away: number }>): void {
+  let home = 0
+  let away = 0
+  for (const play of games) {
+    const scored = byId.get(play.id)
+    if (scored) {
+      play.isScoringPlay = true
+      // Whichever side's total went up is who scored, whoever had the ball.
+      play.scoringTeam = scored.home > home ? 'home' : 'away'
+      home = scored.home
+      away = scored.away
+    } else {
+      play.isScoringPlay = false
+      play.scoringTeam = undefined
+    }
+    play.homeScore = home
+    play.awayScore = away
+  }
+}
+
 export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   // Which drive each play came from, so the possessing team survives the
   // flattening. Keyed on the play object itself, which sorting and dedup
@@ -973,6 +1053,20 @@ export function normalizePlays(response: EspnSummaryResponse): GamePlay[] {
   // touchdown is a real thing — and it makes the scoring-plays fallback
   // work without a special case, since every entry in that list scored by
   // definition.
+  // ESPN's own scoring plays, when they add up to the official score, say
+  // exactly what the score was after every play. Everything below this is
+  // the fallback for when they don't: heuristics that infer the scoring
+  // from the drives feed's own running score, which is what has to be done
+  // when there is nothing better to go on.
+  const authoritative = authoritativeScores(response)
+  if (authoritative && !usingScoringPlaysOnly) {
+    applyAuthoritativeScores(games, authoritative)
+    for (const play of games) {
+      if (play.isScoringPlay) play.text = cleanPlayText(play.text, true)
+    }
+    return games
+  }
+
   let maxHomeScore = 0
   let maxAwayScore = 0
   for (let i = 0; i < games.length; i += 1) {
