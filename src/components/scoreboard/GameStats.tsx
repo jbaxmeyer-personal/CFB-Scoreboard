@@ -311,12 +311,38 @@ function readsAsSameColor(a: string, b: string): boolean {
   return colorDistance(a, b) < 60
 }
 
-/** A near-black team color (several schools list black as their alternate)
- * disappears against this app's dark panels, so it can't stand in as the
- * away team's bar color no matter how distinct it is from the home team. */
-function isVisibleOnDarkPanel(hex: string): boolean {
+/** Below this a color disappears into the panels behind these bars. */
+const MIN_BAR_LIGHTNESS = 0.34
+
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = l - c / 2
+  const [r, g, b] =
+    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+    : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]
+  const byte = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0')
+  return `#${byte(r)}${byte(g)}${byte(b)}`
+}
+
+/**
+ * A team's color, lifted until it can be seen on a dark panel.
+ *
+ * Several schools' colors are very dark — Miami's green is #005030, a
+ * lightness of 0.16 — and these used to be rejected outright, which handed
+ * the team a neutral grey instead. That reads as no color at all, and it
+ * happened on exactly the games where the two primaries clash and the
+ * alternate is the only thing left to tell the teams apart.
+ *
+ * Raising the lightness keeps the hue, so Miami's bar is still green,
+ * just a green you can see. A color with no hue to keep — black, or a
+ * near-grey — comes out grey, which is the honest result for it.
+ */
+function onDarkPanel(hex: string | undefined): string | undefined {
+  if (!hex) return undefined
   const hsl = hexToHsl(hex)
-  return hsl !== null && hsl.l > 0.22
+  if (!hsl) return undefined
+  return hsl.l >= MIN_BAR_LIGHTNESS ? hex : hslToHex(hsl.h, hsl.s, MIN_BAR_LIGHTNESS)
 }
 
 /** Neutral stand-ins for when a team has no usable distinct color left —
@@ -334,7 +360,9 @@ const NEUTRAL_MID = '#5a6478'
  * Two solid segments in the same color family are unreadable at a glance,
  * so when the primaries clash the away team falls back to its own secondary
  * (alternate) color — a real color that team actually wears — rather than a
- * lightened tint of its primary.
+ * lightened tint of its primary. Miami's orange against Wake Forest's gold
+ * is 16 degrees of hue apart, which is the case this exists for: the
+ * alternate is Miami green, and it is a green bar rather than a grey one.
  *
  * And when a color is missing outright, a neutral stands in rather than
  * nothing. Measured on the device: both segments were rendering in the same
@@ -348,17 +376,17 @@ const NEUTRAL_MID = '#5a6478'
  * had in hand — a finished game's box score, or a team's schedule and its
  * played games. The neutrals are the last resort, not the normal case.
  */
-function statBarColors(
+export function statBarColors(
   home: Team,
   away: Team,
   found?: { homeColor?: string; awayColor?: string; awayAlternate?: string },
 ): { homeColor: string; awayColor: string } {
-  const homeColor = home.color ?? found?.homeColor ?? NEUTRAL_MID
-  const awayOwn = away.color ?? found?.awayColor
+  const homeColor = onDarkPanel(home.color ?? found?.homeColor) ?? NEUTRAL_MID
+  const awayOwn = onDarkPanel(away.color ?? found?.awayColor)
   if (awayOwn && !readsAsSameColor(homeColor, awayOwn)) return { homeColor, awayColor: awayOwn }
 
-  const awayAlternate = away.alternateColor ?? found?.awayAlternate
-  if (awayAlternate && isVisibleOnDarkPanel(awayAlternate) && !readsAsSameColor(homeColor, awayAlternate)) {
+  const awayAlternate = onDarkPanel(away.alternateColor ?? found?.awayAlternate)
+  if (awayAlternate && !readsAsSameColor(homeColor, awayAlternate)) {
     return { homeColor, awayColor: awayAlternate }
   }
   return { homeColor, awayColor: readsAsSameColor(homeColor, NEUTRAL_LIGHT) ? NEUTRAL_MID : NEUTRAL_LIGHT }
