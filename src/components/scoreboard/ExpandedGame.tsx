@@ -5,7 +5,7 @@ import { SpoilerGate } from '../shared/SpoilerGate'
 import { ConferenceBadge } from '../shared/ConferenceBadge'
 import { SeasonLeaders, SeasonTeamComparison, GameSummarySections, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
-import { seasonYearFromDate, isStatusAhead } from '../../lib/espn'
+import { seasonYearFromDate, isStatusAhead, espnGameUrl } from '../../lib/espn'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import { useViewState } from '../../context/ViewStateContext'
 import { useSettings } from '../../context/SettingsContext'
@@ -213,6 +213,20 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
 
         <div className="expanded-game__footer">
           <span className="expanded-game__venue">{game.venue ?? formatDayLabel(game.startDate, zoneId)}</span>
+          {/* Always here, for every game, not only when the stats came back
+              empty: this is the way out to the source when Slate and ESPN
+              disagree about something, and a link you can only reach by
+              first hitting a failure is a link you can't reach when you
+              need it. It carries the game id and nothing else, so it's
+              safe to show above a spoiler-protected game. */}
+          <a
+            className="expanded-game__source"
+            href={espnGameUrl(game.id)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View on ESPN
+          </a>
         </div>
       </div>
     </div>
