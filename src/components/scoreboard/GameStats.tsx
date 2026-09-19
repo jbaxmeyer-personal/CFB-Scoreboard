@@ -782,7 +782,20 @@ function PlayByPlay({
   // when the payload didn't carry it.
   const derived = useMemo(() => computeLinescore(plays), [plays])
   const linescore = reported ?? derived
-  const visiblePlays = filter === 'scoring' ? plays.filter((p) => p.isScoringPlay) : plays
+  // `plays` is chronological, oldest first — everything derived from it
+  // (the box score, the lead tracker, the latest score in the header) reads
+  // it that way, so the reversal here is for display only and never touches
+  // that array.
+  //
+  // The two filters read in opposite directions on purpose. "All" is a live
+  // feed: the play you want is the one that just happened, and on a game in
+  // progress that means the top of the list rather than a scroll to the
+  // bottom that gets longer all afternoon. "Scoring" is a summary of how the
+  // game got to its score, which reads forwards.
+  const visiblePlays = useMemo(
+    () => (filter === 'scoring' ? plays.filter((p) => p.isScoringPlay) : [...plays].reverse()),
+    [filter, plays],
+  )
 
   return (
     <>

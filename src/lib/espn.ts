@@ -765,19 +765,45 @@ function clockSeconds(display: string | undefined): number | undefined {
 function sortPlaysChronologically(plays: EspnPlay[]): EspnPlay[] {
   if (plays.length < 2) return plays
 
+  // The quarter and the clock decide the order, and ESPN's sequenceNumber
+  // only breaks a tie between plays that share both.
+  //
+  // It used to be the other way round, and sequenceNumber is not reliable
+  // enough for that: in a real payload the safety at Q4 13:11 carried
+  // sequence 170, the highest number in the game, which sorted it after
+  // "End of 4th quarter." at 0:00 — the last row of the feed for a play
+  // with eleven minutes still to go. It also left every play after the
+  // safety reporting 31-20 on a game that was at 33-20.
+  //
+  // The clock is still not enough on its own: it stalls, and a kickoff, a
+  // 10-yard run and a false start were all stamped 15:00 in one live
+  // payload, so plays sharing a clock need the sequence number to separate
+  // them. Hence one as the ordering and the other as the tie-break.
+  const byClock = plays.every((p) => p.period?.number !== undefined && clockSeconds(p.clock?.displayValue) !== undefined)
+  if (byClock) {
+    return [...plays].sort((a, b) => {
+      const periodDiff = (a.period?.number ?? 0) - (b.period?.number ?? 0)
+      if (periodDiff !== 0) return periodDiff
+      // Later in a period means less time on the clock.
+      const clockDiff = (clockSeconds(b.clock?.displayValue) ?? 0) - (clockSeconds(a.clock?.displayValue) ?? 0)
+      if (clockDiff !== 0) return clockDiff
+      return playSequence(a) - playSequence(b)
+    })
+  }
+
+  // No usable clock on every play — then the sequence number is all there
+  // is, and it is better than leaving the feed in the order the drives
+  // happened to arrive in.
   if (plays.every((p) => Number.isFinite(Number(p.sequenceNumber)))) {
     return [...plays].sort((a, b) => Number(a.sequenceNumber) - Number(b.sequenceNumber))
   }
 
-  const byClock = plays.every((p) => p.period?.number !== undefined && clockSeconds(p.clock?.displayValue) !== undefined)
-  if (!byClock) return plays
+  return plays
+}
 
-  return [...plays].sort((a, b) => {
-    const periodDiff = (a.period?.number ?? 0) - (b.period?.number ?? 0)
-    if (periodDiff !== 0) return periodDiff
-    // Later in a period means less time on the clock.
-    return (clockSeconds(b.clock?.displayValue) ?? 0) - (clockSeconds(a.clock?.displayValue) ?? 0)
-  })
+function playSequence(play: EspnPlay): number {
+  const value = Number(play.sequenceNumber)
+  return Number.isFinite(value) ? value : 0
 }
 
 /** Where the drive in progress began, for the field bar. */
