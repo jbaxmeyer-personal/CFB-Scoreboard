@@ -255,8 +255,23 @@ export interface EspnDrives {
  * drives, no team statistics, and no down/distance situation — which is
  * exactly the case where Slate would otherwise render a blank card with no
  * explanation. */
+/** A side in the summary header. `linescores` is ESPN's own points-per-
+ * quarter for that team: one entry per period played, in order. */
+export interface EspnSummaryHeaderCompetitor {
+  id?: string
+  homeAway?: string
+  team?: { id?: string; abbreviation?: string }
+  score?: string | number
+  linescores?: { value?: number; displayValue?: string }[]
+}
+
 export interface EspnSummaryHeaderCompetition {
   playByPlaySource?: string
+  /** The two sides as the summary's own header describes them, which is
+   * where a per-quarter line carries if ESPN publishes one. Not confirmed
+   * present from where Slate is built — ESPN is unreachable here — so it is
+   * read if it arrives and ignored if it doesn't, never assumed. */
+  competitors?: EspnSummaryHeaderCompetitor[]
   /** The summary's own view of period, clock and game state.
    *
    * The two endpoints poll at different rates and can disagree, and the

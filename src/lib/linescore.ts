@@ -1,4 +1,5 @@
 import type { GamePlay } from '../types/game'
+import type { EspnSummaryResponse } from '../types/espn'
 
 export interface LinescorePeriod {
   period: number
@@ -13,13 +14,51 @@ export function periodLabel(period: number): string {
 }
 
 /**
- * Points per quarter, worked out from the play-by-play rather than fetched.
+ * ESPN's own points per quarter, when the summary carries them.
+ *
+ * Preferred over deriving quarters from the play-by-play, because ESPN's
+ * line is the authority and the derived one is not: each play carries the
+ * running score *as reported at that play*, and those snapshots lag — a
+ * safety was seen reading 31-20 while the free kick after it read 33-20.
+ * A play that is stamped in one quarter but carries the score from the
+ * next puts points in the wrong column, which is what a reported box score
+ * did (20 and 4 in the 2nd and 3rd where ESPN had 17 and 7).
+ *
+ * Returns nothing unless both sides are present with the same number of
+ * periods — a half-populated line would be worse than the derived one.
+ */
+export function linescoreFromSummary(response: EspnSummaryResponse | undefined): LinescorePeriod[] | null {
+  const competitors = response?.header?.competitions?.[0]?.competitors
+  if (!Array.isArray(competitors)) return null
+
+  const home = competitors.find((c) => c?.homeAway === 'home')?.linescores
+  const away = competitors.find((c) => c?.homeAway === 'away')?.linescores
+  if (!Array.isArray(home) || !Array.isArray(away)) return null
+  if (home.length === 0 || home.length !== away.length) return null
+
+  const periods: LinescorePeriod[] = []
+  for (let i = 0; i < home.length; i += 1) {
+    const h = home[i]?.value
+    const a = away[i]?.value
+    // A missing or non-numeric entry means this line can't be trusted as a
+    // whole; fall back rather than render a quarter as a silent zero.
+    if (typeof h !== 'number' || typeof a !== 'number') return null
+    periods.push({ period: i + 1, home: h, away: a })
+  }
+  return periods
+}
+
+/**
+ * Points per quarter derived from the play-by-play. The fallback for when
+ * ESPN's own line (above) isn't in the payload.
  *
  * Every play already carries the period it belongs to and the running score
  * after it, so the last play of a quarter is that quarter's closing score
  * and the difference between two of them is what was scored in between.
  * Nothing new is requested, and it inherits the corrections the play list
- * has already had — a called-back touchdown is off the board here too.
+ * has already had — a called-back touchdown is off the board here too. What
+ * it cannot correct is a lagging snapshot at a quarter boundary, which is
+ * why ESPN's own line is preferred whenever there is one.
  *
  * Only quarters that have actually been played appear, so a game in the
  * second shows two columns rather than four with zeroes standing in for
@@ -30,8 +69,8 @@ export function computeLinescore(plays: GamePlay[]): LinescorePeriod[] | null {
 
   const closing = new Map<number, { home: number; away: number }>()
   let lastPeriod = 0
-  // plays is newest-first; walking it in reverse leaves each period mapped
-  // to the score after its final play.
+  // Plays are chronological, so the last one written for a period is that
+  // period's closing score.
   for (const play of plays) {
     if (!play.period) continue
     closing.set(play.period, { home: play.homeScore, away: play.awayScore })

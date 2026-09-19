@@ -761,7 +761,16 @@ type PlayFilter = 'all' | 'scoring'
  * show; the empty and failed cases are handled once for the whole summary
  * by GameSummarySections below.
  */
-function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
+function PlayByPlay({
+  game,
+  plays,
+  linescore: reported,
+}: {
+  game: Game
+  plays: GamePlay[]
+  /** ESPN's own line, when the payload had one. */
+  linescore?: LinescorePeriod[]
+}) {
   const { reactions, setReaction } = useReactions()
   // A finished game defaults to just the scoring plays (the full feed is a
   // long scroll of no-longer-relevant detail once the outcome is set); a
@@ -769,7 +778,10 @@ function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
   const [filter, setFilter] = useState<PlayFilter>(game.state === 'post' ? 'scoring' : 'all')
 
   const leadStats = useMemo(() => computeLeadStats(plays), [plays])
-  const linescore = useMemo(() => computeLinescore(plays), [plays])
+  // ESPN's line wins whenever there is one; the derived one only stands in
+  // when the payload didn't carry it.
+  const derived = useMemo(() => computeLinescore(plays), [plays])
+  const linescore = reported ?? derived
   const visiblePlays = filter === 'scoring' ? plays.filter((p) => p.isScoringPlay) : plays
 
   return (
@@ -939,7 +951,10 @@ function SummaryNotice({
  * explanation instead of two components independently rendering nothing.
  */
 export function GameSummarySections({ game }: { game: Game }) {
-  const { plays, boxScore, isLoading, isError, isDelayed, diagnostics, refetch } = useGameSummary(game, game.state === 'in')
+  const { plays, boxScore, linescore, isLoading, isError, isDelayed, diagnostics, refetch } = useGameSummary(
+    game,
+    game.state === 'in',
+  )
 
   const hasPlays = plays.length > 0
   const hasBoxScore =
@@ -958,7 +973,7 @@ export function GameSummarySections({ game }: { game: Game }) {
 
   return (
     <>
-      {hasPlays && <PlayByPlay game={game} plays={plays} />}
+      {hasPlays && <PlayByPlay game={game} plays={plays} linescore={linescore} />}
       {hasBoxScore && <BoxScoreBody boxScore={boxScore!} home={game.home} away={game.away} />}
     </>
   )

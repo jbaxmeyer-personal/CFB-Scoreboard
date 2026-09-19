@@ -15,12 +15,17 @@ import {
 } from '../lib/espn'
 import type { CurrentDrive, LiveStatus, SummaryDiagnostics } from '../lib/espn'
 import type { Game, GameBoxScore, GamePlay } from '../types/game'
+import { linescoreFromSummary, type LinescorePeriod } from '../lib/linescore'
 import { useSettings } from '../context/SettingsContext'
 import { useDelayedValue } from './useDelayedValue'
 
 export interface GameSummaryResult {
   boxScore?: GameBoxScore
   plays: GamePlay[]
+  /** ESPN's own points-per-quarter, when the payload carries it. Absent
+   * means the panel derives the line from the plays instead. Delayed with
+   * the rest: a quarter's points are a score fact. */
+  linescore?: LinescorePeriod[]
   /** The drive in progress, for the field position bar. Held back by the
    * broadcast delay with everything else — a drive start is a live fact. */
   currentDrive?: CurrentDrive
@@ -149,9 +154,10 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
   // score it belongs to was held back would announce the end of the game
   // ahead of the picture, which is the thing the delay exists to prevent.
   const liveStatus = query.data ? normalizeSummaryStatus(query.data) : undefined
+  const linescore = query.data ? (linescoreFromSummary(query.data) ?? undefined) : undefined
   const undelayed = useMemo(
-    () => ({ boxScore, plays, currentDrive, liveStatus }),
-    [boxScore, plays, currentDrive, liveStatus],
+    () => ({ boxScore, plays, currentDrive, liveStatus, linescore }),
+    [boxScore, plays, currentDrive, liveStatus, linescore],
   )
   const delayed = useDelayedValue(undelayed, settings.broadcastDelaySeconds, isLive)
 
@@ -160,6 +166,7 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
     plays: delayed.value?.plays ?? [],
     currentDrive: delayed.value?.currentDrive,
     liveStatus: delayed.value?.liveStatus,
+    linescore: delayed.value?.linescore,
     isDelayed: delayed.isDelayed,
     // The core fallbacks are gated behind the summary, so a pending core
     // request is still "loading" from the panel's point of view.
