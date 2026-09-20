@@ -93,6 +93,12 @@ function ScheduleRow({
           </>
         ) : game.state === 'in' ? (
           'LIVE'
+        ) : game.state === 'post' ? (
+          // Played, but the payload carried no score to show. A kickoff
+          // time here would be a straight lie — it reads as a fixture still
+          // to come, which is how a 3-0 team's first three games came to be
+          // listed as upcoming.
+          'FINAL'
         ) : (
           game.timeTBD ? 'TBD' : formatKickoffTime(game.startDate, zoneId)
         )}
