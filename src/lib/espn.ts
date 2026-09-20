@@ -1,5 +1,6 @@
 import type {
   EspnBoxscorePlayerEntry,
+  EspnStatus,
   EspnDrive,
   EspnCoreCompetitor,
   EspnCoreRef,
@@ -190,6 +191,28 @@ function toGameState(state: string): GameState {
   return 'pre'
 }
 
+/**
+ * Whether the game has been played, from whatever the payload actually
+ * says — not from `type.state` alone.
+ *
+ * `toGameState` answers "pre" for anything it doesn't recognise, including
+ * a missing value, so one differently-shaped status turns a whole season of
+ * finished games into fixtures. That is not hypothetical: a team's schedule
+ * showed a 3-0 team's first three games as upcoming kickoff times.
+ *
+ * So the explicit state is trusted first, then ESPN's own `completed` flag,
+ * and finally the winner mark, which is only ever set on a game that has
+ * been decided. Each is a positive signal; none of them invents a result
+ * where the payload doesn't claim one.
+ */
+function resolveGameState(status: EspnStatus | undefined, competitors: EspnCompetitor[]): GameState {
+  const declared = status?.type?.state
+  if (declared === 'in' || declared === 'post') return declared
+  if (status?.type?.completed === true) return 'post'
+  if (competitors.some((c) => c.winner !== undefined)) return 'post'
+  return 'pre'
+}
+
 export function normalizeEvent(event: EspnEvent): Game | null {
   const competition = event.competitions?.[0]
   if (!competition) return null
@@ -222,7 +245,7 @@ export function normalizeEvent(event: EspnEvent): Game | null {
     away: toTeam(away),
     homeScore: parseScore(home.score),
     awayScore: parseScore(away.score),
-    state: toGameState(status.type.state),
+    state: resolveGameState(status, [home, away]),
     statusDetail: status.type.shortDetail || status.type.detail,
     period: status.period,
     clock: status.displayClock,
