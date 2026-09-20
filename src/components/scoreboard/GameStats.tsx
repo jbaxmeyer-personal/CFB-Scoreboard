@@ -989,7 +989,17 @@ export function GameSummarySections({ game }: { game: Game }) {
           play-by-play and team stats are missing. The retry and the
           response's real shape stay reachable with it. */}
       {!hasPlays && !hasBoxScore && (
-        <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
+        <>
+          {/* These come off the scoreboard payload, which is already
+              fetched for every game on the day — so they are available
+              exactly when the per-game summary isn't. They were rendered
+              pre-game only, which meant a live game ESPN had no feed for
+              showed nothing at all while the app was holding both teams'
+              passing, rushing and receiving leaders. Season-long numbers,
+              so they give nothing away about this game's score. */}
+          <SeasonLeaders home={game.home} away={game.away} />
+          <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
+        </>
       )}
     </>
   )

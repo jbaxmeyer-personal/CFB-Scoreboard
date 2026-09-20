@@ -139,7 +139,14 @@ export function useGameSummary(game: Game, isLive: boolean, enabled = true): Gam
   const diagnostics = query.data
     ? {
         ...summaryDiagnostics(query.data, eventId, competitionId, home, away),
-        coreStats: describeQuery(coreStats, needsCoreStats, () => describeCoreStats(coreStats.data?.home ?? coreStats.data?.away)),
+        // Distinguish "the request never ran" from "it ran and ESPN's
+        // competitors carried no statistics link". Both used to print
+        // "(not fetched)", which reads as a bug in the app when it is
+        // actually a statement about the payload.
+        coreStats: describeQuery(coreStats, needsCoreStats, () => {
+          const stats = coreStats.data?.home ?? coreStats.data?.away
+          return stats ? describeCoreStats(stats) : 'competitors carried no stats link'
+        }),
         coreCompetitors: describeQuery(coreStats, needsCoreStats, () => coreStats.data?.competitorSummary ?? '?'),
         corePlays: describeQuery(corePlays, needsCorePlays, () => `${corePlays.data?.items?.length ?? 0} items`),
       }
