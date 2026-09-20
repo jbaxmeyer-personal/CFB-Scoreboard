@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from 'react'
 import './GameStats.css'
 import type { Game, GameBoxScore, GamePlay, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../../types/game'
 import { useGameSummary } from '../../hooks/useGameSummary'
+import { seasonYearFromDate } from '../../lib/espn'
 import type { CurrentDrive, SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
 import { computeLinescore, periodLabel, type LinescorePeriod } from '../../lib/linescore'
@@ -64,13 +65,28 @@ const SEASON_SECTION_LABEL: Record<NonNullable<TeamStatLine['section']>, string>
   turnovers: 'Turnovers',
 }
 
-export function SeasonTeamComparison({ home, away, year }: { home: Team; away: Team; year: number }) {
+export function SeasonTeamComparison({
+  home,
+  away,
+  year,
+  includeDefense = true,
+}: {
+  home: Team
+  away: Team
+  year: number
+  /** Off for the stand-in shown on a live game with no feed. The defence
+   * rows cost a schedule request plus a summary for every game each team
+   * has already played, which is fine once on a pre-game card and far too
+   * much to fire every time someone opens a live game on a full Saturday.
+   * Offence, scoring and turnovers come from one request per team. */
+  includeDefense?: boolean
+}) {
   const { stats, isLoading, isError } = useSeasonTeamStats(home.id, away.id, year)
   // Defence is not in that response and never was — see seasonDefenseRows.
   // Both teams' allowed numbers are added up from the other side of their
   // own box scores, which costs a request per game each has played.
-  const { rows: homeDefense, color: homeSeasonColor } = useSeasonDefense(home.id, year)
-  const { rows: awayDefense, color: awaySeasonColor } = useSeasonDefense(away.id, year)
+  const { rows: homeDefense, color: homeSeasonColor } = useSeasonDefense(home.id, year, includeDefense)
+  const { rows: awayDefense, color: awaySeasonColor } = useSeasonDefense(away.id, year, includeDefense)
   const teamColors = useTeamColors()
 
   // Paired by label, and only where both sides have the row: a comparison
@@ -998,6 +1014,18 @@ export function GameSummarySections({ game }: { game: Game }) {
               passing, rushing and receiving leaders. Season-long numbers,
               so they give nothing away about this game's score. */}
           <SeasonLeaders home={game.home} away={game.away} />
+          {/* The leaders above come off the scoreboard, so they are empty
+              for a game whose leader categories ESPN has published but not
+              filled — confirmed on one reading passingYards:0 rushingYards:0
+              for both sides. This comes from the per-team season statistics
+              endpoint instead, which has nothing to do with the game feed
+              and so is there whether or not ESPN is covering this game. */}
+          <SeasonTeamComparison
+            home={game.home}
+            away={game.away}
+            year={seasonYearFromDate(game.startDate)}
+            includeDefense={false}
+          />
           <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
         </>
       )}
