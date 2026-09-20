@@ -761,27 +761,13 @@ type PlayFilter = 'all' | 'scoring'
  * show; the empty and failed cases are handled once for the whole summary
  * by GameSummarySections below.
  */
-function PlayByPlay({
-  game,
-  plays,
-  linescore: reported,
-}: {
-  game: Game
-  plays: GamePlay[]
-  /** ESPN's own line, when the payload had one. */
-  linescore?: LinescorePeriod[]
-}) {
+function PlayByPlay({ game, plays }: { game: Game; plays: GamePlay[] }) {
   const { reactions, setReaction } = useReactions()
   // A finished game defaults to just the scoring plays (the full feed is a
   // long scroll of no-longer-relevant detail once the outcome is set); a
   // live game defaults to the full feed since every play still matters.
   const [filter, setFilter] = useState<PlayFilter>(game.state === 'post' ? 'scoring' : 'all')
 
-  const leadStats = useMemo(() => computeLeadStats(plays), [plays])
-  // ESPN's line wins whenever there is one; the derived one only stands in
-  // when the payload didn't carry it.
-  const derived = useMemo(() => computeLinescore(plays), [plays])
-  const linescore = reported ?? derived
   // `plays` is chronological, oldest first — everything derived from it
   // (the box score, the lead tracker, the latest score in the header) reads
   // it that way, so the reversal here is for display only and never touches
@@ -798,15 +784,8 @@ function PlayByPlay({
   )
 
   return (
-    <>
-      {(linescore || leadStats) && (
-        <div className="game-stats__leads">
-          {linescore && <Linescore periods={linescore} home={game.home} away={game.away} />}
-          {leadStats && <LeadTracker stats={leadStats} home={game.home} away={game.away} />}
-        </div>
-      )}
-      <div className="game-stats">
-        <div className="game-stats__plays-header">
+    <div className="game-stats">
+      <div className="game-stats__plays-header">
           <h3 className="game-stats__title">Play by Play</h3>
           <div className="game-stats__play-filter">
             <button
@@ -847,9 +826,8 @@ function PlayByPlay({
               />
             )
           })}
-        </div>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -964,30 +942,55 @@ function SummaryNotice({
  * explanation instead of two components independently rendering nothing.
  */
 export function GameSummarySections({ game }: { game: Game }) {
-  const { plays, boxScore, linescore, isLoading, isError, isDelayed, diagnostics, refetch } = useGameSummary(
+  const { plays, boxScore, linescore: reported, isLoading, isError, isDelayed, diagnostics, refetch } = useGameSummary(
     game,
     game.state === 'in',
   )
+
+  // ESPN's own line wins whenever there is one; the derived one only stands
+  // in when the payload didn't carry it.
+  const derived = useMemo(() => computeLinescore(plays), [plays])
+  const linescore = reported ?? derived
+  const leadStats = useMemo(() => computeLeadStats(plays), [plays])
 
   const hasPlays = plays.length > 0
   const hasBoxScore =
     boxScore !== undefined &&
     (boxScore.teamStats.length > 0 || boxScore.homeLeaders.length > 0 || boxScore.awayLeaders.length > 0)
+  // The box score is its own thing, not a part of the play-by-play. ESPN
+  // sends the line in the summary's header, which arrives for a game whose
+  // drives have not — a live game was confirmed returning no drives, no
+  // scoringPlays and empty team statistics while the header was there. The
+  // line used to be rendered inside the play-by-play and was not counted
+  // here, so that game threw away a box score it had been sent and showed
+  // the empty-panel notice on its own.
+  const hasLinescore = linescore !== null && linescore.length > 0
 
   if (isLoading) return <p className="game-stats__hint">Loading stats…</p>
   // An empty feed and a held-back one look identical from here, and the
   // diagnostics notice would blame ESPN for a delay the viewer set.
   if (isDelayed) return <p className="game-stats__hint">Held until your broadcast delay catches up…</p>
-  if (!hasPlays && !hasBoxScore) {
-    return (
-      <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
-    )
+  if (!hasPlays && !hasBoxScore && !hasLinescore) {
+    return <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
   }
 
   return (
     <>
-      {hasPlays && <PlayByPlay game={game} plays={plays} linescore={linescore} />}
+      {(hasLinescore || leadStats) && (
+        <div className="game-stats__leads">
+          {hasLinescore && <Linescore periods={linescore!} home={game.home} away={game.away} />}
+          {leadStats && <LeadTracker stats={leadStats} home={game.home} away={game.away} />}
+        </div>
+      )}
+      {hasPlays && <PlayByPlay game={game} plays={plays} />}
       {hasBoxScore && <BoxScoreBody boxScore={boxScore!} home={game.home} away={game.away} />}
+      {/* Still shown when the line came through on its own: the box score
+          is worth having, and it is not an explanation for why the
+          play-by-play and team stats are missing. The retry and the
+          response's real shape stay reachable with it. */}
+      {!hasPlays && !hasBoxScore && (
+        <SummaryNotice isError={isError} state={game.state} onRetry={refetch} diagnostics={diagnostics} />
+      )}
     </>
   )
 }
