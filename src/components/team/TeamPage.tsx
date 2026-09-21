@@ -10,7 +10,8 @@ import { LoadingState } from '../shared/StatusStates'
 import { PlayerCategory } from '../scoreboard/GameStats'
 import { useSeasonPlayerStats } from '../../hooks/useSeasonPlayerStats'
 import { useSeasonDefense } from '../../hooks/useSeasonDefense'
-import { useMemo } from 'react'
+import { LockIcon } from '../shared/icons'
+import { useMemo, useState } from 'react'
 
 const SECTION_LABEL: Record<TeamProfileSection, string> = {
   offense: 'Offense',
@@ -58,12 +59,19 @@ function ScheduleRow({
   teamId,
   zoneId,
   isProtected,
+  hasResult,
   onSelect,
 }: {
   game: Game
   teamId: string
   zoneId: string
   isProtected: boolean
+  /** Whether this game has actually been played, read from the unsanitized
+   * game. Sanitizing forces the state back to "pre", so the row otherwise
+   * cannot tell a hidden result from a fixture and prints a kickoff time
+   * for a game that finished weeks ago. Saying a game has been played gives
+   * away no score — the date already says that much. */
+  hasResult: boolean
   onSelect?: () => void
 }) {
   const isHome = game.home.id === teamId
@@ -93,6 +101,10 @@ function ScheduleRow({
           </>
         ) : game.state === 'in' ? (
           'LIVE'
+        ) : isProtected && hasResult ? (
+          // Played, but held back. A lock says so; a kickoff time would
+          // claim the game is still to come.
+          <LockIcon size={13} />
         ) : game.state === 'post' ? (
           // Played, but the payload carried no score to show. A kickoff
           // time here would be a straight lie — it reads as a fixture still
@@ -131,6 +143,22 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   // Withheld on purpose for an FCS team, so nothing to report there.
   const missingCoreRanks = ranksApply && coreBackedRows.length > 0 && !coreBackedRows.some((s) => s.rank)
   const safeSchedule = useSpoilerSafeGames(schedule)
+  // One reveal for the whole schedule rather than a gate per row.
+  //
+  // A protected team's every game is protected, so the sanitized view left
+  // this page with no results at all — a 3-0 team's season read as four
+  // upcoming kickoff times. Hiding them row by row is also the wrong shape
+  // for this screen: a team's schedule is a list of results, and you come
+  // here on purpose to read them.
+  //
+  // Not persisted, for the same reason SpoilerGate isn't: leaving the page
+  // and coming back hides them again.
+  const [resultsRevealed, setResultsRevealed] = useState(false)
+  // Only a played game has anything to hide. A protected fixture in
+  // November would otherwise put a reveal button on a page with no results
+  // behind it.
+  const hidesResults = safeSchedule.some((entry) => entry.isProtected && entry.rawGame.state !== 'pre')
+  const showResults = resultsRevealed || !hidesResults
 
   // Defence is not in the season stats response — see seasonDefenseRows. It
   // is added up from the other side of this team's own box scores, which
@@ -164,7 +192,15 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
       </div>
 
       <section className="team-page__section">
-        <h3 className="team-page__title">{year} Schedule</h3>
+        <div className="team-page__title-row">
+          <h3 className="team-page__title">{year} Schedule</h3>
+          {hidesResults && !resultsRevealed && (
+            <button type="button" className="team-page__reveal" onClick={() => setResultsRevealed(true)}>
+              <LockIcon size={12} />
+              Show results
+            </button>
+          )}
+        </div>
         {scheduleLoading && <LoadingState label="Loading schedule…" />}
         {!scheduleLoading && safeSchedule.length === 0 && (
           <p className="team-page__hint">{scheduleError ? 'Couldn’t load the schedule.' : 'No schedule posted yet.'}</p>
@@ -173,10 +209,13 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
           {safeSchedule.map(({ game, rawGame, isProtected }) => (
             <ScheduleRow
               key={game.id}
-              game={game}
+              // Once revealed, the real game — that is the whole point of
+              // the reveal, and the sanitized copy has no result in it.
+              game={showResults ? rawGame : game}
               teamId={team.id}
               zoneId={settings.timezoneId}
-              isProtected={isProtected}
+              isProtected={isProtected && !showResults}
+              hasResult={rawGame.state !== 'pre'}
               // The raw game, so the panel it opens in sanitizes it the
               // same way it does one opened from the grid — passing the
               // already-sanitized view would strip the score for good.

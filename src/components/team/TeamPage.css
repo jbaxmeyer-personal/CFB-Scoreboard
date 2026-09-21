@@ -193,3 +193,34 @@
 
 /* Matches the section hints it sits beneath, rather than reading as a
    primary action — loading the league table is a deliberate, costly step. */
+
+/* The schedule heading and its one reveal, on a single row. A protected
+   team's whole season is protected, so this replaces what would otherwise
+   be a lock on every row of a list you came here to read. */
+.team-page__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.team-page__reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.14));
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.team-page__reveal:active {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
