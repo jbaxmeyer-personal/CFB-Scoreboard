@@ -17,18 +17,12 @@ import { delayBadge } from '../../lib/broadcastDelay'
 function TeamIdentity({
   team,
   showRecord,
-  role,
   onOpenTeam,
 }: {
   team: Team
   showRecord: boolean
-  role: 'home' | 'away'
   onOpenTeam?: () => void
 }) {
-  // The role-specific split (this team's home record if they're playing at
-  // home here, their road record if they're the visitor) — not both splits
-  // for both teams, matching how this is normally shown alongside a matchup.
-  const splitRecord = role === 'home' ? team.homeRecord : team.awayRecord
   return (
     <button
       type="button"
@@ -40,14 +34,7 @@ function TeamIdentity({
       <TeamLogo team={team} size={40} rank={team.rank} />
       <div className="expanded-game__name">
         <span>{team.shortName}</span>
-        {/* Only shown pre-game: a live/final record can itself reflect this
-            game's outcome, which would leak a protected result. */}
         {showRecord && team.record && <span className="expanded-game__record">{team.record}</span>}
-        {showRecord && splitRecord && (
-          <span className="expanded-game__record expanded-game__record--split">
-            {role === 'home' ? 'Home' : 'Away'}: {splitRecord}
-          </span>
-        )}
       </div>
     </button>
   )
@@ -184,7 +171,13 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
       <div className="expanded-game__panel">
         <div className="expanded-game__bezel">
           <div className="expanded-game__matchup">
-            <TeamIdentity team={game.away} showRecord={game.state === 'pre'} role="away" onOpenTeam={() => openTeam(game.away)} />
+            {/* Records show on every game — upcoming, live and finished —
+                except one case. This block sits outside the spoiler gate
+                below, and once a game is over the record ESPN sends counts
+                it, so a protected final would give its result away here
+                while the scoreline next to it stayed hidden. That is the
+                only thing `hasHideableResult` withholds. */}
+            <TeamIdentity team={game.away} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.away)} />
             {/* The shield stacks above the "@", between the two crests: on
                 this screen the conference is the one thing about the game
                 that belongs to neither side, and the middle of the matchup
@@ -194,7 +187,7 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
               <ConferenceBadge game={game} size={28} maxWidth={64} />
               <span className="expanded-game__at">@</span>
             </div>
-            <TeamIdentity team={game.home} showRecord={game.state === 'pre'} role="home" onOpenTeam={() => openTeam(game.home)} />
+            <TeamIdentity team={game.home} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.home)} />
           </div>
 
           <div className={`expanded-game__live-area${hasHideableResult ? ' expanded-game__live-area--gated' : ''}`}>
