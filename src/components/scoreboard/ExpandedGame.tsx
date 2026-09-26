@@ -93,15 +93,34 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
     )
   }
 
-  // The scoreboard endpoint (game.homeScore/awayScore, polled every 30s
-  // across the whole week's games) and the per-game summary endpoint
-  // (plays, polled every 20s for just this game while live) can briefly
-  // disagree right after a score — prefer the newest play's score once
-  // there is one, since that endpoint is both more granular and faster.
-  // Plays are chronological, so the newest one is the last.
+  // The scoreboard endpoint (game.homeScore/awayScore, polled across the
+  // whole week's games) and the per-game summary endpoint (plays, polled
+  // for just this game while live) can disagree, in both directions, and
+  // the old rule — always believe the newest play — got the second one
+  // badly wrong.
+  //
+  // The summary is the faster of the two right after a score, which is why
+  // it was preferred. But its play feed can also simply stop short: a
+  // finished game came back with its last play reading 14-19 when the game
+  // had ended 20-19. The panel showed 14-19 under the word FINAL, directly
+  // above a box score that added up to 20-19, next to a card that said
+  // 20-19 — and, because the wrong number was lower, it painted Michigan
+  // the winner of a game Iowa won.
+  //
+  // A score never goes down, so the honest reading is the highest any
+  // source reports. That takes the newer number when the feed is ahead and
+  // the complete one when the feed is short, without having to know which
+  // case this is.
+  //
+  // The scoreboard is left out of it while a broadcast delay is running:
+  // that number is live, and holding it back is the whole point of the
+  // delay. Plays are chronological, so the newest one is the last.
   const latestPlay = plays.at(-1)
-  const awayScore = latestPlay?.awayScore ?? game.awayScore ?? 0
-  const homeScore = latestPlay?.homeScore ?? game.homeScore ?? 0
+  const holdingBack = settings.broadcastDelaySeconds > 0 && status.state === 'in'
+  const best = (fromPlay: number | undefined, fromScoreboard: number | undefined): number =>
+    holdingBack ? (fromPlay ?? 0) : Math.max(fromPlay ?? 0, fromScoreboard ?? 0)
+  const awayScore = best(latestPlay?.awayScore, game.awayScore)
+  const homeScore = best(latestPlay?.homeScore, game.homeScore)
 
   // Only a final score is a real result — a live score can still flip, so
   // only 'post' games ever get a winner highlight.
