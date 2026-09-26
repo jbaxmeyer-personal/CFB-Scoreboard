@@ -151,8 +151,6 @@ function toTeam(competitor: EspnCompetitor): Team {
   // Both keys ESPN uses for the same array — see EspnCompetitor.record.
   const records = competitor.records ?? competitor.record
   const overallRecord = records?.find((r) => r.type === 'total' || r.name === 'overall')?.summary ?? records?.[0]?.summary
-  const homeRecord = records?.find((r) => r.type === 'home')?.summary
-  const awayRecord = records?.find((r) => r.type === 'road' || r.type === 'away')?.summary
   return {
     id: team.id,
     name: team.displayName,
@@ -162,8 +160,6 @@ function toTeam(competitor: EspnCompetitor): Team {
     alternateColor: team.alternateColor ? `#${team.alternateColor}` : undefined,
     rank: rank && rank > 0 && rank <= 25 ? rank : undefined,
     record: overallRecord,
-    homeRecord,
-    awayRecord,
     seasonLeaders: parseSeasonLeaders(leaders),
     ...pickLogos(team.logos, team.logo),
   }

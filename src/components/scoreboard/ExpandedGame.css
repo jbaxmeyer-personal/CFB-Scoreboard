@@ -70,10 +70,6 @@
   color: var(--text-tertiary);
 }
 
-.expanded-game__record--split {
-  font-size: 10px;
-  opacity: 0.8;
-}
 
 /* The conference shield sits above the "@" in the gap between the crests.
    A column so the "@" keeps its own place whether or not there is a shield
