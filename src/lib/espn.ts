@@ -23,7 +23,7 @@ import type {
   EspnTeamStatEntry,
   EspnTeamStatisticsResponse,
 } from '../types/espn'
-import { isScheduleMidnight } from './timezone'
+import { isScheduleMidnight, middayOnScheduleDay } from './timezone'
 import type { Game, GameBoxScore, GamePlay, GameState, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../types/game'
 
 export const FBS_GROUP = 80
@@ -228,13 +228,19 @@ export function normalizeEvent(event: EspnEvent): Game | null {
       ? { down: sit.down, distance: sit.distance, yardLine: sit.yardLine, possessionText: sit.possessionText ?? '', isRedZone: sit.isRedZone ?? false }
       : undefined
 
+  // ESPN's own flag first; the midnight-Eastern placeholder behind it, for
+  // a payload that doesn't carry the flag.
+  const timeTBD = competition.timeValid === false || isScheduleMidnight(event.date)
+
   return {
     id: event.id,
     competitionId: competition.id ?? event.id,
-    startDate: event.date,
-    // ESPN's own flag first; the midnight-Eastern placeholder behind it, for
-    // a payload that doesn't carry the flag.
-    timeTBD: competition.timeValid === false || isScheduleMidnight(event.date),
+    // A game with no kickoff time announced is moved off ESPN's midnight
+    // placeholder to midday, so the date it carries is the day it is played
+    // in every zone rather than the evening before in every zone west of
+    // Eastern. Games with a real kickoff time are untouched.
+    startDate: timeTBD ? middayOnScheduleDay(event.date) : event.date,
+    timeTBD,
     shortName: event.shortName,
     venue: competition.venue?.fullName,
     home: toTeam(home),
