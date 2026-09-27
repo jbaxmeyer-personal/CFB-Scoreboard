@@ -99,6 +99,28 @@ export function isScheduleMidnight(isoUtc: string): boolean {
   return dt.isValid && dt.hour === 0 && dt.minute === 0
 }
 
+/**
+ * Moves a not-yet-announced kickoff to midday on the day it is played.
+ *
+ * ESPN's placeholder for "time not set" is midnight Eastern on the day of
+ * the game. Midnight is the worst possible instant to hold a date in: read
+ * anywhere west of Eastern it is still the evening before, so a Saturday
+ * game with no kickoff time announced was listed under Friday — on a
+ * team's schedule, on the day chips, everywhere the raw timestamp was
+ * formatted rather than grouped.
+ *
+ * Noon Eastern carries the same date in every zone from Hawaii to central
+ * Europe, so the day survives the conversion instead of depending on which
+ * side of Eastern the viewer is. The time itself is never shown for these
+ * games — `timeTBD` is set and the UI prints TBD — so moving it costs
+ * nothing and fixes the date everywhere at once.
+ */
+export function middayOnScheduleDay(isoUtc: string): string {
+  const dt = DateTime.fromISO(isoUtc, { zone: SCHEDULE_ZONE })
+  if (!dt.isValid) return isoUtc
+  return dt.set({ hour: 12, minute: 0, second: 0, millisecond: 0 }).toUTC().toISO() ?? isoUtc
+}
+
 /** YYYY-MM-DD in the zone the schedule is written in, which is the day a
  * game is actually played even when its time is still TBD. */
 export function scheduleDateKey(isoUtc: string): string {
