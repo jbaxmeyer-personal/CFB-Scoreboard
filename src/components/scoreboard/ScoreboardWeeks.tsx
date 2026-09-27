@@ -13,7 +13,6 @@ import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 import { AppHeader } from '../shared/AppHeader'
 import { FilterBar } from '../shared/FilterBar'
 import { useFilteredGames } from '../../hooks/useFilteredGames'
-import { useScrollToCollapsedGame } from '../../hooks/useScrollToCollapsedGame'
 import { weekDateKeys, weekForDate } from '../../lib/seasonCalendar'
 import { formatDayHeading } from '../../lib/timezone'
 import { DateTime } from 'luxon'
@@ -41,7 +40,6 @@ export function ScoreboardWeeks() {
     scoreboardWeekStart: chosenWeekStart,
     setScoreboardWeekStart: setChosenWeekStart,
   } = useViewState()
-  useScrollToCollapsedGame(expandedGameId)
 
   const todayKey = useMemo(
     () => DateTime.now().setZone(resolveZone(settings.timezoneId)).toFormat('yyyy-MM-dd'),
@@ -144,21 +142,22 @@ export function ScoreboardWeeks() {
                         zoneId={settings.timezoneId}
                       />
                     ))}
-                    {row.some(({ game }) => game.id === expandedGameId) && (
-                      <GameDetailPanel
-                        entries={safeGames}
-                        expandedGameId={expandedGameId}
-                        onClose={() => setExpandedGameId(null)}
-                        zoneId={settings.timezoneId}
-                        flush
-                      />
-                    )}
                   </Fragment>
                 ))}
               </div>
             </section>
           )
         })}
+
+      {/* Rendered here so it can see this screen's live entries, but it
+          paints into the shell's detail layer over the top of the list —
+          it is no longer part of the card grid. */}
+      <GameDetailPanel
+        entries={safeGames}
+        expandedGameId={expandedGameId}
+        onClose={() => setExpandedGameId(null)}
+        zoneId={settings.timezoneId}
+      />
     </div>
   )
 }

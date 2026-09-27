@@ -1,27 +1,40 @@
+/* A screen of its own, covering the list it was opened from.
+
+   Absolutely positioned against .app-body, so it fills the content area and
+   stops exactly where the tab bar begins — the bar stays reachable and the
+   list underneath keeps its scroll position, untouched, for when this
+   closes. It scrolls itself, starting at its own top because it mounts
+   fresh each time a game is opened.
+
+   The background repeats the body's gradient rather than a flat fill, and
+   is fixed to the viewport like the body's is, so covering the list doesn't
+   visibly change the page behind the content. */
 .game-detail-panel {
-  /* No-op outside a grid container (e.g. Slate's TimeGrid), but on
-     Scoreboard's 2-column card grid this makes the panel span both
-     columns instead of just sitting in whichever one it lands in. */
-  grid-column: 1 / -1;
-  margin: 8px 12px 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 12px 16px;
+  background: radial-gradient(ellipse 120% 80% at 50% -10%, #171d27 0%, var(--bg-base) 55%);
+  background-attachment: fixed;
 }
 
-/* Scoreboard's card grid already supplies 16px of horizontal padding —
-   without this the panel doubled up on top of it, wasting space on both
-   sides that the collapsed cards above it don't lose. */
-.game-detail-panel--flush {
-  margin-left: 0;
-  margin-right: 0;
-}
-
-/* Network on the left, the way out on the right. */
+/* Network on the left, the way out on the right. Sticky, because this is a
+   full screen now: Close has to stay reachable from the bottom of a
+   play-by-play rather than only from the top. */
 .game-detail-panel__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 10px 0 8px;
   margin-bottom: 4px;
+  background: inherit;
+  background-attachment: fixed;
 }
 
 /* Same chip as Close, on the opposite end — the way back out of a game you

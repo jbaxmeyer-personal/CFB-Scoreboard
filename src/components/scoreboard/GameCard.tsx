@@ -9,7 +9,6 @@ import { useSettings } from '../../context/SettingsContext'
 import { favoriteHighlightColor } from '../../lib/teamHighlight'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { kickoffOrStatus } from '../../lib/gameDisplay'
-import { GAME_ANCHOR_ATTR } from '../../hooks/useScrollToCollapsedGame'
 
 /**
  * One team's line, emitted as cells of the shared grid on .game-card__teams
@@ -96,7 +95,6 @@ export function GameCard({ game, isProtected, isSelected, onToggle, zoneId }: Ga
 
   return (
     <div
-      {...{ [GAME_ANCHOR_ATTR]: game.id }}
       className={`game-card${isFavoriteGame ? ' game-card--favorite' : ''}${isSelected ? ' game-card--selected' : ''}${game.state === 'in' ? ' game-card--live' : ''}`}
       style={highlight ? ({ '--favorite-highlight': highlight } as CSSProperties) : undefined}
     >

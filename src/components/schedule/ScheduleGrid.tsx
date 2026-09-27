@@ -11,7 +11,6 @@ import { GameDetailPanel } from '../shared/GameDetailPanel'
 import { zoneLabel, zoneAbbrNow } from '../../lib/timezone'
 import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 import { AppHeader } from '../shared/AppHeader'
-import { useScrollToCollapsedGame } from '../../hooks/useScrollToCollapsedGame'
 import { FilterBar } from '../shared/FilterBar'
 import { useFilteredGames } from '../../hooks/useFilteredGames'
 
@@ -28,7 +27,6 @@ export function ScheduleGrid() {
   // dead space. Scoreboard lists those games, marked TBD.
   const timed = useMemo(() => games.filter((game) => !game.timeTBD), [games])
   const days = useGamesByDay(timed, settings.timezoneId)
-  useScrollToCollapsedGame(expandedGameId)
 
   const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : days[0]?.dateKey
 

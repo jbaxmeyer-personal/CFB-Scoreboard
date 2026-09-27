@@ -143,9 +143,14 @@
   color: var(--text-secondary);
 }
 
+/* No inner scroll box. The play-by-play used to be capped at 260px and
+   scrolled inside itself, because the whole panel was wedged into a card
+   list and could not be allowed to grow. On a screen of its own it simply
+   flows, and the page scrolls — one scrolling surface instead of a small
+   one nested inside a big one, which is what made this feel wrong under a
+   finger. */
 .game-stats__plays {
-  max-height: 260px;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .game-stats__play-row {

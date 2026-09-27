@@ -7,6 +7,7 @@ import { SettingsScreen } from './components/settings/SettingsScreen'
 import { TabBar } from './components/shared/TabBar'
 import { UpdateBanner } from './components/shared/UpdateBanner'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
+import { DETAIL_LAYER_ID } from './components/shared/GameDetailPanel'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,11 +44,24 @@ function Shell() {
   return (
     <>
       <RotateNotice />
-      <main className="app-main">
-        {tab === 'schedule' && <ScheduleGrid />}
-        {tab === 'scoreboard' && <ScoreboardWeeks />}
-        {tab === 'settings' && <SettingsScreen />}
-      </main>
+      {/* The list and the game detail are siblings in a positioned box, not
+          nested. A game used to expand inside the list it was opened from,
+          which meant the list had to be scrolled to the panel on open and
+          back to the card on close, and the panel had to fight the layout it
+          was injected into. Here the detail covers the list instead: the
+          list keeps its own scroll position because nothing ever touches it,
+          so closing returns you exactly where you were with no restoring
+          involved. The tab bar is outside this and stays put. */}
+      <div className="app-body">
+        <main className="app-main">
+          {tab === 'schedule' && <ScheduleGrid />}
+          {tab === 'scoreboard' && <ScoreboardWeeks />}
+          {tab === 'settings' && <SettingsScreen />}
+        </main>
+        {/* Where GameDetailPanel portals to. Empty — and so not in anyone's
+            way — whenever no game is open. */}
+        <div id={DETAIL_LAYER_ID} />
+      </div>
       <TabBar />
       <UpdateBanner />
     </>
