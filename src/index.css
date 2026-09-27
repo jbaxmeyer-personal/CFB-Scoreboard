@@ -91,13 +91,17 @@ body {
   padding-top: env(safe-area-inset-top);
 }
 
-/* .app-main is the scroll container now, and it already starts below the
-   status bar, so scrollIntoView no longer needs the inset added back — just
-   a little breathing room above whatever it aligns. */
-[data-game-id],
-.game-detail-panel {
-  scroll-margin-top: 10px;
+/* The content area: the scrolling list, and the game detail layer that
+   covers it. Positioned, so the detail can be laid over the list without
+   reaching past the tab bar below. */
+.app-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
+
 
 /* The scrolling region. min-height:0 lets a flex item shrink below its
    content so it can actually scroll instead of pushing the tab bar down. */
