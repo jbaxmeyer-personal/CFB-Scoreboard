@@ -1,0 +1,28 @@
+{
+  /* Mirrors tsconfig.app.json — the tests import application source, so they
+     have to be checked under the same options the app is, plus node's types
+     for the runner. `include` is just `test`; the src files it imports come
+     in through resolution and are checked with these same settings. */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client", "vite-plugin-pwa/client", "node"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["test"]
+}
