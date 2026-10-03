@@ -32,6 +32,12 @@ const SHOW_LIVE_BADGE_FOR_PROTECTED_GAMES = true
  */
 export function stripLiveState(game: Game): Game {
   const isLive = game.state === 'in' && SHOW_LIVE_BADGE_FOR_PROTECTED_GAMES
+  // Once a game kicks off, the record ESPN sends with it stops being
+  // neutral: a finished game is already counted in it, so "5-0" beside
+  // "2-2" names the winner as plainly as the scoreline does. A game that
+  // has not kicked off has nothing in its record to give away, and keeps
+  // it.
+  const hasResult = game.state !== 'pre'
 
   return {
     ...game,
@@ -46,7 +52,13 @@ export function stripLiveState(game: Game): Game {
     clock: undefined,
     possession: undefined,
     situation: undefined,
+    home: hasResult ? withoutRecord(game.home) : game.home,
+    away: hasResult ? withoutRecord(game.away) : game.away,
   }
+}
+
+function withoutRecord(team: Game['home']): Game['home'] {
+  return team.record === undefined ? team : { ...team, record: undefined }
 }
 
 /**

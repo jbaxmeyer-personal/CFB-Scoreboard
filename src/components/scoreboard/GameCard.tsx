@@ -50,8 +50,11 @@ function TeamCompactRow({
       <span className={`game-card__team-name${isWinner ? ' game-card__team-name--winner' : ''}`} style={{ gridRow: row }}>
         {team.abbreviation}
       </span>
-      {/* Only pre-game: a live/final record can itself reflect this game's
-          outcome, which would leak a protected result. */}
+      {/* Only pre-game: a live/final record already counts this game, so
+          showing one would state the outcome. This guard reads the
+          sanitized state though, and sanitizing a protected final presents
+          it as upcoming — so it is stripLiveState that actually withholds
+          the record on a protected game, not this. */}
       {showRecord && team.record && (
         <span className="game-card__team-record" style={{ gridRow: row }}>
           {team.record}
