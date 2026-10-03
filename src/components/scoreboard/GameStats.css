@@ -143,14 +143,37 @@
   color: var(--text-secondary);
 }
 
-/* No inner scroll box. The play-by-play used to be capped at 260px and
-   scrolled inside itself, because the whole panel was wedged into a card
-   list and could not be allowed to grow. On a screen of its own it simply
-   flows, and the page scrolls — one scrolling surface instead of a small
-   one nested inside a big one, which is what made this feel wrong under a
-   finger. */
+/* The play-by-play scrolls inside itself.
+
+   This was capped at 260px while the panel was wedged into a card list,
+   then uncapped when the game became a screen of its own, on the argument
+   that one scrolling surface beats a small one nested in a big one. That
+   was wrong, and in the most obvious way: a real game has around 180
+   plays, so the page became thousands of pixels tall and Team Stats and
+   the leaders below it were a full game's worth of scrolling away.
+
+   The cap is back, sized to the screen rather than to a fixed 260px — tall
+   enough to read a run of plays without the feed swallowing the page. The
+   sections under it stay a flick away.
+
+   `overscroll-behavior: contain` stops a flick that reaches the end of the
+   feed from carrying on into the page behind it, which is what made the
+   old nested box feel wrong under a finger. */
 .game-stats__plays {
-  overflow: visible;
+  max-height: min(55vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Reads as its own region rather than as a list that got cut off. */
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+}
+
+/* The first row sits against the top border, so it does not need its own. */
+.game-stats__plays > :first-child .game-stats__play-row,
+.game-stats__plays > .game-stats__play-row:first-child {
+  border-top: 0;
 }
 
 .game-stats__play-row {
