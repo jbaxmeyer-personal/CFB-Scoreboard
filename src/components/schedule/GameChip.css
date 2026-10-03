@@ -11,12 +11,22 @@
   border: 1px solid var(--border-subtle);
   cursor: pointer;
   overflow: hidden;
+  /* Below the sticky network rail and the time header, always — see the
+     stacking order in TimeGrid.css. Chips can overlap each other when two
+     kickoffs are close together, which is all the raising below is for. */
   z-index: 1;
 }
 
-.game-chip:hover {
-  background: var(--bg-panel-hover);
-  z-index: 3;
+/* Only where there is a real pointer. A phone has none, and iOS leaves a
+   tapped element in :hover until something else is tapped — so on a touch
+   screen this did not light up a chip under the finger, it left the chip
+   you last tapped (or locked) permanently raised, sitting on top of the
+   network badges it had been scrolled past. */
+@media (hover: hover) {
+  .game-chip:hover {
+    background: var(--bg-panel-hover);
+    z-index: 2;
+  }
 }
 
 .game-chip--live {

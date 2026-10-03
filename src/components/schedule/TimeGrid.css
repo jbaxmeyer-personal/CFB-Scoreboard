@@ -16,13 +16,21 @@
   margin-bottom: 6px;
 }
 
+/* Stacking order in this grid, lowest first:
+     1  a game chip, and the now-line
+     2  a chip under a pointer (never on a touch screen — see GameChip.css)
+     4  the sticky network rail, which the scrolling chips pass beneath
+     5  the corner, which is where the rail and the time header cross
+   The rail used to be 2 and a hovered chip 3, so a tapped chip rode over
+   the network badges. Anything sticky belongs above anything that scrolls
+   under it. */
 .time-grid__corner {
   width: 68px;
   flex-shrink: 0;
   position: sticky;
   left: 0;
   background: var(--bg-base);
-  z-index: 3;
+  z-index: 5;
   /* Forces its own compositor layer — mitigates iOS Safari's tendency to
      tear/lag sticky-positioned columns during horizontal scroll. */
   transform: translateZ(0);
@@ -61,7 +69,7 @@
   position: sticky;
   left: 0;
   background: var(--bg-base);
-  z-index: 2;
+  z-index: 4;
   transform: translateZ(0);
 }
 

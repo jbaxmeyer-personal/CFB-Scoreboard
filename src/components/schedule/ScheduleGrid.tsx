@@ -13,6 +13,7 @@ import { LoadingState, ErrorState, EmptyState } from '../shared/StatusStates'
 import { AppHeader } from '../shared/AppHeader'
 import { FilterBar } from '../shared/FilterBar'
 import { useFilteredGames } from '../../hooks/useFilteredGames'
+import { defaultSlateDayKey, todayKey } from '../../lib/slateDay'
 
 export function ScheduleGrid() {
   const { games: allGames, isLoading, isError, refetch } = useScoreboard()
@@ -28,11 +29,14 @@ export function ScheduleGrid() {
   const timed = useMemo(() => games.filter((game) => !game.timeTBD), [games])
   const days = useGamesByDay(timed, settings.timezoneId)
 
-  const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : days[0]?.dateKey
+  // Today, or the next day with games — never the first day in the window,
+  // which is two days in the past. See slateDay.ts.
+  const fallbackDateKey = defaultSlateDayKey(days.map((d) => d.dateKey), todayKey(settings.timezoneId))
+  const activeDateKey = selectedDateKey && days.some((d) => d.dateKey === selectedDateKey) ? selectedDateKey : fallbackDateKey
 
   useEffect(() => {
-    if (!selectedDateKey && days[0]) setSelectedDateKey(days[0].dateKey)
-  }, [days, selectedDateKey, setSelectedDateKey])
+    if (!selectedDateKey && fallbackDateKey) setSelectedDateKey(fallbackDateKey)
+  }, [fallbackDateKey, selectedDateKey, setSelectedDateKey])
 
   const activeDay = days.find((d) => d.dateKey === activeDateKey)
   const safeGames = useSpoilerSafeGames(activeDay?.games ?? [])

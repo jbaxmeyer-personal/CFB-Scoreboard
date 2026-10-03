@@ -8,6 +8,17 @@ There is no test framework: a file imports `check` from `helpers/check.ts`,
 calls it, and ends with `report()`, which sets the exit code. CI runs this
 on every push and pull request.
 
+## Browser tests
+
+`test/ui/*.mjs` drive the real app in Playwright. They are not in `npm test`
+— they need a dev server and a browser — so run them by hand:
+
+    npm run dev -- --port 5199        # in one shell
+    node test/ui/slate.mjs            # in another
+
+They cover what unit tests cannot: stacking order, scroll behaviour, which
+element actually paints on top.
+
 ## What these are for
 
 Every suite here defends a bug that actually reached a phone on a Saturday.
@@ -24,6 +35,11 @@ Two habits worth keeping, both learned the hard way:
   midnight placeholder — there is a check asserting the raw data really is
   still wrong, so the fixture cannot quietly stop reproducing the thing it
   exists to catch.
+- **Put the bug back and watch the test fail.** A test written after a fix
+  can easily pass for the wrong reason. One of these was written against a
+  chip that had been tapped, and passed against the bug it was meant to
+  catch, because the trigger was `:hover` and a click does not set it.
+  Re-introducing the fault is the only way to know.
 
 ## Fixtures
 
