@@ -13,7 +13,7 @@
  * remember.
  */
 import { check, report } from '../helpers/check'
-import { stripLiveState, toSafeView, isGameProtected } from '../../src/lib/spoilers'
+import { stripLiveState, toSafeView, isGameProtected, type SpoilerSettings } from '../../src/lib/spoilers'
 import type { Game, Team } from '../../src/types/game'
 
 const team = (id: string, abbreviation: string, record: string): Team =>
@@ -26,6 +26,9 @@ const game = (state: Game['state'], homeRecord = '2-2', awayRecord = '5-0'): Gam
     state, homeScore: state === 'pre' ? undefined : 24, awayScore: state === 'pre' ? undefined : 17,
     home: team('153', 'UNC', homeRecord), away: team('87', 'ND', awayRecord),
   }) as Game
+
+const settingsFor = (teamIds: string[]): SpoilerSettings =>
+  ({ globalEnabled: false, protectedGameIds: [], protectedTeamIds: teamIds })
 
 // The reported case.
 const hiddenFinal = stripLiveState(game('post'))
@@ -40,11 +43,31 @@ const hiddenLive = stripLiveState(game('in'))
 check('a protected live game gives away no record either', [hiddenLive.away.record, hiddenLive.home.record], [undefined, undefined])
 check('while still showing that it is being played', hiddenLive.state, 'in')
 
-// An upcoming game has nothing in its record to give away, and keeps it —
-// the records are the useful part of a card for a game not yet played.
+// An upcoming game, with no idea which team is protected: nothing is
+// counted in it yet, so both records stand.
 const upcoming = stripLiveState(game('pre'))
-check('a protected upcoming game keeps both records', [upcoming.away.record, upcoming.home.record], ['5-0', '2-2'])
+check('an upcoming game keeps both records when no team is named', [upcoming.away.record, upcoming.home.record], ['5-0', '2-2'])
 check('and still has no score', [upcoming.awayScore, upcoming.homeScore], [undefined, undefined])
+
+// The one the first version missed. A protected team's record counts the
+// games they have already played, so it leaks those results on every later
+// fixture — Notre Dame 5-0 on next week's card says they won today.
+const nextWeek = stripLiveState(game('pre'), settingsFor(['87']))
+check('a protected team shows no record on a future game', nextWeek.away.record, undefined)
+check('while the other side keeps theirs', nextWeek.home.record, '2-2')
+
+// Protecting one game by id is not a request to hide either team's season.
+const oneGame = stripLiveState(game('pre'), { globalEnabled: false, protectedGameIds: ['g1'], protectedTeamIds: [] })
+check('protecting a single game leaves both seasons alone', [oneGame.away.record, oneGame.home.record], ['5-0', '2-2'])
+
+// Global no-spoilers means every team's season is off limits.
+const everything = stripLiveState(game('pre'), { globalEnabled: true, protectedGameIds: [], protectedTeamIds: [] })
+check('global no-spoilers hides every record', [everything.away.record, everything.home.record], [undefined, undefined])
+
+// Both sides still lose it once the game itself is counted, whoever is
+// protected and whatever the reason for hiding it.
+const liveBoth = stripLiveState(game('in'), settingsFor(['87']))
+check('a kicked-off game still hides both', [liveBoth.away.record, liveBoth.home.record], [undefined, undefined])
 
 // Nothing is invented where a record was never sent.
 const noRecords = stripLiveState(game('post', undefined as unknown as string, undefined as unknown as string))
@@ -58,9 +81,10 @@ check('the real game is left untouched', [original.away.record, original.home.re
 
 // And the whole thing only applies to a protected game: an unprotected
 // final keeps everything, which is what the rest of the slate shows.
-const settings = { globalEnabled: false, protectedGameIds: [], protectedTeamIds: ['87'] }
+const settings = settingsFor(['87'])
 check('the game is protected because Notre Dame is', isGameProtected(game('post'), settings), true)
 check('a protected final is sanitized', toSafeView(game('post'), settings).away.record, undefined)
+check('and so is the same team\u2019s next fixture', toSafeView(game('pre'), settings).away.record, undefined)
 const unprotected = { globalEnabled: false, protectedGameIds: [], protectedTeamIds: [] }
 check('an unprotected final is untouched', toSafeView(game('post'), unprotected).away.record, '5-0')
 check('and keeps its score', toSafeView(game('post'), unprotected).awayScore, 17)
