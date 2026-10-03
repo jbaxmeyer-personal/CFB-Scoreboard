@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { NO_FILTERS, type GameFilters } from '../lib/gameFilters'
 import { isKnownConferenceId } from '../data/conferences'
 import type { Game, Team } from '../types/game'
+import { parseRememberedDay, serializeRememberedDay, todayKey } from '../lib/slateDay'
+import { useSettings } from './SettingsContext'
 
 /**
  * One screen stacked on top of an expanded game: a team's page, or another
@@ -30,7 +32,7 @@ function gameTab(tab: Tab): GameTab {
 }
 
 const TAB_STORAGE_KEY = 'slate.tab.v1'
-const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v1'
+const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v2'
 const EXPANDED_GAME_STORAGE_KEY = 'slate.expandedGame.v1'
 const EXPANDED_GAMES_STORAGE_KEY = 'slate.expandedGames.v2'
 const FILTERS_STORAGE_KEY = 'slate.filters.v1'
@@ -169,8 +171,16 @@ interface ViewStateValue {
 const ViewStateContext = createContext<ViewStateValue | null>(null)
 
 export function ViewStateProvider({ children }: { children: ReactNode }) {
+  // Safe: this provider is rendered inside SettingsProvider (see App).
+  const { settings } = useSettings()
+  const zoneId = settings.timezoneId
   const [tab, setTab] = useState<Tab>(readStoredTab)
-  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() => readStoredString(DATE_KEY_STORAGE_KEY))
+  // The chosen day is kept only for the day it was chosen on. Without that
+  // stamp a Saturday picked last week was still selected the following
+  // Tuesday — see slateDay.ts.
+  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(() =>
+    parseRememberedDay(readStoredString(DATE_KEY_STORAGE_KEY), todayKey(zoneId)),
+  )
   const [expandedByTab, setExpandedByTab] = useState<ExpandedByTab>(readStoredExpanded)
   const [stackByTab, setStackByTab] = useState<Record<GameTab, DetailFrame[]>>({ schedule: [], scoreboard: [] })
   const [scoreboardWeekStart, setScoreboardWeekStart] = useState<string | null>(null)
@@ -185,8 +195,8 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
   }, [tab])
 
   useEffect(() => {
-    writeStoredValue(DATE_KEY_STORAGE_KEY, selectedDateKey)
-  }, [selectedDateKey])
+    writeStoredValue(DATE_KEY_STORAGE_KEY, serializeRememberedDay(selectedDateKey, todayKey(zoneId)))
+  }, [selectedDateKey, zoneId])
 
   useEffect(() => {
     writeStoredValue(EXPANDED_GAMES_STORAGE_KEY, JSON.stringify(expandedByTab))
