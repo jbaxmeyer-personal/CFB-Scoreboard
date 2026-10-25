@@ -25,11 +25,26 @@ export type Tab = 'schedule' | 'scoreboard' | 'standings' | 'settings'
 /** The two tabs that show games, and so the two that can have one open. */
 export type GameTab = 'schedule' | 'scoreboard'
 
-/** Settings and Standings show no games; anything asked of either answers
- * for Slate, which is inert because neither game screen is mounted while
- * one of them is up. */
+/** Settings shows no games; anything asked of it answers for Slate, which
+ * is inert because neither game screen is mounted while Settings is up.
+ * Standings shows no games either — it has a detail stack of its own (see
+ * DetailTab) but never an expanded game at the bottom of it. */
 function gameTab(tab: Tab): GameTab {
   return tab === 'scoreboard' ? 'scoreboard' : 'schedule'
+}
+
+/**
+ * The tabs that can stack a detail screen over themselves.
+ *
+ * Standings joined these when its rows became tappable. Its stack differs
+ * from the other two in what sits at the bottom: Slate and Scoreboard stack
+ * on an expanded game, Standings stacks on nothing — the first frame is the
+ * team page itself, and popping it returns to the table.
+ */
+export type DetailTab = 'schedule' | 'scoreboard' | 'standings'
+
+function detailTab(tab: Tab): DetailTab {
+  return tab === 'scoreboard' ? 'scoreboard' : tab === 'standings' ? 'standings' : 'schedule'
 }
 
 const TAB_STORAGE_KEY = 'slate.tab.v1'
@@ -183,12 +198,16 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
     parseRememberedDay(readStoredString(DATE_KEY_STORAGE_KEY), todayKey(zoneId)),
   )
   const [expandedByTab, setExpandedByTab] = useState<ExpandedByTab>(readStoredExpanded)
-  const [stackByTab, setStackByTab] = useState<Record<GameTab, DetailFrame[]>>({ schedule: [], scoreboard: [] })
+  const [stackByTab, setStackByTab] = useState<Record<DetailTab, DetailFrame[]>>({ schedule: [], scoreboard: [], standings: [] })
   const [scoreboardWeekStart, setScoreboardWeekStart] = useState<string | null>(null)
 
+  // Two different keys on purpose: an expanded game belongs to a game tab,
+  // while a detail stack can also belong to Standings, which has no
+  // expanded game to put underneath it.
   const current = gameTab(tab)
+  const stackKey = detailTab(tab)
   const expandedGameId = expandedByTab[current]
-  const detailStack = stackByTab[current]
+  const detailStack = stackByTab[stackKey]
   const [filters, setFilters] = useState<GameFilters>(readStoredFilters)
 
   useEffect(() => {
@@ -219,19 +238,19 @@ export function ViewStateProvider({ children }: { children: ReactNode }) {
       toggleExpandedGame: (gameId) => {
         // Switching or closing a game unwinds whatever was stacked on it —
         // otherwise the next game you open opens on someone else's page.
-        setStackByTab((cur) => ({ ...cur, [current]: [] }))
+        setStackByTab((cur) => ({ ...cur, [stackKey]: [] }))
         setExpandedByTab((cur) => ({ ...cur, [current]: cur[current] === gameId ? null : gameId }))
       },
       scoreboardWeekStart,
       setScoreboardWeekStart,
       detailStack,
-      pushDetail: (frame) => setStackByTab((cur) => ({ ...cur, [current]: [...cur[current], frame] })),
-      popDetail: () => setStackByTab((cur) => ({ ...cur, [current]: cur[current].slice(0, -1) })),
+      pushDetail: (frame) => setStackByTab((cur) => ({ ...cur, [stackKey]: [...cur[stackKey], frame] })),
+      popDetail: () => setStackByTab((cur) => ({ ...cur, [stackKey]: cur[stackKey].slice(0, -1) })),
       teamPageId: detailStack.at(-1)?.kind === 'team' ? (detailStack.at(-1) as { team: Team }).team.id : null,
       filters,
       setFilters,
     }),
-    [tab, current, selectedDateKey, expandedByTab, expandedGameId, scoreboardWeekStart, stackByTab, detailStack, filters],
+    [tab, current, stackKey, selectedDateKey, expandedByTab, expandedGameId, scoreboardWeekStart, stackByTab, detailStack, filters],
   )
 
   return <ViewStateContext.Provider value={value}>{children}</ViewStateContext.Provider>

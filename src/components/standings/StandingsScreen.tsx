@@ -7,6 +7,9 @@ import { conferenceLogoUrl } from '../../lib/conferenceBadge'
 import { useStandings } from '../../hooks/useStandings'
 import { useConferences } from '../../hooks/useConferences'
 import { useSettings } from '../../context/SettingsContext'
+import { useViewState } from '../../context/ViewStateContext'
+import { TeamDetailPanel } from '../shared/TeamDetailPanel'
+import { seasonYearFromDate } from '../../lib/espn'
 import { POWER_CONFERENCE_IDS, readSelectedConferences, writeSelectedConferences } from '../../lib/standingsPrefs'
 import type { StandingsRow, ConferenceStandings } from '../../lib/standings'
 
@@ -19,6 +22,7 @@ function Row({
   position,
   favorite,
   showBadge = true,
+  onSelect,
 }: {
   row: StandingsRow
   position: string
@@ -29,27 +33,47 @@ function Row({
    * sit in the conference — so the badge is the only thing carrying the
    * poll, and it stays. */
   showBadge?: boolean
+  /** Opens this team's page. The row is the button, the way a team's own
+   * schedule rows are — the whole line is the tap target, which on a phone
+   * is the difference between a list you can use and one you aim at. */
+  onSelect: () => void
 }) {
   return (
-    <li className={`standings__row${favorite ? ' standings__row--favorite' : ''}`}>
-      <span className="standings__position">{position}</span>
-      <TeamLogo team={row.team} size={24} rank={showBadge ? row.team.rank : undefined} />
-      <span className="standings__team">{row.team.name}</span>
-      {row.hidden ? (
-        <span className="standings__hidden" aria-label="Record hidden by no-spoilers">
-          <LockIcon size={11} />
-        </span>
-      ) : (
-        <>
-          <span className="standings__record ticker">{row.record?.conference ?? NO_RECORD}</span>
-          <span className="standings__record standings__record--overall ticker">{row.record?.overall ?? NO_RECORD}</span>
-        </>
-      )}
+    <li>
+      <button
+        type="button"
+        className={`standings__row${favorite ? ' standings__row--favorite' : ''}`}
+        onClick={onSelect}
+      >
+        <span className="standings__position">{position}</span>
+        <TeamLogo team={row.team} size={24} rank={showBadge ? row.team.rank : undefined} />
+        <span className="standings__team">{row.team.name}</span>
+        {row.hidden ? (
+          <span className="standings__hidden" aria-label="Record hidden by no-spoilers">
+            <LockIcon size={11} />
+          </span>
+        ) : (
+          <>
+            <span className="standings__record ticker">{row.record?.conference ?? NO_RECORD}</span>
+            <span className="standings__record standings__record--overall ticker">
+              {row.record?.overall ?? NO_RECORD}
+            </span>
+          </>
+        )}
+      </button>
     </li>
   )
 }
 
-function ConferenceTable({ section, favoriteIds }: { section: ConferenceStandings; favoriteIds: string[] }) {
+function ConferenceTable({
+  section,
+  favoriteIds,
+  onSelectTeam,
+}: {
+  section: ConferenceStandings
+  favoriteIds: string[]
+  onSelectTeam: (row: StandingsRow) => void
+}) {
   const { conference, rows, unranked, hidesRecords } = section
   const shield = conferenceLogoUrl(conference)
 
@@ -70,6 +94,7 @@ function ConferenceTable({ section, favoriteIds }: { section: ConferenceStanding
             // alphabetical one would state an order it doesn't have.
             position={unranked ? '' : String(index + 1)}
             favorite={favoriteIds.includes(row.team.id)}
+            onSelect={() => onSelectTeam(row)}
           />
         ))}
       </ol>
@@ -193,6 +218,8 @@ export function StandingsScreen() {
   const [revealed, setRevealed] = useState(false)
   const [selected, setSelected] = useState<string[]>(readSelectedConferences)
   const { settings } = useSettings()
+  const { pushDetail } = useViewState()
+  const year = seasonYearFromDate(new Date().toISOString())
   const { conferences, top25, pollName, note, isLoading } = useStandings(revealed)
 
   useEffect(() => {
@@ -207,6 +234,23 @@ export function StandingsScreen() {
   // same render that fills the columns in. The Top 25 counts: it is on the
   // screen whatever conferences are chosen.
   const hidesAnything = top25.some((row) => row.hidden) || shown.some((c) => c.rows.some((row) => row.hidden))
+
+  /**
+   * Open a team's page over the table, the same screen tapping a team in
+   * an expanded game opens.
+   *
+   * The record travels with the team. The static table has no record in it
+   * — records change weekly — so without this the page you arrive at from
+   * a row showing "7-1" has no record in its header at all. It is read off
+   * the row rather than the feed, which also means a protected team
+   * carries nothing: `row.record` is already undefined when it is hidden.
+   */
+  const openTeam = (row: StandingsRow) =>
+    pushDetail({
+      kind: 'team',
+      team: row.record?.overall ? { ...row.team, record: row.record.overall } : row.team,
+      year,
+    })
 
   return (
     <div className="standings">
@@ -245,6 +289,7 @@ export function StandingsScreen() {
                 position={String(row.team.rank ?? '')}
                 favorite={settings.favoriteTeamIds.includes(row.team.id)}
                 showBadge={false}
+                onSelect={() => openTeam(row)}
               />
             ))}
           </ol>
@@ -252,12 +297,21 @@ export function StandingsScreen() {
       )}
 
       {shown.map((section) => (
-        <ConferenceTable key={section.conference.id} section={section} favoriteIds={settings.favoriteTeamIds} />
+        <ConferenceTable
+          key={section.conference.id}
+          section={section}
+          favoriteIds={settings.favoriteTeamIds}
+          onSelectTeam={openTeam}
+        />
       ))}
 
       {shown.length === 0 && (
         <p className="standings__empty">No conferences selected. Pick some from the menu above.</p>
       )}
+
+      {/* Paints over this screen rather than inside it, so the table keeps
+          its scroll position with nothing to restore on the way back. */}
+      <TeamDetailPanel />
     </div>
   )
 }
