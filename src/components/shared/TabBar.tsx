@@ -4,6 +4,7 @@ import { useViewState, type Tab } from '../../context/ViewStateContext'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'schedule', label: 'Slate' },
   { id: 'scoreboard', label: 'Scoreboard' },
+  { id: 'standings', label: 'Standings' },
   { id: 'settings', label: 'Settings' },
 ]
 

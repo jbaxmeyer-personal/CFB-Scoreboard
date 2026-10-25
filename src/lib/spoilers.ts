@@ -73,7 +73,23 @@ export function stripLiveState(game: Game, spoilers?: SpoilerSettings): Game {
 function hidesRecord(team: Game['home'], game: Game, spoilers?: SpoilerSettings): boolean {
   if (game.state !== 'pre') return true
   if (!spoilers) return false
-  return spoilers.globalEnabled || spoilers.protectedTeamIds.includes(team.id)
+  return hidesTeamSeason(team.id, spoilers)
+}
+
+/**
+ * Whether this team's season record is withheld, on any surface, with no
+ * game in the question at all.
+ *
+ * The standings screen is a table of nothing but records, so it needs the
+ * same rule the cards use, minus the per-game part. Shared rather than
+ * restated: the two surfaces disagreeing about whether Notre Dame's 5-0 is
+ * a spoiler is exactly the kind of drift this file exists to prevent.
+ *
+ * Protected *game* ids deliberately don't count. Hiding one game is about
+ * that game; it is not a request to blank out either team's season.
+ */
+export function hidesTeamSeason(teamId: string, spoilers: SpoilerSettings): boolean {
+  return spoilers.globalEnabled || spoilers.protectedTeamIds.includes(teamId)
 }
 
 function withoutRecord(team: Game['home']): Game['home'] {
