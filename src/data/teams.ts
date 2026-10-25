@@ -1,4 +1,5 @@
 import type { Team } from '../types/game'
+import { deriveDarkVariant } from '../lib/espn'
 
 // Full FBS team list for the search-to-add pickers in Settings (favorite /
 // protected teams) — independent of whatever teams happen to be on the
@@ -14,13 +15,20 @@ import type { Team } from '../types/game'
 const logo = (espnId: number) => `https://a.espncdn.com/i/teamlogos/ncaa/500/${espnId}.png`
 
 function t(espnId: number, name: string, abbreviation: string, color?: string): Team {
+  const light = logo(espnId)
   return {
     id: String(espnId),
     name,
     shortName: name,
     abbreviation,
     color,
-    logoLight: logo(espnId),
+    logoLight: light,
+    // Both marks, the same pair the live scoreboard builds for a team, so a
+    // team from this table looks the same on a dark page as the identical
+    // team arriving from a game feed. TeamLogo asks for the dark one first
+    // and falls back to the light one for the teams ESPN has no dark mark
+    // for.
+    logoDark: deriveDarkVariant(light),
   }
 }
 
