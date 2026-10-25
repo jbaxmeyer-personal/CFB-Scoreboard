@@ -78,6 +78,33 @@ const rankings = {
   ],
 }
 
+// A real game on Scoreboard, so the test can prove that a team page opened
+// from Standings does not end up stacked on another tab's expanded game.
+const TODAY = new Date().toISOString().slice(0, 10)
+const DAY = 86400000
+const iso = (o) => new Date(Date.now() + o * DAY).toISOString().slice(0, 10)
+const sbTeam = (id, abbr) => ({
+  id, location: abbr, name: abbr, abbreviation: abbr, displayName: abbr, shortDisplayName: abbr, color: '333333',
+})
+const sbStatus = { clock: 0, displayClock: '0:00', period: 4, type: { id: '3', name: 'STATUS_FINAL', state: 'post', completed: true, description: 'Final', detail: 'Final', shortDetail: 'Final' } }
+const scoreboard = {
+  leagues: [{ calendar: [{ label: 'Regular Season', entries: [{ label: 'Week 9', startDate: `${iso(-3)}T07:00Z`, endDate: `${iso(4)}T06:59Z` }] }] }],
+  season: { year: 2026, type: 2 },
+  week: { number: 9 },
+  events: [
+    {
+      id: 'sb1', date: `${TODAY}T15:00Z`, name: 'x', shortName: 'PUR @ IU', status: sbStatus,
+      competitions: [{
+        id: 'sb1', date: `${TODAY}T15:00Z`, status: sbStatus, venue: { fullName: 'Stadium' }, broadcasts: [{ names: ['FOX'] }],
+        competitors: [
+          { id: 'h', homeAway: 'home', team: sbTeam('84', 'IU'), score: '31', records: [{ type: 'total', summary: '7-1' }] },
+          { id: 'a', homeAway: 'away', team: sbTeam('2509', 'PUR'), score: '10', records: [{ type: 'total', summary: '2-6' }] },
+        ],
+      }],
+    },
+  ],
+}
+
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] })
 const page = await browser.newPage({ viewport: { width: 402, height: 874 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })
 const errs = []
@@ -112,7 +139,7 @@ await page.route('**/site.api.espn.com/**', (r) => {
   }
   if (url.includes('/rankings')) return r.fulfill({ json: rankings })
   if (url.includes('/summary?')) return r.fulfill({ json: { header: { competitions: [{ playByPlaySource: 'none' }] }, boxscore: {} } })
-  return r.fulfill({ json: { leagues: [{ calendar: [] }], season: { year: 2026, type: 2 }, events: [] } })
+  return r.fulfill({ json: scoreboard })
 })
 await page.route('**/sports.core.api.espn.com/**', (r) => r.fulfill({ json: { items: [] } }))
 // Recorded rather than silently dropped: which logo URL the rows ask for
@@ -287,6 +314,134 @@ check('and the reveal button is gone', shown.reveal, false)
 // to — a screenshot of the empty tables above it shows nothing useful.
 await scrollToSec()
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/standings-records.png' })
+
+// --- Tapping a team opens its page --------------------------------------
+// The same screen tapping a team inside an expanded game opens, reached
+// from a table that has no game under it at all.
+await scrollToSec()
+const tableScroll = await page.evaluate(() => {
+  const el = [...document.querySelectorAll('*')].find((e) => e.scrollTop > 0)
+  return el ? el.scrollTop : 0
+})
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.standings__row')].find((r) =>
+    r.querySelector('.standings__team')?.textContent.startsWith('Alabama'),
+  )
+  row.click()
+})
+await page.waitForSelector('.team-page')
+const opened = await page.evaluate(() => ({
+  name: document.querySelector('.team-page__name')?.textContent.trim() ?? null,
+  record: document.querySelector('.team-page__record')?.textContent.trim() ?? null,
+  back: document.querySelector('.team-page__back') !== null,
+  // The panel covers the table rather than pushing it around.
+  tableStillThere: document.querySelectorAll('.standings__row').length > 0,
+}))
+console.log('   team page:', JSON.stringify(opened))
+check('tapping a row opens that team', opened.name, 'Alabama Crimson Tide')
+check("with the record the row was showing", opened.record, '7-1')
+check('and a way back', opened.back, true)
+
+await page.click('.team-page__back')
+await page.waitForTimeout(250)
+const returned = await page.evaluate(() => {
+  const el = [...document.querySelectorAll('*')].find((e) => e.scrollTop > 0)
+  return { teamPage: document.querySelector('.team-page') !== null, scroll: el ? el.scrollTop : 0 }
+})
+check('Back returns to the table', returned.teamPage, false)
+// The panel paints over the table instead of replacing it, so there is no
+// scroll position to restore — it was never lost.
+check('and the table is exactly where it was', returned.scroll, tableScroll)
+
+// A protected team's page opens too, carrying no record into the header.
+// Reloaded first: records were revealed further up, and a revealed record
+// is supposed to travel to the page — what has to be checked here is the
+// un-revealed state, where the row shows a lock.
+await page.reload({ waitUntil: 'domcontentloaded' })
+await page.waitForSelector('.standings__conference')
+await page.waitForTimeout(900)
+await scrollToSec()
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.standings__row')].find((r) =>
+    r.querySelector('.standings__team')?.textContent.startsWith('Vanderbilt'),
+  )
+  row.click()
+})
+await page.waitForSelector('.team-page')
+const protectedPage = await page.evaluate(() => ({
+  name: document.querySelector('.team-page__name')?.textContent.trim() ?? null,
+  record: document.querySelector('.team-page__record')?.textContent.trim() ?? null,
+}))
+check('a protected team opens as well', protectedPage.name, 'Vanderbilt Commodores')
+check('but carries no record into the page header', protectedPage.record, null)
+await page.click('.team-page__back')
+await page.waitForTimeout(250)
+
+// And from the Top 25 list, which is the other table on this screen.
+await page.evaluate(() => {
+  document.querySelectorAll('*').forEach((el) => {
+    if (el.scrollTop > 0) el.scrollTop = 0
+  })
+})
+await page.waitForTimeout(200)
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.standings__row')].find((r) =>
+    r.querySelector('.standings__team')?.textContent.startsWith('Georgia'),
+  )
+  row.click()
+})
+await page.waitForSelector('.team-page')
+check(
+  'the Top 25 rows open a team page too',
+  await page.evaluate(() => document.querySelector('.team-page__name')?.textContent.trim() ?? null),
+  'Georgia Bulldogs',
+)
+await page.click('.team-page__back')
+await page.waitForTimeout(250)
+check('and close again', await page.locator('.team-page').count(), 0)
+
+// --- The stack belongs to this tab, not to the others -------------------
+// Standings got its own detail stack. Sharing Slate's would mean a team
+// page opened here is still on top of Scoreboard's stack, so the next game
+// expanded there opens on that team page instead of on the game.
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.standings__row')].find((r) =>
+    r.querySelector('.standings__team')?.textContent.startsWith('Alabama'),
+  )
+  row.click()
+})
+await page.waitForSelector('.team-page')
+// Slate specifically: a Standings stack that isn't its own falls back to
+// Slate's, which is the one it would collide with.
+await page.click('.tab-bar__item:has-text("Slate")')
+await page.waitForTimeout(500)
+// Checked before waiting for a chip, not after: with a shared stack the
+// team page covers Slate and no chip ever appears, and a named failure
+// here says what went wrong where a timeout further down would not.
+check('a team page opened on Standings is not showing on Slate', await page.locator('.team-page').count(), 0)
+await page.waitForSelector('.game-chip')
+await page.evaluate(() => document.querySelector('.game-chip').click())
+await page.waitForTimeout(700)
+const expanded = await page.evaluate(() => ({
+  teamPage: document.querySelector('.team-page') !== null,
+  game: document.querySelector('.game-detail-panel') !== null,
+}))
+console.log('   slate after expanding:', JSON.stringify(expanded))
+check('expanding a game there opens the game', expanded.game, true)
+check('and not the team page from the other tab', expanded.teamPage, false)
+// Leave Slate as it was found.
+await page.evaluate(() => document.querySelector('.game-detail-panel__close')?.click())
+await page.waitForTimeout(200)
+
+await page.click('.tab-bar__item:has-text("Standings")')
+await page.waitForTimeout(400)
+// Read null-safe rather than with a locator: when this regresses the
+// element is absent, and a 30-second timeout says far less than a named
+// failure does.
+const backOnStandings = await page.evaluate(() => document.querySelector('.team-page__name')?.textContent.trim() ?? null)
+check('and coming back, Standings still has its own team page open', backOnStandings, 'Alabama Crimson Tide')
+await page.click('.team-page__back')
+await page.waitForTimeout(250)
 
 // --- The selection is remembered ----------------------------------------
 // The explicit ask: add the AAC, leave, come back, and it is still there.

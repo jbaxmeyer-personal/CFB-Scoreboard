@@ -114,14 +114,31 @@
   list-style: none;
 }
 
+/* The row is a button, the way a team's own schedule rows are — the whole
+   line is the tap target. The grid above is what makes a button line its
+   cells up with the header; the resets here are what stop it looking like
+   one. */
 .standings__row {
+  width: 100%;
   padding: 5px 2px;
+  border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.standings__row:last-child {
+.standings__row:active {
+  background: var(--bg-panel-hover);
+}
+
+/* The border belongs to the row, and the row is now inside a list item. */
+.standings__rows li:last-child .standings__row {
   border-bottom: none;
 }
+
 
 .standings__row--favorite .standings__team {
   color: var(--accent-favorite);
