@@ -97,8 +97,40 @@ function statKey(value: unknown): string {
   return typeof value === 'string' ? value.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
 }
 
-const OVERALL_KEYS = new Set(['overall', 'total', 'record', 'alltotal', 'overallrecord'])
-const CONFERENCE_KEYS = new Set(['vsconf', 'vsconference', 'conference', 'conf', 'confrecord', 'conferencerecord', 'league', 'leaguerecord', 'vsdiv', 'division'])
+/**
+ * Stat names that carry a whole record, and which to believe when a payload
+ * sends more than one.
+ *
+ * Lower is better. The ordering is the fix for a real bug: the conference
+ * column came back "0-0" for all 136 teams while the overall column was
+ * correct. A division record was in the key set — and FBS conferences have
+ * mostly dropped divisions, so ESPN sends vsDiv as 0-0 for everyone. The
+ * first match in the stats array won, and that was the 0-0.
+ *
+ * Two changes came out of it. A division record is no longer read as a
+ * conference record at all, because it isn't one. And matching is by
+ * priority rather than by position, so the order ESPN happens to list its
+ * stats in can't decide which one is believed.
+ */
+const OVERALL_KEYS = new Map([
+  ['overall', 0],
+  ['overallrecord', 0],
+  ['total', 1],
+  ['alltotal', 1],
+  ['record', 2],
+])
+const CONFERENCE_KEYS = new Map([
+  ['vsconf', 0],
+  ['vsconference', 0],
+  ['confrecord', 0],
+  ['conferencerecord', 0],
+  ['conference', 1],
+  ['conf', 1],
+  // Last resort. "League" is the conference in some feeds and the whole
+  // division in others, so it is only believed when nothing clearer came.
+  ['league', 3],
+  ['leaguerecord', 3],
+])
 
 /** Stat names that carry one numeric piece of a record. Listed rather than
  * pattern-matched so a stat called "conferenceWinPercent" can't be read as
@@ -181,14 +213,25 @@ function teamIdFrom(entry: Record<string, unknown>, known: Set<string>): string 
  */
 function recordFrom(entry: Record<string, unknown>): TeamRecord | undefined {
   const out: TeamRecord = {}
+  // The priority of whatever is currently held, so a better-named stat
+  // later in the array can replace a worse-named one taken earlier.
+  let overallAt = Infinity
+  let conferenceAt = Infinity
+
   const take = (key: string, value: unknown): void => {
     const parsed = parseRecord(value)
     if (!parsed) return
-    if (OVERALL_KEYS.has(key) && out.overall === undefined) {
+    const overall = OVERALL_KEYS.get(key)
+    if (overall !== undefined && overall < overallAt) {
+      overallAt = overall
       out.overall = parsed.text
       out.overallWins = parsed.wins
       out.overallLosses = parsed.losses
-    } else if (CONFERENCE_KEYS.has(key) && out.conference === undefined) {
+      return
+    }
+    const conference = CONFERENCE_KEYS.get(key)
+    if (conference !== undefined && conference < conferenceAt) {
+      conferenceAt = conference
       out.conference = parsed.text
       out.conferenceWins = parsed.wins
       out.conferenceLosses = parsed.losses
@@ -305,31 +348,60 @@ export function recordsFromStandings(payload: unknown, known: Set<string> = fbsT
  * rather than just saying there was nothing there.
  */
 export function describeStandingsStats(payload: unknown, known: Set<string> = fbsTeamIds()): string {
-  const names = new Set<string>()
+  let described = ''
   const seen = new Set<unknown>()
 
   const walk = (node: unknown, depth: number): void => {
-    if (depth > 12 || !isRecord(node) || seen.has(node)) return
+    if (described || depth > 12 || !isRecord(node) || seen.has(node)) return
     seen.add(node)
+
     if (!looksLikeGroup(node) && teamIdFrom(node, known)) {
+      const pairs: string[] = []
       for (const stat of Array.isArray(node.stats) ? node.stats : []) {
-        if (isRecord(stat) && typeof stat.name === 'string') names.add(stat.name)
+        if (!isRecord(stat) || typeof stat.name !== 'string') continue
+        const value = stat.displayValue ?? stat.summary ?? stat.value
+        pairs.push(value === undefined ? stat.name : `${stat.name}=${String(value)}`)
       }
       const team = node.team
       const items = isRecord(team) && isRecord(team.record) ? team.record.items : undefined
       for (const item of Array.isArray(items) ? items : []) {
-        if (isRecord(item) && typeof item.type === 'string') names.add(`record.${item.type}`)
+        if (isRecord(item) && typeof item.type === 'string') pairs.push(`record.${item.type}=${String(item.summary ?? '')}`)
       }
+      // One team's stats, not every team's merged: the names and the values
+      // for a single entry are what identify the shape, and they stay short
+      // enough to read on a phone.
+      if (pairs.length > 0) described = pairs.slice(0, 14).join(', ')
     }
+
     for (const value of Object.values(node)) {
       if (Array.isArray(value)) value.forEach((item) => walk(item, depth + 1))
       else if (isRecord(value)) walk(value, depth + 1)
     }
   }
   walk(payload, 0)
-  // Capped: a long list wraps to half the screen and the first dozen names
-  // are enough to identify the shape.
-  return [...names].slice(0, 14).join(', ')
+  return described
+}
+
+/**
+ * Whether the conference column is there but useless.
+ *
+ * The shipped bug looked like this: every team 0-0 in conference while the
+ * overall column showed games played. That cannot happen in a real season
+ * once anyone has played a conference game, so it means the wrong stat is
+ * being read — and the previous diagnostic couldn't say so, because a
+ * "0-0" is a successfully parsed record and the check was only for a
+ * missing one.
+ *
+ * Guarded on games actually having been played, so a genuine 0-0 in week
+ * one — everyone's conference record before conference play starts — does
+ * not raise a false alarm.
+ */
+export function conferenceRecordsLookWrong(records: Map<string, TeamRecord>): boolean {
+  const withConference = [...records.values()].filter((r) => r.conference !== undefined)
+  if (withConference.length === 0) return false
+  const allZero = withConference.every((r) => r.conferenceWins === 0 && r.conferenceLosses === 0)
+  const anyPlayed = [...records.values()].some((r) => (r.overallWins ?? 0) + (r.overallLosses ?? 0) > 0)
+  return allZero && anyPlayed
 }
 
 function fbsTeamIds(): Set<string> {

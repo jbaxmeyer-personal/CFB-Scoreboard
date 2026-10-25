@@ -14,7 +14,13 @@
  * tab.
  */
 import { check, report } from '../helpers/check'
-import { recordsFromStandings, buildStandings, buildTop25, describeStandingsStats } from '../../src/lib/standings'
+import {
+  recordsFromStandings,
+  buildStandings,
+  buildTop25,
+  describeStandingsStats,
+  conferenceRecordsLookWrong,
+} from '../../src/lib/standings'
 import type { SpoilerSettings } from '../../src/lib/spoilers'
 import type { Conference } from '../../src/data/conferences'
 
@@ -292,7 +298,7 @@ const described = describeStandingsStats({
     },
   ],
 })
-check('the stat names ESPN sent are reported', described, 'overall, streak')
+check('the stat names ESPN sent are reported, with their values', described, 'overall=7-1, streak=4')
 check('a payload with no entries describes nothing', describeStandingsStats({ foo: 1 }), '')
 
 // --- The Top 25 ---------------------------------------------------------
@@ -324,5 +330,86 @@ check('but not its record', [guardedTop[0].record, guardedTop[0].hidden], [undef
 const ranked = buildStandings(records, NO_SPOILERS, { ...only, ranks: new Map([[ND, { rank: 4 }]]) })
 check('a ranked team carries its rank into the conference table', ranked[0].rows.find((r) => r.team.id === ND)?.team.rank, 4)
 check('an unranked one carries none', ranked[0].rows.find((r) => r.team.id === UNC)?.team.rank, undefined)
+
+// --- The 0-0 conference column -----------------------------------------
+// What actually shipped: every team's conference record read "0-0" while
+// the overall column was right. FBS conferences have mostly dropped
+// divisions, so ESPN sends vsDiv as 0-0 for everyone — and a division
+// record was in the conference key set, taken because it came first in the
+// array. A division record is not a conference record, and matching is by
+// priority now rather than by position.
+const withDivision = recordsFromStandings({
+  entries: [
+    {
+      team: { id: ND },
+      stats: [
+        { name: 'vsDiv', displayValue: '0-0' },
+        { name: 'division', displayValue: '0-0' },
+        { name: 'vsConf', displayValue: '5-0' },
+        { name: 'overall', displayValue: '7-1' },
+      ],
+    },
+  ],
+})
+check('a division record listed first does not take the conference column', withDivision.get(ND)?.conference, '5-0')
+check('and the overall record still reads', withDivision.get(ND)?.overall, '7-1')
+
+// A division record on its own is not promoted into the conference column.
+const divisionOnly = recordsFromStandings({
+  entries: [{ team: { id: ND }, stats: [{ name: 'vsDiv', displayValue: '3-1' }, { name: 'overall', displayValue: '7-1' }] }],
+})
+check('a division record alone leaves the conference column empty', divisionOnly.get(ND)?.conference, undefined)
+
+// Priority, not position: a clearly-named stat wins wherever it appears.
+const vague = recordsFromStandings({
+  entries: [
+    {
+      team: { id: ND },
+      stats: [
+        { name: 'league', displayValue: '0-0' },
+        { name: 'vsConf', displayValue: '5-0' },
+      ],
+    },
+  ],
+})
+check('a vaguer name listed first loses to a clearer one', vague.get(ND)?.conference, '5-0')
+const onlyVague = recordsFromStandings({ entries: [{ team: { id: ND }, stats: [{ name: 'league', displayValue: '4-2' }] }] })
+check('but is used when nothing clearer came', onlyVague.get(ND)?.conference, '4-2')
+
+// Same for the overall column: "total" should not beat "overall".
+const bothOverall = recordsFromStandings({
+  entries: [{ team: { id: ND }, stats: [{ name: 'record', displayValue: '0-0' }, { name: 'overall', displayValue: '7-1' }] }],
+})
+check('the overall column picks by priority too', bothOverall.get(ND)?.overall, '7-1')
+
+// --- Noticing it next time ----------------------------------------------
+// The previous diagnostic only fired when the conference column was
+// missing. A "0-0" is a successfully parsed record, so the screen shipped
+// this bug and said nothing about it.
+const allZero = new Map([
+  ['87', { overall: '7-1', overallWins: 7, overallLosses: 1, conference: '0-0', conferenceWins: 0, conferenceLosses: 0 }],
+  ['153', { overall: '2-6', overallWins: 2, overallLosses: 6, conference: '0-0', conferenceWins: 0, conferenceLosses: 0 }],
+])
+check('every team 0-0 in conference with games played is flagged', conferenceRecordsLookWrong(allZero), true)
+
+// Week one, before conference play: everyone really is 0-0 and nobody has
+// played. Not a false alarm.
+const weekOne = new Map([['87', { overall: '0-0', overallWins: 0, overallLosses: 0, conference: '0-0', conferenceWins: 0, conferenceLosses: 0 }]])
+check('but a season that has not started is not', conferenceRecordsLookWrong(weekOne), false)
+
+// A single genuine 0-0 among real records is normal.
+const oneAtZero = new Map([
+  ['87', { overall: '7-1', overallWins: 7, overallLosses: 1, conference: '5-0', conferenceWins: 5, conferenceLosses: 0 }],
+  ['153', { overall: '1-6', overallWins: 1, overallLosses: 6, conference: '0-0', conferenceWins: 0, conferenceLosses: 0 }],
+])
+check('nor is one team yet to play a conference game', conferenceRecordsLookWrong(oneAtZero), false)
+check('and nothing parsed at all is a different message', conferenceRecordsLookWrong(new Map()), false)
+
+// The diagnostic prints values, not just names — "vsDiv=0-0, vsConf=5-0"
+// is what identifies which stat is being misread.
+const described2 = describeStandingsStats({
+  entries: [{ team: { id: ND }, stats: [{ name: 'vsDiv', displayValue: '0-0' }, { name: 'overall', displayValue: '7-1' }] }],
+})
+check('the diagnostic reports each stat with its value', described2, 'vsDiv=0-0, overall=7-1')
 
 report()
