@@ -22,9 +22,13 @@ const PORT = process.env.PORT || 5199
 // Real SEC team ids, from src/data/conferences.ts. The conference node is
 // given ESPN's own SEC group id, 8 — which is also Arkansas's team id, the
 // collision the parser has to refuse.
+// vsDiv first, and 0-0, which is what ESPN sends for a conference with no
+// divisions — i.e. most of them. Taking that as the conference record is
+// what put "0-0" beside all 136 teams on a phone.
 const entry = (teamId, overall, conference) => ({
   team: { id: teamId },
   stats: [
+    { name: 'vsDiv', displayValue: '0-0' },
     { name: 'overall', displayValue: overall },
     { name: 'vsConf', displayValue: conference },
   ],
@@ -81,11 +85,29 @@ page.on('pageerror', (e) => errs.push(e.message))
 
 let standingsRequests = 0
 let failStandings = false
+// Two ways the conference column goes wrong, both of which shipped or
+// nearly shipped, and both of which have to announce themselves:
+//   'unknown-name' — the conference stat is called something this parser
+//                    doesn't know, so nothing is parsed at all
+//   'all-zero'     — it parses, and every team reads 0-0
+let brokenMode = null
 await page.route('**/site.api.espn.com/**', (r) => {
   const url = r.request().url()
   if (url.includes('/standings')) {
     standingsRequests += 1
     if (failStandings) return r.fulfill({ status: 500, body: 'nope' })
+    if (brokenMode === 'unknown-name') {
+      return r.fulfill({ json: JSON.parse(JSON.stringify(standings).replaceAll('"vsConf"', '"someUnknownName"')) })
+    }
+    if (brokenMode === 'all-zero') {
+      const copy = JSON.parse(JSON.stringify(standings))
+      for (const child of copy.children) {
+        for (const e of child.standings.entries) {
+          for (const stat of e.stats) if (stat.name === 'vsConf') stat.displayValue = '0-0'
+        }
+      }
+      return r.fulfill({ json: copy })
+    }
     return r.fulfill({ json: standings })
   }
   if (url.includes('/rankings')) return r.fulfill({ json: rankings })
@@ -229,6 +251,9 @@ check('and the Top 25 does not print its rank twice', hidden.top25Badges, 0)
 check('the SEC lists all sixteen teams', hidden.rows.length, 16)
 check('an unmentioned team shows a dash, not a blank', hidden.rows.find((r) => r.team.startsWith('Missouri'))?.records, ['–', '–'])
 check('a record the feed did send is shown', hidden.rows.find((r) => r.team.startsWith('Alabama'))?.records, ['4-1', '7-1'])
+// The shipped bug: a 0-0 division record sitting before the real one.
+check('the conference column is not the 0-0 division record', hidden.rows.some((r) => r.records[0] === '0-0'), false)
+check('and no note, because nothing is wrong', hidden.note, null)
 
 const vandy = hidden.rows.find((r) => r.team.startsWith('Vanderbilt'))
 check('the protected team keeps its row', vandy !== undefined, true)
@@ -298,6 +323,38 @@ await page.click('.standings__menu-actions button:has-text("Power four")')
 await page.click('.standings__title')
 await page.waitForTimeout(200)
 check('the Power four shortcut resets the selection', (await read()).conferenceNames, ['AP Top 25', 'ACC', 'Big 12', 'Big Ten', 'SEC'])
+
+// --- A conference column that parsed off the wrong stat -----------------
+// This shipped once and said nothing: every team read 0-0 in conference
+// while the overall column was right. A "0-0" is a successfully parsed
+// record, so the old diagnostic — which only fired on a *missing* one —
+// stayed silent. The screen has to name the stats it was handed.
+const reloadStandings = async () => {
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('.standings__conference')
+  await page.waitForTimeout(1200)
+  return read()
+}
+
+// Nothing parsed: the stat is named something this parser doesn't know.
+// The note has to hand over the names AND the values, because that is the
+// whole input to the next fix.
+brokenMode = 'unknown-name'
+const unreadable = await reloadStandings()
+console.log('   note:', JSON.stringify(unreadable.note))
+check('an unreadable conference column says so', /No conference records/.test(unreadable.note ?? ''), true)
+check('and prints the stats with their values', /vsDiv=0-0/.test(unreadable.note ?? ''), true)
+check('including the one it should have read', /someUnknownName=5-0/.test(unreadable.note ?? ''), true)
+
+// Parsed, but 0-0 for everyone — the state that shipped and said nothing,
+// because a "0-0" is a successfully parsed record.
+brokenMode = 'all-zero'
+const allZero = await reloadStandings()
+console.log('   note:', JSON.stringify(allZero.note))
+check('a 0-0-for-everyone conference column is called out too', /came back 0-0/.test(allZero.note ?? ''), true)
+check('with the stats behind it', /vsConf=0-0/.test(allZero.note ?? ''), true)
+check('the overall column is untouched by any of it', allZero.rows.find((r) => r.team.startsWith('Alabama'))?.records[1], '7-1')
+brokenMode = null
 
 // --- The whole point: a failed request is not a blank tab ----------------
 failStandings = true

@@ -5,6 +5,7 @@ import { seasonYearFromDate } from '../lib/espn'
 import {
   buildStandings,
   buildTop25,
+  conferenceRecordsLookWrong,
   describeStandingsStats,
   fetchStandings,
   recordsFromStandings,
@@ -73,13 +74,22 @@ export function useStandings(reveal = false): StandingsData & { isLoading: boole
     if (standings.data && records.size === 0) {
       return 'ESPN answered, but no records could be read from the response. Conferences and teams are shown without them.'
     }
-    // The case this screen shipped with: overall records arrived and
-    // conference ones didn't. Naming the stats ESPN actually sent is what
-    // makes that fixable from a phone, since the payload can't be opened
-    // from the build environment.
+    // Two ways the conference column goes wrong, both of which have to be
+    // diagnosable from a phone, since the payload can't be opened from the
+    // build environment. Printing one team's stats with their values is
+    // what turns either into a one-round fix.
+    const seen = () => {
+      const stats = describeStandingsStats(standings.data)
+      return stats ? ` Stats it sent: ${stats}.` : ''
+    }
     if (records.size > 0 && ![...records.values()].some((r) => r.conference !== undefined)) {
-      const seen = describeStandingsStats(standings.data)
-      return `No conference records in ESPN's response — showing overall only.${seen ? ` Stats it sent: ${seen}.` : ''}`
+      return `No conference records in ESPN's response — showing overall only.${seen()}`
+    }
+    // Every team 0-0 in conference while games have been played: the column
+    // parsed, but off the wrong stat. This is the state that shipped once
+    // already and said nothing.
+    if (conferenceRecordsLookWrong(records)) {
+      return `Every conference record came back 0-0 — the wrong stat is being read.${seen()}`
     }
     return undefined
   }, [standings.error, standings.data, records])
