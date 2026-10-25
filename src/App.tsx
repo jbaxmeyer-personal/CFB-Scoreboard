@@ -4,6 +4,7 @@ import { ViewStateProvider, useViewState } from './context/ViewStateContext'
 import { ScheduleGrid } from './components/schedule/ScheduleGrid'
 import { ScoreboardWeeks } from './components/scoreboard/ScoreboardWeeks'
 import { SettingsScreen } from './components/settings/SettingsScreen'
+import { StandingsScreen } from './components/standings/StandingsScreen'
 import { TabBar } from './components/shared/TabBar'
 import { UpdateBanner } from './components/shared/UpdateBanner'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
@@ -56,6 +57,7 @@ function Shell() {
         <main className="app-main">
           {tab === 'schedule' && <ScheduleGrid />}
           {tab === 'scoreboard' && <ScoreboardWeeks />}
+          {tab === 'standings' && <StandingsScreen />}
           {tab === 'settings' && <SettingsScreen />}
         </main>
         {/* Where GameDetailPanel portals to. Empty — and so not in anyone's

@@ -1,0 +1,168 @@
+/* Same horizontal inset as the team page, so the two screens line up when
+   you move between them. */
+.standings {
+  padding: 4px 14px 14px;
+}
+
+.standings__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0 10px;
+}
+
+.standings__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.standings__reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.standings__reveal:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.standings__note {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.standings__conference {
+  margin-bottom: 18px;
+}
+
+/* The two record columns are fixed-width and the team name takes what's
+   left, so every conference's columns line up down the screen even though
+   the names are all different lengths. The grid is declared once here and
+   inherited by the header and every row. */
+.standings__conference-head,
+.standings__row {
+  display: grid;
+  grid-template-columns: 16px 22px minmax(0, 1fr) 42px 48px;
+  align-items: center;
+  gap: 8px;
+}
+
+.standings__conference-head {
+  padding: 0 2px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* The shield sits in the position column, where no number is drawn in a
+   header row. Bounded on both axes for the same reason the game badge is:
+   these marks are wordmarks and crests, not one shape. */
+.standings__shield {
+  grid-column: 1 / span 2;
+  justify-self: start;
+  max-width: 38px;
+  max-height: 18px;
+  object-fit: contain;
+}
+
+/* Without a shield the name takes the columns the shield would have had,
+   rather than leaving a gap where one isn't. */
+.standings__conference-name {
+  grid-column: 3;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.standings__col-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--text-tertiary);
+}
+
+.standings__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.standings__row {
+  padding: 5px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.standings__row:last-child {
+  border-bottom: none;
+}
+
+.standings__row--favorite .standings__team {
+  color: var(--accent-favorite);
+}
+
+.standings__position {
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.standings__team {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.standings__record {
+  font-size: 13px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.standings__record--overall {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* One lock across both record columns, rather than a lock in each. */
+.standings__hidden {
+  grid-column: 4 / span 2;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+
+.standings__unranked-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}

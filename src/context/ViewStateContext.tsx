@@ -20,13 +20,14 @@ export type DetailFrame =
   | { kind: 'team'; team: Team; year: number }
   | { kind: 'game'; game: Game }
 
-export type Tab = 'schedule' | 'scoreboard' | 'settings'
+export type Tab = 'schedule' | 'scoreboard' | 'standings' | 'settings'
 
 /** The two tabs that show games, and so the two that can have one open. */
 export type GameTab = 'schedule' | 'scoreboard'
 
-/** Settings shows no games; anything asked of it answers for Slate, which
- * is inert because neither screen is mounted while Settings is up. */
+/** Settings and Standings show no games; anything asked of either answers
+ * for Slate, which is inert because neither game screen is mounted while
+ * one of them is up. */
 function gameTab(tab: Tab): GameTab {
   return tab === 'scoreboard' ? 'scoreboard' : 'schedule'
 }
@@ -36,7 +37,7 @@ const DATE_KEY_STORAGE_KEY = 'slate.selectedDate.v2'
 const EXPANDED_GAME_STORAGE_KEY = 'slate.expandedGame.v1'
 const EXPANDED_GAMES_STORAGE_KEY = 'slate.expandedGames.v2'
 const FILTERS_STORAGE_KEY = 'slate.filters.v1'
-const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'settings']
+const VALID_TABS: Tab[] = ['schedule', 'scoreboard', 'standings', 'settings']
 
 function readStoredTab(): Tab {
   try {
