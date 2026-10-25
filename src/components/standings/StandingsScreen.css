@@ -53,6 +53,15 @@
   margin-bottom: 18px;
 }
 
+/* The Top 25 carries one record column instead of two. The overall column
+   keeps its width and position, so the two kinds of table still line their
+   right edges up down the screen. */
+.standings__conference--overall-only .standings__conference-head,
+.standings__conference--overall-only .standings__row {
+  grid-template-columns: 16px 24px minmax(0, 1fr) 48px;
+}
+
+
 /* The two record columns are fixed-width and the team name takes what's
    left, so every conference's columns line up down the screen even though
    the names are all different lengths. The grid is declared once here and
@@ -171,9 +180,12 @@
   font-weight: 600;
 }
 
-/* One lock across both record columns, rather than a lock in each. */
+/* One lock across the record columns, rather than a lock in each.
+   `4 / -1` is "from the first record column to the end of the row", which
+   is two columns in a conference table and one in the Top 25 — so the same
+   rule is right in both and neither needs an override. */
 .standings__hidden {
-  grid-column: 4 / span 2;
+  grid-column: 4 / -1;
   display: flex;
   justify-content: flex-end;
   align-items: center;

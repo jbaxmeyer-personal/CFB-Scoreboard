@@ -22,6 +22,7 @@ function Row({
   position,
   favorite,
   showBadge = true,
+  showConference = true,
   onSelect,
 }: {
   row: StandingsRow
@@ -33,6 +34,12 @@ function Row({
    * sit in the conference — so the badge is the only thing carrying the
    * poll, and it stays. */
   showBadge?: boolean
+  /** The Top 25 is a national list, so a conference record on it compares
+   * nothing to anything — Miami's ACC record next to Ohio State's Big Ten
+   * record are two different competitions in one column. It is dropped
+   * there and kept in the conference tables, which is the only place it
+   * ranks anyone. */
+  showConference?: boolean
   /** Opens this team's page. The row is the button, the way a team's own
    * schedule rows are — the whole line is the tap target, which on a phone
    * is the difference between a list you can use and one you aim at. */
@@ -54,7 +61,7 @@ function Row({
           </span>
         ) : (
           <>
-            <span className="standings__record ticker">{row.record?.conference ?? NO_RECORD}</span>
+            {showConference && <span className="standings__record ticker">{row.record?.conference ?? NO_RECORD}</span>}
             <span className="standings__record standings__record--overall ticker">
               {row.record?.overall ?? NO_RECORD}
             </span>
@@ -272,10 +279,9 @@ export function StandingsScreen() {
       {isLoading && <LoadingState label="Loading records…" />}
 
       {top25.length > 0 && (
-        <section className="standings__conference">
+        <section className="standings__conference standings__conference--overall-only">
           <div className="standings__conference-head">
             <h3 className="standings__conference-name standings__conference-name--wide">{pollName}</h3>
-            <span className="standings__col-label">Conf</span>
             <span className="standings__col-label">Overall</span>
           </div>
           <ol className="standings__rows">
@@ -289,6 +295,7 @@ export function StandingsScreen() {
                 position={String(row.team.rank ?? '')}
                 favorite={settings.favoriteTeamIds.includes(row.team.id)}
                 showBadge={false}
+                showConference={false}
                 onSelect={() => openTeam(row)}
               />
             ))}

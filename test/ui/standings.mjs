@@ -230,6 +230,16 @@ const read = () =>
       conferences: sections.length,
       conferenceNames: sections.map((s) => s.querySelector('.standings__conference-name').textContent.trim()),
       pollHeading: top?.querySelector('.standings__conference-name').textContent.trim() ?? null,
+      top25Columns: [...(top?.querySelectorAll('.standings__col-label') ?? [])].map((c) => c.textContent.trim()),
+      top25LockRight: (() => {
+        const lock = top?.querySelector('.standings__hidden')
+        const row = lock?.closest('.standings__row')
+        if (!lock || !row) return null
+        // Within 60px of the row's right edge, i.e. in the record column
+        // rather than stranded mid-row where the conference column was.
+        return row.getBoundingClientRect().right - lock.getBoundingClientRect().right < 60
+      })(),
+      conferenceColumns: [...(section?.querySelectorAll('.standings__col-label') ?? [])].map((c) => c.textContent.trim()),
       top25: [...(top?.querySelectorAll('.standings__row') ?? [])].map((row) => ({
         position: row.querySelector('.standings__position').textContent.trim(),
         team: row.querySelector('.standings__team').textContent.trim(),
@@ -265,7 +275,11 @@ check('and the chip says how many', hidden.pickerLabel, '4 conferences ▾')
 // --- The Top 25, listed first -------------------------------------------
 check('the AP poll is the one listed, not the coaches poll first in the payload', hidden.pollHeading, 'AP Top 25')
 check('in poll order', hidden.top25.map((r) => [r.position, r.team.split(' ')[0]]), [['1', 'Vanderbilt'], ['2', 'Alabama'], ['3', 'Georgia']])
-check('with records beside them', hidden.top25[1].records, ['4-1', '7-1'])
+// One record column, not two. A conference record on a national list
+// compares nothing to anything — Alabama's SEC record beside Miami's ACC
+// record are two different competitions under one heading.
+check('with the overall record beside them', hidden.top25[1].records, ['7-1'])
+check('and no conference column on the national list', hidden.top25Columns, ['Overall'])
 
 // --- Top 25 badges on the logos -----------------------------------------
 // Alabama (2) and Georgia (3) are in the SEC table; Vanderbilt is protected
@@ -275,6 +289,9 @@ check('ranked teams carry their badge into the conference table', hidden.badges.
 // would print the same number twice in adjacent columns.
 check('and the Top 25 does not print its rank twice', hidden.top25Badges, 0)
 
+// The conference tables keep both: that is the only place a conference
+// record ranks anyone.
+check('the conference tables still carry both columns', hidden.conferenceColumns, ['Conf', 'Overall'])
 check('the SEC lists all sixteen teams', hidden.rows.length, 16)
 check('an unmentioned team shows a dash, not a blank', hidden.rows.find((r) => r.team.startsWith('Missouri'))?.records, ['–', '–'])
 check('a record the feed did send is shown', hidden.rows.find((r) => r.team.startsWith('Alabama'))?.records, ['4-1', '7-1'])
@@ -295,6 +312,9 @@ check('and it says why', hidden.unrankedNote, true)
 // stays while the record goes — the same split the game cards make.
 check('the protected team keeps its poll rank', hidden.top25[0].position, '1')
 check('but not its record', [hidden.top25[0].locked, hidden.top25[0].records], [true, []])
+// The lock spans two columns in a conference table and one here; getting
+// that wrong puts it under the team name instead of the record column.
+check('and its lock sits in the record column', hidden.top25LockRight, true)
 check('a reveal is offered', hidden.reveal, true)
 check('nothing overflows the screen sideways', hidden.overflow, false)
 check('no error note while the request is fine', hidden.note, null)
