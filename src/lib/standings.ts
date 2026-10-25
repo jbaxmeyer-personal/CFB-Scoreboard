@@ -25,6 +25,7 @@ import type { Team } from '../types/game'
 import { ALL_TEAMS } from '../data/teams'
 import { CONFERENCES, type Conference } from '../data/conferences'
 import { hidesTeamSeason, type SpoilerSettings } from './spoilers'
+import type { TeamRanking } from './rankings'
 
 const STANDINGS_URL = 'https://site.api.espn.com/apis/v2/sports/football/college-football/standings'
 
@@ -73,6 +74,13 @@ export interface ConferenceStandings {
 
 export interface StandingsData {
   conferences: ConferenceStandings[]
+  /** The poll, in rank order, listed above the conference tables. Empty
+   * when the rankings request failed or wasn't understood, in which case
+   * the section isn't drawn at all. */
+  top25: StandingsRow[]
+  /** What to call that section — the poll's own name, so nothing is
+   * captioned "AP Top 25" that came from somewhere else. */
+  pollName: string
   /** How many teams the feed gave a record for, across everything. Zero
    * with no error means the request was answered and understood nothing. */
   teamsWithRecords: number
@@ -91,6 +99,16 @@ function statKey(value: unknown): string {
 
 const OVERALL_KEYS = new Set(['overall', 'total', 'record', 'alltotal', 'overallrecord'])
 const CONFERENCE_KEYS = new Set(['vsconf', 'vsconference', 'conference', 'conf', 'confrecord', 'conferencerecord', 'league', 'leaguerecord', 'vsdiv', 'division'])
+
+/** Stat names that carry one numeric piece of a record. Listed rather than
+ * pattern-matched so a stat called "conferenceWinPercent" can't be read as
+ * a win count. */
+const NUMERIC_SLOTS: [string, Set<string>][] = [
+  ['wins', new Set(['wins', 'win', 'totalwins', 'overallwins'])],
+  ['losses', new Set(['losses', 'loss', 'totallosses', 'overalllosses'])],
+  ['confWins', new Set(['vsconfwins', 'confwins', 'conferencewins', 'leaguewins'])],
+  ['confLosses', new Set(['vsconflosses', 'conflosses', 'conferencelosses', 'leaguelosses'])],
+]
 
 function parseRecord(value: unknown): { text: string; wins: number; losses: number } | undefined {
   if (typeof value !== 'string') return undefined
@@ -180,8 +198,7 @@ function recordFrom(entry: Record<string, unknown>): TeamRecord | undefined {
   // Shape 1 and 2: a `stats` array.
   const stats = entry.stats
   if (Array.isArray(stats)) {
-    let wins: number | undefined
-    let losses: number | undefined
+    const parts: Record<string, number> = {}
     for (const stat of stats) {
       if (!isRecord(stat)) continue
       const keys = [statKey(stat.name), statKey(stat.type), statKey(stat.shortDisplayName), statKey(stat.abbreviation)]
@@ -190,17 +207,25 @@ function recordFrom(entry: Record<string, unknown>): TeamRecord | undefined {
         take(key, stat.displayValue)
         take(key, stat.summary)
       }
-      // Numeric wins/losses, for a payload that sends the parts and not the
-      // formatted string.
+      // Numeric parts, for a payload that sends the pieces and not the
+      // formatted string. Both records are covered: a feed that spells the
+      // overall one out as wins/losses is likely to spell the conference
+      // one out as vsConfWins/vsConfLosses rather than as "3-1".
       const numeric = typeof stat.value === 'number' ? stat.value : undefined
       if (numeric === undefined) continue
-      if (keys.includes('wins')) wins = numeric
-      if (keys.includes('losses')) losses = numeric
+      for (const [slot, matches] of NUMERIC_SLOTS) {
+        if (parts[slot] === undefined && keys.some((k) => matches.has(k))) parts[slot] = numeric
+      }
     }
-    if (out.overall === undefined && wins !== undefined && losses !== undefined) {
-      out.overall = `${wins}-${losses}`
-      out.overallWins = wins
-      out.overallLosses = losses
+    if (out.overall === undefined && parts.wins !== undefined && parts.losses !== undefined) {
+      out.overall = `${parts.wins}-${parts.losses}`
+      out.overallWins = parts.wins
+      out.overallLosses = parts.losses
+    }
+    if (out.conference === undefined && parts.confWins !== undefined && parts.confLosses !== undefined) {
+      out.conference = `${parts.confWins}-${parts.confLosses}`
+      out.conferenceWins = parts.confWins
+      out.conferenceLosses = parts.confLosses
     }
   }
 
@@ -266,6 +291,47 @@ export function recordsFromStandings(payload: unknown, known: Set<string> = fbsT
   return found
 }
 
+/**
+ * The stat names ESPN actually sent on its standings entries.
+ *
+ * Shown on screen when the conference column comes back empty while the
+ * overall one didn't — which is the state that has to be diagnosed from a
+ * phone, because this build environment cannot open the payload itself. The
+ * names are what the parser needs in order to know which key to read, so
+ * printing them turns a vague "the conference records are missing" into a
+ * one-round fix.
+ *
+ * Same spirit as the empty box score naming the categories it was handed
+ * rather than just saying there was nothing there.
+ */
+export function describeStandingsStats(payload: unknown, known: Set<string> = fbsTeamIds()): string {
+  const names = new Set<string>()
+  const seen = new Set<unknown>()
+
+  const walk = (node: unknown, depth: number): void => {
+    if (depth > 12 || !isRecord(node) || seen.has(node)) return
+    seen.add(node)
+    if (!looksLikeGroup(node) && teamIdFrom(node, known)) {
+      for (const stat of Array.isArray(node.stats) ? node.stats : []) {
+        if (isRecord(stat) && typeof stat.name === 'string') names.add(stat.name)
+      }
+      const team = node.team
+      const items = isRecord(team) && isRecord(team.record) ? team.record.items : undefined
+      for (const item of Array.isArray(items) ? items : []) {
+        if (isRecord(item) && typeof item.type === 'string') names.add(`record.${item.type}`)
+      }
+    }
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach((item) => walk(item, depth + 1))
+      else if (isRecord(value)) walk(value, depth + 1)
+    }
+  }
+  walk(payload, 0)
+  // Capped: a long list wraps to half the screen and the first dozen names
+  // are enough to identify the shape.
+  return [...names].slice(0, 14).join(', ')
+}
+
 function fbsTeamIds(): Set<string> {
   return new Set(ALL_TEAMS.map((t) => t.id))
 }
@@ -282,6 +348,56 @@ export async function fetchStandings(year: number): Promise<unknown> {
   const res = await fetch(standingsUrl(year), { cache: 'no-store' })
   if (!res.ok) throw new Error(`ESPN standings HTTP ${res.status}`)
   return res.json() as Promise<unknown>
+}
+
+/**
+ * A copy of the team carrying its AP rank, which is what puts the Top 25
+ * badge on its logo. The static table has no rank in it — ranks change
+ * weekly — so it is attached here rather than stored.
+ */
+function withRank(team: Team, ranks: Map<string, TeamRanking> | undefined): Team {
+  const rank = ranks?.get(team.id)?.rank
+  return rank === undefined ? team : { ...team, rank }
+}
+
+/**
+ * The Top 25 itself, in poll order, with each team's record beside it.
+ *
+ * A protected team keeps its rank and loses its record. That matches what
+ * the game cards already do — they have never stripped a rank — and the
+ * reasoning holds: a poll is published on a schedule and is not a result,
+ * while a record counts the games played. Ordering by rank gives nothing
+ * away that the poll itself hasn't.
+ *
+ * `fallbackRecords` is the record the poll shipped alongside the ranking,
+ * used only where the standings feed had nothing for that team.
+ */
+export function buildTop25(
+  rankings: Map<string, TeamRanking>,
+  records: Map<string, TeamRecord>,
+  spoilers: SpoilerSettings,
+  teams: Team[] = ALL_TEAMS,
+): StandingsRow[] {
+  const byId = new Map(teams.map((t) => [t.id, t]))
+  const rows: StandingsRow[] = []
+
+  for (const [teamId, ranking] of rankings) {
+    const team = byId.get(teamId)
+    if (!team) continue
+    const hidden = hidesTeamSeason(teamId, spoilers)
+    const fromStandings = records.get(teamId)
+    const record = fromStandings ?? (ranking.record ? parseOverallOnly(ranking.record) : undefined)
+    rows.push({ team: { ...team, rank: ranking.rank }, record: hidden ? undefined : record, hidden })
+  }
+  return rows.sort((a, b) => (a.team.rank ?? 99) - (b.team.rank ?? 99))
+}
+
+/** The poll's own record string, which is an overall record and never a
+ * conference one — so it fills that column and leaves the other empty
+ * rather than being shown under both headings. */
+function parseOverallOnly(summary: string): TeamRecord | undefined {
+  const parsed = parseRecord(summary)
+  return parsed ? { overall: parsed.text, overallWins: parsed.wins, overallLosses: parsed.losses } : undefined
 }
 
 function winPct(wins: number | undefined, losses: number | undefined): number | undefined {
@@ -327,7 +443,7 @@ function byName(a: StandingsRow, b: StandingsRow): number {
 export function buildStandings(
   records: Map<string, TeamRecord>,
   spoilers: SpoilerSettings,
-  options: { conferences?: Conference[]; teams?: Team[] } = {},
+  options: { conferences?: Conference[]; teams?: Team[]; ranks?: Map<string, TeamRanking> } = {},
 ): ConferenceStandings[] {
   const conferences = options.conferences ?? CONFERENCES
   const teams = options.teams ?? ALL_TEAMS
@@ -341,7 +457,7 @@ export function buildStandings(
       // tables, not something to render a blank row for.
       if (!team) continue
       const hidden = hidesTeamSeason(teamId, spoilers)
-      rows.push({ team, record: hidden ? undefined : records.get(teamId), hidden })
+      rows.push({ team: withRank(team, options.ranks), record: hidden ? undefined : records.get(teamId), hidden })
     }
     const hidesRecords = rows.some((row) => row.hidden)
     // Nothing to rank on is not the same as a tie for first.
