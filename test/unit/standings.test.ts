@@ -14,7 +14,7 @@
  * tab.
  */
 import { check, report } from '../helpers/check'
-import { recordsFromStandings, buildStandings } from '../../src/lib/standings'
+import { recordsFromStandings, buildStandings, buildTop25, describeStandingsStats } from '../../src/lib/standings'
 import type { SpoilerSettings } from '../../src/lib/spoilers'
 import type { Conference } from '../../src/data/conferences'
 
@@ -237,5 +237,92 @@ check('and unranks the table', global[0].unranked, true)
 const gameOnly = buildStandings(records, { ...NO_SPOILERS, protectedGameIds: ['401858226'] }, only)
 check('protecting a game leaves the standings alone', gameOnly[0].rows.find((r) => r.team.id === ND)?.record?.overall, '7-1')
 check('and keeps it ranked', gameOnly[0].unranked, false)
+
+// --- Conference records sent as numeric parts ---------------------------
+// The reported gap: overall records arrived and the conference column was
+// empty. One way that happens is a feed that spells the pieces out rather
+// than sending "3-1", so both records are composed from parts now, not
+// just the overall one.
+const parts = recordsFromStandings({
+  entries: [
+    {
+      team: { id: ND },
+      stats: [
+        { name: 'wins', value: 7 },
+        { name: 'losses', value: 1 },
+        { name: 'vsConfWins', value: 5 },
+        { name: 'vsConfLosses', value: 0 },
+      ],
+    },
+  ],
+})
+check('a conference record sent as parts is composed too', parts.get(ND)?.conference, '5-0')
+check('alongside the overall one', parts.get(ND)?.overall, '7-1')
+
+// A percentage must not be read as a win count. The losses part is in the
+// fixture on purpose: with only a stray wins value there is nothing to
+// compose a record from, so the guard would never be reached and the check
+// would pass whether or not it worked.
+const pcts = recordsFromStandings({
+  entries: [
+    {
+      team: { id: ND },
+      stats: [
+        { name: 'conferenceWinPercent', value: 0.8 },
+        { name: 'vsConfLosses', value: 1 },
+        { name: 'overall', displayValue: '7-1' },
+      ],
+    },
+  ],
+})
+check('a win percentage is not mistaken for a win count', pcts.get(ND)?.conference, undefined)
+check('and the overall record is unaffected by it', pcts.get(ND)?.overall, '7-1')
+
+// --- The diagnostic -----------------------------------------------------
+// What makes the missing conference column fixable from a phone: the
+// screen prints the stat names ESPN actually sent, because this build
+// environment cannot open the payload itself.
+const described = describeStandingsStats({
+  children: [
+    {
+      id: '8',
+      standings: {
+        entries: [{ team: { id: ND }, stats: [{ name: 'overall', displayValue: '7-1' }, { name: 'streak', value: 4 }] }],
+      },
+    },
+  ],
+})
+check('the stat names ESPN sent are reported', described, 'overall, streak')
+check('a payload with no entries describes nothing', describeStandingsStats({ foo: 1 }), '')
+
+// --- The Top 25 ---------------------------------------------------------
+const poll = new Map([
+  ['194', { rank: 2 }],
+  [ND, { rank: 1, record: '7-1' }],
+  ['999999', { rank: 3 }],
+])
+const top = buildTop25(poll, records, NO_SPOILERS)
+check('the Top 25 is in poll order, not map order', top.map((r) => r.team.rank), [1, 2])
+check('a ranked team unknown to the static table is dropped', top.length, 2)
+check('the record comes from the standings feed where there is one', top[0].record?.overall, '7-1')
+check('and the conference record with it', top[0].record?.conference, '5-0')
+// Ohio State is in the poll but not in the `records` map.
+check("the poll's own record fills in where the standings had none", top[1].record?.overall, undefined)
+
+const pollOnly = buildTop25(new Map([['194', { rank: 1, record: '8-0' }]]), new Map(), NO_SPOILERS)
+check('a poll record is used when the standings had nothing', pollOnly[0].record?.overall, '8-0')
+check('and is not shown as a conference record, which it is not', pollOnly[0].record?.conference, undefined)
+
+// A protected team keeps its rank and loses its record — the same split the
+// game cards have always made. A poll is published on a schedule; a record
+// counts the games played.
+const guardedTop = buildTop25(poll, records, protecting([ND]))
+check('a protected team keeps its rank in the poll', guardedTop[0].team.rank, 1)
+check('but not its record', [guardedTop[0].record, guardedTop[0].hidden], [undefined, true])
+
+// --- Rank badges on the conference tables -------------------------------
+const ranked = buildStandings(records, NO_SPOILERS, { ...only, ranks: new Map([[ND, { rank: 4 }]]) })
+check('a ranked team carries its rank into the conference table', ranked[0].rows.find((r) => r.team.id === ND)?.team.rank, 4)
+check('an unranked one carries none', ranked[0].rows.find((r) => r.team.id === UNC)?.team.rank, undefined)
 
 report()
