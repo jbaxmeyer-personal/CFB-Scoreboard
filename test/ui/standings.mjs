@@ -68,7 +68,14 @@ await page.route('**/site.api.espn.com/**', (r) => {
   return r.fulfill({ json: { leagues: [{ calendar: [] }], season: { year: 2026, type: 2 }, events: [] } })
 })
 await page.route('**/sports.core.api.espn.com/**', (r) => r.fulfill({ json: { items: [] } }))
-await page.route('**/a.espncdn.com/**', (r) => r.abort())
+// Recorded rather than silently dropped: which logo URL the rows ask for
+// is the only way to tell the dark mark from the light one here, since the
+// images themselves are never allowed to load.
+let logoRequests = []
+await page.route('**/a.espncdn.com/**', (r) => {
+  logoRequests.push(r.request().url())
+  r.abort()
+})
 
 let fails = 0
 const check = (label, actual, expected) => {
@@ -100,9 +107,38 @@ check('there are four tabs', tabs.map((t) => t.label), ['Slate', 'Scoreboard', '
 check('none of the labels is clipped', tabs.filter((t) => t.clipped).map((t) => t.label), [])
 check('and none of them wraps onto a second line', tabs.filter((t) => t.wrapped).map((t) => t.label), [])
 
+logoRequests = []
 await page.click('.tab-bar__item:has-text("Standings")')
 await page.waitForSelector('.standings__conference')
 await page.waitForTimeout(600)
+
+const scrollToSec = async () => {
+  await page.evaluate(() => {
+    const section = [...document.querySelectorAll('.standings__conference')].find((s) =>
+      s.querySelector('.standings__conference-name')?.textContent.includes('SEC'),
+    )
+    section.scrollIntoView({ block: 'start' })
+  })
+  await page.waitForTimeout(400)
+}
+// Rows are lazy — only the ones on screen ask for a logo at all, which is
+// why the SEC has to be scrolled to before Alabama's is among them.
+await scrollToSec()
+
+// --- The logos are the dark ones, like everywhere else ------------------
+// The static team table used to carry only ESPN's light-background mark,
+// so this screen drew light logos on a dark page while every screen fed
+// from a game feed drew the dark ones.
+const dark = logoRequests.filter((u) => u.includes('/500-dark/'))
+const light = logoRequests.filter((u) => u.includes('/ncaa/500/'))
+console.log('   logos asked for:', JSON.stringify({ dark: dark.length, light: light.length, ofTeams: 137 }))
+check('the rows ask for the dark marks', dark.length > 0, true)
+check("Alabama's is the dark one", dark.some((u) => u.endsWith('/500-dark/333.png')), true)
+// Every light URL here is a fallback after the aborted dark request, never
+// a first choice — so a light request with no dark request before it for
+// the same team would mean the dark mark was never tried.
+const triedDarkFirst = light.every((u) => dark.includes(u.replace('/ncaa/500/', '/ncaa/500-dark/')))
+check('and every light one is only a fallback from a dark one', triedDarkFirst, true)
 
 const read = () =>
   page.evaluate(() => {
@@ -158,13 +194,7 @@ check('and the reveal button is gone', shown.reveal, false)
 
 // Scrolled to the SEC, which is the conference this fixture gave records
 // to — a screenshot of the empty tables above it shows nothing useful.
-await page.evaluate(() => {
-  const section = [...document.querySelectorAll('.standings__conference')].find((s) =>
-    s.querySelector('.standings__conference-name')?.textContent.includes('SEC'),
-  )
-  section.scrollIntoView({ block: 'start' })
-})
-await page.waitForTimeout(200)
+await scrollToSec()
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/standings-records.png' })
 
 // --- The whole point: a failed request is not a blank tab ----------------

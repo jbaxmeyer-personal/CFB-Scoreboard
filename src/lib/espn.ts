@@ -80,7 +80,14 @@ export async function fetchScoreboard(dateParam: string): Promise<EspnScoreboard
 // has dark elements that disappear on a dark background (many others 404
 // on this path) — e.g. .../teamlogos/ncaa/500/99.png -> .../500-dark/99.png.
 // TeamLogo tries this first and falls back to the regular logo on error.
-function deriveDarkVariant(url: string): string | undefined {
+//
+// Exported because the static team table in src/data/teams.ts builds its
+// own logo URLs and needs the same dark marks. It used to carry only the
+// light one, so every surface fed from that table — the Settings pickers,
+// and then the whole Standings screen — drew the light-background logos on
+// a dark page while the rest of the app drew the dark ones. One derivation,
+// used by both, rather than the "-dark" path written down twice.
+export function deriveDarkVariant(url: string): string | undefined {
   const match = url.match(/^(.*\/ncaa\/)500(\/.*)$/)
   return match ? `${match[1]}500-dark${match[2]}` : undefined
 }
