@@ -57,6 +57,15 @@ const standings = {
 // The AP poll, with the coaches' poll listed FIRST so the screen is proved
 // to pick by name rather than by position.
 const rank = (current, teamId, record) => ({ current, team: { id: teamId }, recordSummary: record })
+// When set, the response also carries the committee's rankings, which take
+// over from the AP poll the Tuesday they are released.
+let cfpReleased = false
+const cfp = {
+  name: 'College Football Playoff Rankings',
+  shortName: 'CFP Rankings',
+  type: 'cfp',
+  ranks: [rank(1, '61', '6-2'), rank(2, '238', '8-0'), rank(3, '333', '7-1')],
+}
 const rankings = {
   rankings: [
     {
@@ -105,7 +114,12 @@ const scoreboard = {
   ],
 }
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] })
+// No executablePath: PLAYWRIGHT_BROWSERS_PATH is set in this environment
+// and Playwright resolves the browser itself. These used to name
+// .../chromium-1194/... directly, which broke the moment the container was
+// rebuilt with 1243 — a pinned build number is a thing that goes stale
+// without anyone touching the tests.
+const browser = await chromium.launch({ args: ['--no-sandbox'] })
 const page = await browser.newPage({ viewport: { width: 402, height: 874 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })
 const errs = []
 page.on('pageerror', (e) => errs.push(e.message))
@@ -137,7 +151,9 @@ await page.route('**/site.api.espn.com/**', (r) => {
     }
     return r.fulfill({ json: standings })
   }
-  if (url.includes('/rankings')) return r.fulfill({ json: rankings })
+  if (url.includes('/rankings')) {
+    return r.fulfill({ json: cfpReleased ? { rankings: [...rankings.rankings, cfp] } : rankings })
+  }
   if (url.includes('/summary?')) return r.fulfill({ json: { header: { competitions: [{ playByPlaySource: 'none' }] }, boxscore: {} } })
   return r.fulfill({ json: scoreboard })
 })
@@ -218,7 +234,10 @@ const read = () =>
   page.evaluate(() => {
     const sections = [...document.querySelectorAll('.standings__conference')]
     const section = sections.find((s) => s.querySelector('.standings__conference-name')?.textContent.trim() === 'SEC')
-    const top = sections.find((s) => /Top 25|Poll/.test(s.querySelector('.standings__conference-name')?.textContent ?? ''))
+    // Found by the class that makes it the poll table, not by its heading:
+    // the heading is whatever the poll is called, and "CFP Rankings" says
+    // neither "Top 25" nor "Poll".
+    const top = sections.find((s) => s.classList.contains('standings__conference--overall-only'))
     const rows = [...section.querySelectorAll('.standings__row')].map((row) => ({
       team: row.querySelector('.standings__team').textContent.trim(),
       records: [...row.querySelectorAll('.standings__record')].map((r) => r.textContent.trim()),
@@ -334,6 +353,28 @@ check('and the reveal button is gone', shown.reveal, false)
 // to — a screenshot of the empty tables above it shows nothing useful.
 await scrollToSec()
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/standings-records.png' })
+
+// --- The CFP rankings take over when they are released ------------------
+// Not on a date: the poll is preferred whenever the payload carries one, so
+// the switch happens by itself every November and reverses by itself when
+// the committee stops publishing.
+cfpReleased = true
+await page.reload({ waitUntil: 'domcontentloaded' })
+await page.waitForSelector('.standings__conference')
+await page.waitForTimeout(1200)
+const committee = await read()
+console.log('   poll:', JSON.stringify({ heading: committee.pollHeading, top: committee.top25.map((r) => r.team) }))
+check('the heading names the committee', committee.pollHeading, 'CFP Rankings')
+check('and the list is theirs, not the AP one', committee.top25.map((r) => [r.position, r.team.split(' ')[0]]), [['1', 'Georgia'], ['2', 'Vanderbilt'], ['3', 'Alabama']])
+// The badges follow the same poll, so a team cannot wear its AP number on
+// one table and its CFP number on another.
+check('the conference badges follow the same poll', committee.badges.sort(), ['1', '2', '3'])
+
+cfpReleased = false
+await page.reload({ waitUntil: 'domcontentloaded' })
+await page.waitForSelector('.standings__conference')
+await page.waitForTimeout(1200)
+check('and without them it is the AP poll again', (await read()).pollHeading, 'AP Top 25')
 
 // --- Tapping a team opens its page --------------------------------------
 // The same screen tapping a team inside an expanded game opens, reached
@@ -543,7 +584,7 @@ const broken = await page.evaluate(() => {
   const sections = [...document.querySelectorAll('.standings__conference')]
   // The poll request still succeeds, so the Top 25 section is still there
   // and still numbered. Only the conference tables lost their records.
-  const tables = sections.filter((s) => !/Top 25|Poll/.test(s.querySelector('.standings__conference-name').textContent))
+  const tables = sections.filter((s) => !s.classList.contains('standings__conference--overall-only'))
   const rows = tables.flatMap((s) => [...s.querySelectorAll('.standings__row')])
   return {
     tables: tables.length,

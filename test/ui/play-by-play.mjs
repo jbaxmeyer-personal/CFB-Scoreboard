@@ -56,7 +56,12 @@ const summary = {
   drives: { previous: [{ team: { id: '142' }, plays }] },
 }
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] })
+// No executablePath: PLAYWRIGHT_BROWSERS_PATH is set in this environment
+// and Playwright resolves the browser itself. These used to name
+// .../chromium-1194/... directly, which broke the moment the container was
+// rebuilt with 1243 — a pinned build number is a thing that goes stale
+// without anyone touching the tests.
+const browser = await chromium.launch({ args: ['--no-sandbox'] })
 const page = await browser.newPage({ viewport: { width: 402, height: 874 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })
 const errs = []
 page.on('pageerror', (e) => errs.push(e.message))

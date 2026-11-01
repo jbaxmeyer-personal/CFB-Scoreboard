@@ -26,7 +26,9 @@ const NO_SPOILERS: SpoilerSettings = { globalEnabled: false, protectedGameIds: [
  * what it asked for rather than showing nothing.
  *
  * Two requests, independent on purpose. Standings fills the record columns;
- * the poll fills the Top 25 section and the rank badges. Either can fail
+ * the poll fills the Top 25 section and the rank badges. Which poll that is
+ * decides itself: the College Football Playoff rankings whenever they
+ * exist, the AP poll until they do — see rankingsFrom. Either can fail
  * without taking the other down — no ranks means no badges and no Top 25
  * section, and the conference tables carry on.
  *
@@ -55,7 +57,13 @@ export function useStandings(reveal = false): StandingsData & { isLoading: boole
   })
 
   const records = useMemo(() => (standings.data ? recordsFromStandings(standings.data) : new Map()), [standings.data])
-  const rankings = useMemo(() => (polls.data ? rankingsFrom(polls.data) : NO_RANKINGS), [polls.data])
+  // The season is passed in so a poll stamped with an older one can be
+  // spotted: a response still carrying last season's final CFP rankings in
+  // September must not outrank this season's live AP poll.
+  const rankings = useMemo(
+    () => (polls.data ? rankingsFrom(polls.data, undefined, year) : NO_RANKINGS),
+    [polls.data, year],
+  )
 
   // Revealing is the whole no-spoilers table, not a row at a time: the
   // button is only offered because you came here to read records.

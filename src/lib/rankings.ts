@@ -81,68 +81,130 @@ function recordFrom(node: Record<string, unknown>): string | undefined {
  * Every node in the tree carrying a `ranks` array, which is what a poll
  * looks like whatever it is nested under.
  */
-function findPolls(payload: unknown): Record<string, unknown>[] {
-  const polls: Record<string, unknown>[] = []
-  const seen = new Set<unknown>()
-  const walk = (node: unknown, depth: number): void => {
-    if (depth > 10 || !isRecord(node) || seen.has(node)) return
-    seen.add(node)
-    if (Array.isArray(node.ranks)) polls.push(node)
-    for (const value of Object.values(node)) {
-      if (Array.isArray(value)) value.forEach((item) => walk(item, depth + 1))
-      else if (isRecord(value)) walk(value, depth + 1)
-    }
-  }
-  walk(payload, 0)
-  return polls
+interface Poll {
+  node: Record<string, unknown>
+  /** The nearest season year at or above this poll in the payload, if it
+   * carries one. Used only to spot a stale poll — see pollOrder. */
+  season?: number
 }
 
 /**
- * The AP poll out of however many the response carries.
- *
- * Matched on the poll's own names rather than on its position in the list,
- * because the order changes through the season — the committee's rankings
- * appear in December and have been first in the list before. A poll naming
- * coaches is explicitly rejected rather than merely not preferred: "USA
- * Today Coaches Poll" would otherwise match nothing and win by being first.
+ * Every node in the tree carrying a `ranks` array, which is what a poll
+ * looks like whatever it is nested under, each with the season it was found
+ * under.
  */
-function pickApPoll(polls: Record<string, unknown>[]): Record<string, unknown> | undefined {
-  const names = (poll: Record<string, unknown>): string =>
-    [text(poll.name), text(poll.shortName), text(poll.type), text(poll.displayName)].join(' ')
-  const ap = polls.find((poll) => {
-    const label = names(poll)
-    return /\bap\b|associated press/.test(label) && !/coach/.test(label)
-  })
-  return ap ?? polls.find((poll) => !/coach/.test(names(poll))) ?? polls[0]
+function findPolls(payload: unknown): Poll[] {
+  const polls: Poll[] = []
+  const seen = new Set<unknown>()
+  const walk = (node: unknown, depth: number, season: number | undefined): void => {
+    if (depth > 10 || !isRecord(node) || seen.has(node)) return
+    seen.add(node)
+    const own = isRecord(node.season) && typeof node.season.year === 'number' ? node.season.year : undefined
+    const inherited = own ?? season
+    if (Array.isArray(node.ranks)) polls.push({ node, season: inherited })
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) value.forEach((item) => walk(item, depth + 1, inherited))
+      else if (isRecord(value)) walk(value, depth + 1, inherited)
+    }
+  }
+  walk(payload, 0, undefined)
+  return polls
+}
+
+function pollNames(poll: Poll): string {
+  const n = poll.node
+  return [text(n.name), text(n.shortName), text(n.type), text(n.displayName)].join(' ')
+}
+
+/**
+ * Which poll this app wants, lower first.
+ *
+ * The College Football Playoff rankings are the ones that matter once they
+ * exist: from the first Tuesday they are released until the field is set,
+ * they are what the season is actually being decided by, and the AP poll
+ * becomes a sidebar. Before that they do not exist at all, so the AP poll
+ * is the Top 25.
+ *
+ * Expressed as "prefer the CFP poll whenever there is one" rather than as a
+ * date, deliberately. A date would need editing every November — and it is
+ * the kind of edit nobody remembers until the wrong list has been on screen
+ * for a week. Asking the payload what it has makes the switch happen by
+ * itself, every season, in both directions: the CFP rankings appear in
+ * November and this follows them, they stop being published after the
+ * field is set and this falls back on its own.
+ *
+ * The coaches' poll is last rather than excluded: if it were somehow the
+ * only poll in the response, showing it correctly labelled beats showing
+ * nothing.
+ */
+function pollOrder(poll: Poll, currentSeason: number | undefined): number {
+  const label = pollNames(poll)
+  // A poll stamped with an older season is last whatever it is called. In
+  // September, a response still carrying last season's final CFP rankings
+  // would otherwise outrank this season's live AP poll — the exact failure
+  // "use the CFP rankings when they come out" turns into next year if it is
+  // written as "prefer the CFP rankings" and nothing checks when they are
+  // from.
+  const stale = currentSeason !== undefined && poll.season !== undefined && poll.season < currentSeason ? 10 : 0
+  if (/college football playoff|\bcfp\b/.test(label)) return stale + 0
+  if (/\bap\b|associated press/.test(label) && !/coach/.test(label)) return stale + 1
+  if (/coach/.test(label)) return stale + 3
+  return stale + 2
 }
 
 function pollLabel(poll: Record<string, unknown> | undefined): string {
   const name = typeof poll?.name === 'string' ? poll.name : undefined
   const short = typeof poll?.shortName === 'string' ? poll.shortName : undefined
   // Whichever already says "Top 25" is the heading, as-is. Otherwise the
-  // feed's own name, unchanged — appending "Top 25" to something like "USA
-  // Today Coaches Poll" reads worse than the name on its own, and inventing
-  // a caption for a poll we didn't recognize is how a list ends up labelled
-  // as something it isn't.
+  // feed's short name, which is what fits a column header — "CFP Rankings"
+  // rather than "College Football Playoff Rankings". Never a caption of our
+  // own: inventing one is how a list ends up labelled as something it is
+  // not, and the heading is the only thing telling you which poll you are
+  // reading.
   for (const candidate of [name, short]) {
     if (candidate && /top\s*25/i.test(candidate)) return candidate
   }
-  return name ?? short ?? 'Top 25'
+  return short ?? name ?? 'Top 25'
 }
 
-export function rankingsFrom(payload: unknown, known: Set<string> = new Set(ALL_TEAMS.map((t) => t.id))): Rankings {
-  const poll = pickApPoll(findPolls(payload))
+function entriesOf(poll: Poll, known: Set<string>): Map<string, TeamRanking> {
   const byTeamId = new Map<string, TeamRanking>()
-  if (!poll) return NO_RANKINGS
-
-  for (const entry of poll.ranks as unknown[]) {
+  for (const entry of poll.node.ranks as unknown[]) {
     if (!isRecord(entry)) continue
     const teamId = teamIdFrom(entry, known)
     const rank = rankFrom(entry)
     if (!teamId || rank === undefined || byTeamId.has(teamId)) continue
     byTeamId.set(teamId, { rank, record: recordFrom(entry) })
   }
-  return byTeamId.size === 0 ? NO_RANKINGS : { byTeamId, pollName: pollLabel(poll) }
+  return byTeamId
+}
+
+/**
+ * The poll to show, and its teams.
+ *
+ * Polls are tried in preference order and the first one that actually
+ * yields teams wins. That last part matters on the Tuesday the CFP
+ * rankings are released: ESPN can carry the poll with an empty `ranks`
+ * array before the show airs, and preferring it on name alone would empty
+ * the Top 25 section for the day rather than leaving the AP poll up until
+ * the real thing lands.
+ */
+export function rankingsFrom(
+  payload: unknown,
+  known: Set<string> = new Set(ALL_TEAMS.map((t) => t.id)),
+  currentSeason?: number,
+): Rankings {
+  const polls = findPolls(payload)
+    .map((poll, index) => ({ poll, order: pollOrder(poll, currentSeason), index }))
+    // `index` keeps it stable, so two polls we rank equally stay in the
+    // order ESPN listed them.
+    .sort((a, b) => a.order - b.order || a.index - b.index)
+
+  for (const { poll } of polls) {
+    const byTeamId = entriesOf(poll, known)
+    if (byTeamId.size > 0) return { byTeamId, pollName: pollLabel(poll.node) }
+  }
+  return NO_RANKINGS
 }
 
 export async function fetchRankings(): Promise<unknown> {
