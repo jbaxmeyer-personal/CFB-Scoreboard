@@ -15,6 +15,7 @@ import type {
   EspnLeaderCategory,
   EspnLogo,
   EspnPlay,
+  EspnRecord,
   EspnScoreboardResponse,
   EspnSummaryLeadersEntry,
   EspnSummaryResponse,
@@ -156,8 +157,7 @@ function toTeam(competitor: EspnCompetitor): Team {
   const { team, curatedRank, leaders } = competitor
   const rank = curatedRank?.current
   // Both keys ESPN uses for the same array — see EspnCompetitor.record.
-  const records = competitor.records ?? competitor.record
-  const overallRecord = records?.find((r) => r.type === 'total' || r.name === 'overall')?.summary ?? records?.[0]?.summary
+  const overallRecord = overallRecordFrom(competitor.records ?? competitor.record)
   return {
     id: team.id,
     name: team.displayName,
@@ -186,6 +186,40 @@ function parseScore(score: EspnCompetitor['score']): number | undefined {
   if (raw === undefined || raw === '') return undefined
   const parsed = Number(raw)
   return Number.isFinite(parsed) ? parsed : undefined
+}
+
+/** A record entry's value, from either spelling. The scoreboard sends
+ * `summary`, the team-schedule endpoint sends `displayValue`, and reading
+ * only the first is why a team's schedule showed no opponent records. */
+function recordValue(entry: EspnRecord): string | undefined {
+  for (const value of [entry.summary, entry.displayValue]) {
+    if (typeof value === 'string' && /^\d{1,3}-\d{1,3}(-\d{1,3})?$/.test(value.trim())) return value.trim()
+  }
+  return undefined
+}
+
+/** Keys naming a *split* rather than a season: a home record is not "the
+ * record", and showing one as though it were is the mistake this list
+ * exists to prevent. */
+const SPLIT_RECORD_KEYS = /^(home|road|away|neutral|vs ?conf|conference|division|vs ?div|last ?ten|streak)/i
+
+/**
+ * A team's overall record out of ESPN's record array.
+ *
+ * Picked by name where there is one, and only then by position — and a
+ * split is never taken as the overall record even when it is the only
+ * entry present. An entry whose value isn't won-lost shaped is skipped, so
+ * a "Streak" or "Points For" row can't end up rendered as a record.
+ */
+export function overallRecordFrom(records: EspnRecord[] | undefined): string | undefined {
+  if (!records || records.length === 0) return undefined
+  const named = records.find(
+    (r) => r.type === 'total' || r.type === 'overall' || r.name === 'overall' || r.name === 'total',
+  )
+  const fromNamed = named ? recordValue(named) : undefined
+  if (fromNamed) return fromNamed
+  const unsplit = records.find((r) => !SPLIT_RECORD_KEYS.test(r.type ?? r.name ?? '') && recordValue(r) !== undefined)
+  return unsplit ? recordValue(unsplit) : undefined
 }
 
 function toGameState(state: string): GameState {
@@ -1851,6 +1885,43 @@ export async function fetchTeamSchedule(teamId: string, year: number): Promise<E
   const res = await fetch(`${TEAMS_URL}/${teamId}/schedule?season=${year}`, { signal: timeoutSignal() })
   if (!res.ok) throw new Error(`ESPN team schedule request failed: ${res.status}`)
   return res.json() as Promise<EspnTeamScheduleResponse>
+}
+
+/**
+ * The team's own current record, from the team object the schedule
+ * endpoint returns alongside the events.
+ *
+ * Preferred over the record carried by whatever opened the page. A team
+ * reached from a game in October carries its record *as of that game*, so
+ * Nebraska's page opened from their Indiana game would read 5-1 in
+ * November. This is the team's record now, which is what a page about the
+ * team should say.
+ */
+export function teamRecordFromSchedule(response: EspnTeamScheduleResponse | undefined): string | undefined {
+  return overallRecordFrom(response?.team?.record?.items)
+}
+
+/**
+ * Which record fields ESPN actually sent on a schedule's competitors.
+ *
+ * Shown on the page only when no opponent has a readable record, for the
+ * same reason the standings screen names its stats: the payload cannot be
+ * opened from the build environment, so without this a missing column is
+ * another round of guessing. One competitor's entries are enough to
+ * identify the shape.
+ */
+export function describeScheduleRecords(response: EspnTeamScheduleResponse | undefined): string {
+  for (const event of response?.events ?? []) {
+    for (const competitor of event.competitions?.[0]?.competitors ?? []) {
+      const entries = competitor.records ?? competitor.record
+      if (!entries || entries.length === 0) continue
+      return entries
+        .slice(0, 6)
+        .map((e) => `${e.type ?? e.name ?? '?'}=${e.summary ?? e.displayValue ?? '?'}`)
+        .join(', ')
+    }
+  }
+  return ''
 }
 
 export function normalizeTeamSchedule(response: EspnTeamScheduleResponse | undefined): Game[] {

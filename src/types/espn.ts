@@ -24,6 +24,9 @@ export interface EspnTeam {
   // endpoints (e.g. /teams/{id}) and occasionally here too — handle both.
   logo?: string
   logos?: EspnLogo[]
+  /** Present on the team-schedule endpoint's own `team` object, where it is
+   * the team's current record rather than its record as of some game. */
+  record?: { items?: EspnRecord[] }
 }
 
 export interface EspnCurrentRank {
@@ -33,7 +36,15 @@ export interface EspnCurrentRank {
 export interface EspnRecord {
   name?: string
   type?: string
-  summary: string
+  /** The scoreboard spells the record `summary`; the team-schedule endpoint
+   * spells the same thing `displayValue`. Both optional, because an entry
+   * carrying neither is one this app can't read — see overallRecordFrom.
+   *
+   * This is the third ESPN field to come in two spellings (scores, the
+   * `record`/`records` key, now this), and reading only the first is what
+   * left a team's schedule with no opponent records on it. */
+  summary?: string
+  displayValue?: string
 }
 
 export interface EspnLeaderAthlete {

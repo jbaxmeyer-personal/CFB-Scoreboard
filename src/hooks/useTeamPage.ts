@@ -8,6 +8,8 @@ import {
   fetchTeamSeasonStats,
   normalizeTeamProfile,
   normalizeTeamSchedule,
+  teamRecordFromSchedule,
+  describeScheduleRecords,
 } from '../lib/espn'
 import type { TeamProfileStat } from '../lib/espn'
 import type { Game } from '../types/game'
@@ -26,6 +28,13 @@ export interface TeamPageResult {
   /** False for an FCS team, where ranks are deliberately withheld rather
    * than missing — the UI shouldn't then report a rank source. */
   ranksApply: boolean
+  /** The team's record now, from its own schedule response — not the one
+   * carried by whatever opened the page, which on a game in October is the
+   * record as of that game. */
+  record?: string
+  /** Set only when the schedule arrived with no readable opponent record
+   * on it, and then names the fields ESPN did send. */
+  recordFieldsSeen?: string
 }
 
 /** Everything a team's page needs: its season profile and its full
@@ -73,8 +82,11 @@ export function useTeamPage(teamId: string, year: number): TeamPageResult {
   const coreRanks = coreRankMap(coreQuery.data)
   const stats = statsQuery.data ? normalizeTeamProfile(statsQuery.data, year, coreRanks, ranksApply) : []
   const schedule = normalizeTeamSchedule(scheduleQuery.data)
+  const noOpponentRecords = schedule.length > 0 && !schedule.some((g) => g.home.record || g.away.record)
 
   return {
+    record: teamRecordFromSchedule(scheduleQuery.data),
+    recordFieldsSeen: noOpponentRecords ? describeScheduleRecords(scheduleQuery.data) : undefined,
     stats,
     schedule,
     statsLoading: statsQuery.isLoading,
