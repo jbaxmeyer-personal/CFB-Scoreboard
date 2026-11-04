@@ -37,10 +37,10 @@ export interface TeamPageResult {
   /** Set only when the schedule arrived with no readable opponent record
    * on it, and then names the fields ESPN did send. */
   recordFieldsSeen?: string
-  /** Every team's record now, keyed by team id. The schedule's own records
-   * are the opponent's record *as of that game*, which does not exist for
-   * a game that has not been played — so the rows for those fill in from
-   * here. */
+  /** Every team's record now, keyed by team id, and the only source the
+   * schedule rows use. The records on the schedule payload itself are each
+   * opponent's record *as of that game*, which looks like a current record
+   * and is not one. */
   currentRecords: Map<string, TeamRecord>
 }
 
@@ -84,7 +84,9 @@ export function useTeamPage(teamId: string, year: number): TeamPageResult {
 
   // The same query key the Standings screen uses, so this is free for
   // anyone who has opened that tab and costs one shared request for anyone
-  // who hasn't. A failure here only leaves the unplayed rows as they were.
+  // who hasn't. This is now what fills the schedule's record column, so a
+  // failure here empties it — deliberately: a stale record that reads as a
+  // current one is worse than no record.
   const standingsQuery = useQuery({
     queryKey: ['standings', year],
     queryFn: () => fetchStandings(year),
