@@ -135,7 +135,8 @@ interface TeamPageProps {
 
 export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   const { settings } = useSettings()
-  const { stats, schedule, statsLoading, scheduleLoading, statsError, scheduleError, rankSource, ranksApply } = useTeamPage(team.id, year)
+  const { stats, schedule, statsLoading, scheduleLoading, statsError, scheduleError, rankSource, ranksApply, record, recordFieldsSeen } =
+    useTeamPage(team.id, year)
   // Defensive ranks come from the site payload and always resolve, so "any
   // rank at all" would never flag an empty offense column. The core source
   // is what fills the non-defensive rows, so that's what this reports on.
@@ -159,6 +160,7 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   // behind it.
   const hidesResults = safeSchedule.some((entry) => entry.isProtected && entry.rawGame.state !== 'pre')
   const showResults = resultsRevealed || !hidesResults
+  const headerRecord = showResults ? (record ?? team.record) : undefined
 
   // Defence is not in the season stats response — see seasonDefenseRows. It
   // is added up from the other side of this team's own box scores, which
@@ -187,7 +189,16 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
         <TeamLogo team={team} size={56} rank={team.rank} />
         <div className="team-page__identity">
           <h2 className="team-page__name">{team.name}</h2>
-          {team.record && <span className="team-page__record ticker">{team.record}</span>}
+          {/* The record this page fetched for itself, ahead of the one
+              carried by whatever opened the page: a team reached from a
+              game in October carries its record *as of that game*, so
+              Nebraska opened from their Indiana game read 5-1 in November.
+
+              Withheld while the schedule below is, and for the same
+              reason — a record counts the games already played, so printing
+              8-1 above a list of locked results gives them away. The one
+              reveal covers both. */}
+          {headerRecord && <span className="team-page__record ticker">{headerRecord}</span>}
         </div>
       </div>
 
@@ -202,6 +213,15 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
           )}
         </div>
         {scheduleLoading && <LoadingState label="Loading schedule…" />}
+        {/* Only when the schedule came back with no readable record on any
+            opponent: then it names what ESPN did send, so a missing column
+            reports itself instead of being guessed at — the same thing the
+            standings screen does with its stats. */}
+        {recordFieldsSeen && (
+          <p className="team-page__hint team-page__hint--records">
+            No opponent records in ESPN&rsquo;s response. It sent: {recordFieldsSeen}.
+          </p>
+        )}
         {!scheduleLoading && safeSchedule.length === 0 && (
           <p className="team-page__hint">{scheduleError ? 'Couldn’t load the schedule.' : 'No schedule posted yet.'}</p>
         )}
