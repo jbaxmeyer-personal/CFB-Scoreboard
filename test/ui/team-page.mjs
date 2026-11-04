@@ -167,11 +167,21 @@ check('the team page opened', iu.name, 'IU Full Name')
 // The second reported bug: this header was blank.
 check('its own record is in the header', iu.record, '8-1')
 // The first: every opponent row was bare.
-// NEB 5-1 is their record as of that October game, from the schedule
-// payload. PUR 4-5 is their record now, filled in because the game has
-// not been played and ESPN sent nothing for it.
-check('every opponent carries a record', iu.rows.map((r) => [r.opponent, r.record]), [['NEB', '5-1'], ['PUR', '4-5']])
+// Both current: Nebraska 5-4, not the 5-1 the October game's payload
+// carries, and Purdue 4-5 on a game not yet played. The schedule's own
+// records are each opponent's record as of that game — never shown.
+check('every opponent carries its record now', iu.rows.map((r) => [r.opponent, r.record]), [['NEB', '5-4'], ['PUR', '4-5']])
 check('and nothing reports a missing column', iu.hint, [])
+// The precise thing that was wrong: the schedule payload says Nebraska
+// were 5-1 at the time of that game, and that number must not be on this
+// screen at all.
+const asOf = await page.evaluate(() => {
+  const section = [...document.querySelectorAll('.team-page__section')].find((s) =>
+    s.querySelector('.team-page__title')?.textContent.includes('Schedule'),
+  )
+  return [...section.querySelectorAll('.team-page__game-record')].map((r) => r.textContent.trim())
+})
+check('no row shows the record as of its game', asOf.includes('5-1'), false)
 
 // Tap the played game on the schedule, then the other team in it — the
 // second path from the report, which arrived at a page with no record.
@@ -213,7 +223,7 @@ await page.evaluate(() => document.querySelector('.team-page__reveal').click())
 await page.waitForTimeout(400)
 const revealed = await readTeamPage()
 check('revealing shows the record', revealed.record, '8-1')
-check('and the opponents with it', revealed.rows.map((r) => r.record), ['5-1', '4-5'])
+check('and the opponents with it', revealed.rows.map((r) => r.record), ['5-4', '4-5'])
 
 // --- A protected opponent on an unprotected team's page -----------------
 // The row-level guard covers a protected team's *played* games, because
@@ -234,7 +244,7 @@ await openTeam('IU')
 const mixed = await readTeamPage()
 console.log('   Indiana, Purdue protected:', JSON.stringify(mixed.rows))
 check('the page itself hides nothing', mixed.record, '8-1')
-check('a played opponent still shows its record', mixed.rows[0].record, '5-1')
+check('a played opponent still shows its record', mixed.rows[0].record, '5-4')
 check('but a protected opponent does not', mixed.rows[1].record, null)
 
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/team-page.png' })

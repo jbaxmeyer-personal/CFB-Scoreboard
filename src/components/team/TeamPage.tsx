@@ -74,9 +74,8 @@ function ScheduleRow({
    * for a game that finished weeks ago. Saying a game has been played gives
    * away no score — the date already says that much. */
   hasResult: boolean
-  /** The opponent's record now, for a game ESPN sent none for. Already
-   * spoiler-checked by the caller, so a protected opponent returns
-   * nothing. */
+  /** The opponent's record now. Already spoiler-checked by the caller, so
+   * a protected opponent returns nothing. */
   recordFor: (teamId: string) => string | undefined
   onSelect?: () => void
 }) {
@@ -94,17 +93,17 @@ function ScheduleRow({
       <span className="team-page__game-side">{isHome ? 'vs' : '@'}</span>
       <TeamLogo team={opponent} size={22} rank={opponent.rank} />
       <span className="team-page__game-opponent">{opponent.shortName}</span>
-      {/* The record ESPN sends on a played game is the opponent's record
-          *as of that game*, which is the useful thing to see beside a
-          result — and which does not exist for a game still to come, so
-          those rows had nothing at all. Those fall back to the opponent's
-          record now.
+      {/* The opponent's record NOW, on every row — never the one ESPN puts
+          on the row, which is their record *as of that game* and reads as
+          a current record while being months out of date. A schedule is
+          read to see who a team still has to play and how good those teams
+          are, and "Georgia 6-0" beside a game in October answers neither.
 
-          Withheld on a protected row either way: a record counts the games
-          already played, so showing one gives away the result the rest of
-          the row is hiding. */}
-      {!isProtected && (opponent.record ?? recordFor(opponent.id)) && (
-        <span className="team-page__game-record ticker">{opponent.record ?? recordFor(opponent.id)}</span>
+          Withheld on a protected row: a record counts the games already
+          played, so showing one gives away the result the rest of the row
+          is hiding. */}
+      {!isProtected && recordFor(opponent.id) && (
+        <span className="team-page__game-record ticker">{recordFor(opponent.id)}</span>
       )}
       <span className={`team-page__game-outcome ticker${result ? ` team-page__game-outcome--${result.toLowerCase()}` : ''}`}>
         {result ? (
@@ -175,14 +174,14 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   const headerRecord = showResults ? (record ?? team.record) : undefined
 
   /**
-   * The opponent's record now, for rows ESPN sent none for.
+   * The opponent's record now, for every row.
    *
    * Guarded on the opponent's *own* protection rather than on this page's
    * reveal. The row-level guard covers a protected team's played games,
    * because those are what make the page hide its results — but a future
    * game against a protected opponent, on an unprotected team's page,
-   * hides nothing. Until now that leaked nothing either, since ESPN sent
-   * no record for it; filling the gap is what would have made it a leak.
+   * hides nothing, and this is the only thing standing between that and a
+   * leak.
    */
   const recordFor = (teamId: string): string | undefined =>
     hidesTeamSeason(teamId, settings.spoilers) ? undefined : currentRecords.get(teamId)?.overall
