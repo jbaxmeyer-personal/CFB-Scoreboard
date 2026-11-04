@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { fetchStandings, recordsFromStandings, type TeamRecord } from '../lib/standings'
 import {
   coreRankMap,
   describeRankSource,
@@ -35,6 +37,11 @@ export interface TeamPageResult {
   /** Set only when the schedule arrived with no readable opponent record
    * on it, and then names the fields ESPN did send. */
   recordFieldsSeen?: string
+  /** Every team's record now, keyed by team id. The schedule's own records
+   * are the opponent's record *as of that game*, which does not exist for
+   * a game that has not been played — so the rows for those fill in from
+   * here. */
+  currentRecords: Map<string, TeamRecord>
 }
 
 /** Everything a team's page needs: its season profile and its full
@@ -75,6 +82,16 @@ export function useTeamPage(teamId: string, year: number): TeamPageResult {
     staleTime: 60 * 60_000,
   })
 
+  // The same query key the Standings screen uses, so this is free for
+  // anyone who has opened that tab and costs one shared request for anyone
+  // who hasn't. A failure here only leaves the unplayed rows as they were.
+  const standingsQuery = useQuery({
+    queryKey: ['standings', year],
+    queryFn: () => fetchStandings(year),
+    staleTime: 60 * 60_000,
+    retry: 1,
+  })
+
   // Only withhold ranks when membership is actually known and excludes this
   // team. If the lookup fails we can't tell, and hiding real FBS ranks on a
   // network hiccup is worse than the alternative.
@@ -82,9 +99,14 @@ export function useTeamPage(teamId: string, year: number): TeamPageResult {
   const coreRanks = coreRankMap(coreQuery.data)
   const stats = statsQuery.data ? normalizeTeamProfile(statsQuery.data, year, coreRanks, ranksApply) : []
   const schedule = normalizeTeamSchedule(scheduleQuery.data)
+  const currentRecords = useMemo(
+    () => (standingsQuery.data ? recordsFromStandings(standingsQuery.data) : new Map<string, TeamRecord>()),
+    [standingsQuery.data],
+  )
   const noOpponentRecords = schedule.length > 0 && !schedule.some((g) => g.home.record || g.away.record)
 
   return {
+    currentRecords,
     record: teamRecordFromSchedule(scheduleQuery.data),
     recordFieldsSeen: noOpponentRecords ? describeScheduleRecords(scheduleQuery.data) : undefined,
     stats,

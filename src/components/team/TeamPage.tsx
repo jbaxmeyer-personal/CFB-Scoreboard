@@ -11,6 +11,7 @@ import { PlayerCategory } from '../scoreboard/GameStats'
 import { useSeasonPlayerStats } from '../../hooks/useSeasonPlayerStats'
 import { useSeasonDefense } from '../../hooks/useSeasonDefense'
 import { LockIcon } from '../shared/icons'
+import { hidesTeamSeason } from '../../lib/spoilers'
 import { useMemo, useState } from 'react'
 
 const SECTION_LABEL: Record<TeamProfileSection, string> = {
@@ -60,6 +61,7 @@ function ScheduleRow({
   zoneId,
   isProtected,
   hasResult,
+  recordFor,
   onSelect,
 }: {
   game: Game
@@ -72,6 +74,10 @@ function ScheduleRow({
    * for a game that finished weeks ago. Saying a game has been played gives
    * away no score — the date already says that much. */
   hasResult: boolean
+  /** The opponent's record now, for a game ESPN sent none for. Already
+   * spoiler-checked by the caller, so a protected opponent returns
+   * nothing. */
+  recordFor: (teamId: string) => string | undefined
   onSelect?: () => void
 }) {
   const isHome = game.home.id === teamId
@@ -88,11 +94,17 @@ function ScheduleRow({
       <span className="team-page__game-side">{isHome ? 'vs' : '@'}</span>
       <TeamLogo team={opponent} size={22} rank={opponent.rank} />
       <span className="team-page__game-opponent">{opponent.shortName}</span>
-      {/* Withheld on a protected row: the record ESPN sends alongside a
-          played game already counts that game, so showing it would give
-          away the result the rest of the row is hiding. */}
-      {!isProtected && opponent.record && (
-        <span className="team-page__game-record ticker">{opponent.record}</span>
+      {/* The record ESPN sends on a played game is the opponent's record
+          *as of that game*, which is the useful thing to see beside a
+          result — and which does not exist for a game still to come, so
+          those rows had nothing at all. Those fall back to the opponent's
+          record now.
+
+          Withheld on a protected row either way: a record counts the games
+          already played, so showing one gives away the result the rest of
+          the row is hiding. */}
+      {!isProtected && (opponent.record ?? recordFor(opponent.id)) && (
+        <span className="team-page__game-record ticker">{opponent.record ?? recordFor(opponent.id)}</span>
       )}
       <span className={`team-page__game-outcome ticker${result ? ` team-page__game-outcome--${result.toLowerCase()}` : ''}`}>
         {result ? (
@@ -135,7 +147,7 @@ interface TeamPageProps {
 
 export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   const { settings } = useSettings()
-  const { stats, schedule, statsLoading, scheduleLoading, statsError, scheduleError, rankSource, ranksApply, record, recordFieldsSeen } =
+  const { stats, schedule, statsLoading, scheduleLoading, statsError, scheduleError, rankSource, ranksApply, record, recordFieldsSeen, currentRecords } =
     useTeamPage(team.id, year)
   // Defensive ranks come from the site payload and always resolve, so "any
   // rank at all" would never flag an empty offense column. The core source
@@ -161,6 +173,19 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   const hidesResults = safeSchedule.some((entry) => entry.isProtected && entry.rawGame.state !== 'pre')
   const showResults = resultsRevealed || !hidesResults
   const headerRecord = showResults ? (record ?? team.record) : undefined
+
+  /**
+   * The opponent's record now, for rows ESPN sent none for.
+   *
+   * Guarded on the opponent's *own* protection rather than on this page's
+   * reveal. The row-level guard covers a protected team's played games,
+   * because those are what make the page hide its results — but a future
+   * game against a protected opponent, on an unprotected team's page,
+   * hides nothing. Until now that leaked nothing either, since ESPN sent
+   * no record for it; filling the gap is what would have made it a leak.
+   */
+  const recordFor = (teamId: string): string | undefined =>
+    hidesTeamSeason(teamId, settings.spoilers) ? undefined : currentRecords.get(teamId)?.overall
 
   // Defence is not in the season stats response — see seasonDefenseRows. It
   // is added up from the other side of this team's own box scores, which
@@ -236,6 +261,7 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
               zoneId={settings.timezoneId}
               isProtected={isProtected && !showResults}
               hasResult={rawGame.state !== 'pre'}
+              recordFor={recordFor}
               // The raw game, so the panel it opens in sanitizes it the
               // same way it does one opened from the grid — passing the
               // already-sanitized view would strip the score for good.

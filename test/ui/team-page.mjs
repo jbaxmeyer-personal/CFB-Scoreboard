@@ -41,6 +41,19 @@ const game = (id, home, away, hs, as, hr, ar, date, status = final) => ({
   }],
 })
 
+/** A game not yet played: no scores, and no `record` on either side —
+ * the shape ESPN actually sends, and the one that left those rows bare. */
+const upcoming = (id, home, away, date) => ({
+  id, date, name: 'x', shortName: `${away} @ ${home}`, status: scheduled,
+  competitions: [{
+    id, date, status: scheduled, venue: { fullName: 'Stadium' }, broadcasts: [{ names: ['Fox'] }],
+    competitors: [
+      { id: `${id}h`, homeAway: 'home', team: team(home) },
+      { id: `${id}a`, homeAway: 'away', team: team(away) },
+    ],
+  }],
+})
+
 const schedules = {
   // Indiana: a played game at Nebraska, and an upcoming one against Purdue.
   84: {
@@ -48,7 +61,9 @@ const schedules = {
     requestedSeason: { year: 2026, type: 2 },
     events: [
       game('g1', 'NEB', 'IU', 17, 20, '5-1', '6-0', `${iso(-20)}T19:00Z`),
-      game('g2', 'IU', 'PUR', 0, 0, '8-1', '4-5', `${iso(14)}T19:00Z`, scheduled),
+      // No records on this one: ESPN sends none for a game still to come,
+      // which is exactly the row that came up blank on a phone.
+      upcoming('g2', 'IU', 'PUR', `${iso(14)}T19:00Z`),
     ],
   },
   // Nebraska, reached by tapping their side of that game.
@@ -57,6 +72,26 @@ const schedules = {
     requestedSeason: { year: 2026, type: 2 },
     events: [game('g1', 'NEB', 'IU', 17, 20, '5-1', '6-0', `${iso(-20)}T19:00Z`)],
   },
+}
+
+// Current records for every team, the way the Standings screen reads them.
+// ESPN sends no record on a schedule row for a game not yet played, so this
+// is where those rows get one.
+const standings = {
+  children: [
+    {
+      id: '5',
+      name: 'Big Ten',
+      standings: {
+        entries: [
+          { team: { id: IDS.IU }, stats: [{ name: 'overall', displayValue: '8-1' }] },
+          { team: { id: IDS.NEB }, stats: [{ name: 'overall', displayValue: '5-4' }] },
+          // Purdue's game against Indiana has not been played.
+          { team: { id: IDS.PUR }, stats: [{ name: 'overall', displayValue: '4-5' }] },
+        ],
+      },
+    },
+  ],
 }
 
 const scoreboard = {
@@ -77,7 +112,8 @@ await page.route('**/site.api.espn.com/**', (r) => {
   if (schedule) return r.fulfill({ json: schedules[schedule[1]] ?? { events: [] } })
   if (url.includes('/statistics')) return r.fulfill({ json: { requestedSeason: { year: 2026, type: 2 }, results: { stats: { categories: [] } } } })
   if (url.includes('/summary?')) return r.fulfill({ json: { header: { competitions: [{ playByPlaySource: 'none' }] }, boxscore: {} } })
-  if (url.includes('/standings') || url.includes('/rankings')) return r.fulfill({ json: {} })
+  if (url.includes('/standings')) return r.fulfill({ json: standings })
+  if (url.includes('/rankings')) return r.fulfill({ json: {} })
   return r.fulfill({ json: scoreboard })
 })
 await page.route('**/sports.core.api.espn.com/**', (r) => r.fulfill({ json: { items: [] } }))
@@ -131,6 +167,9 @@ check('the team page opened', iu.name, 'IU Full Name')
 // The second reported bug: this header was blank.
 check('its own record is in the header', iu.record, '8-1')
 // The first: every opponent row was bare.
+// NEB 5-1 is their record as of that October game, from the schedule
+// payload. PUR 4-5 is their record now, filled in because the game has
+// not been played and ESPN sent nothing for it.
 check('every opponent carries a record', iu.rows.map((r) => [r.opponent, r.record]), [['NEB', '5-1'], ['PUR', '4-5']])
 check('and nothing reports a missing column', iu.hint, [])
 
@@ -175,6 +214,28 @@ await page.waitForTimeout(400)
 const revealed = await readTeamPage()
 check('revealing shows the record', revealed.record, '8-1')
 check('and the opponents with it', revealed.rows.map((r) => r.record), ['5-1', '4-5'])
+
+// --- A protected opponent on an unprotected team's page -----------------
+// The row-level guard covers a protected team's *played* games, because
+// those are what make a page hide its results. A future game against a
+// protected opponent hides nothing — and until these rows were filled in
+// it leaked nothing either, because ESPN sent no record for them. Filling
+// the gap is what would have turned it into a leak.
+await page.evaluate(() =>
+  localStorage.setItem(
+    'slate.settings.v1',
+    JSON.stringify({ spoilers: { globalEnabled: false, protectedGameIds: [], protectedTeamIds: ['2509'] } }),
+  ),
+)
+await page.reload({ waitUntil: 'domcontentloaded' })
+await page.waitForSelector('.game-detail-panel')
+await page.waitForTimeout(900)
+await openTeam('IU')
+const mixed = await readTeamPage()
+console.log('   Indiana, Purdue protected:', JSON.stringify(mixed.rows))
+check('the page itself hides nothing', mixed.record, '8-1')
+check('a played opponent still shows its record', mixed.rows[0].record, '5-1')
+check('but a protected opponent does not', mixed.rows[1].record, null)
 
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/team-page.png' })
 if (errs.length) { fails += 1; console.log('PAGE ERRORS:', errs) }
