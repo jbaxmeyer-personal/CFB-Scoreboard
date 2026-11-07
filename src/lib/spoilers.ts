@@ -29,8 +29,18 @@ const SHOW_LIVE_BADGE_FOR_PROTECTED_GAMES = true
  * state hasn't been released yet — different reasons, but the same set of
  * fields has to go, so they use one implementation rather than two that can
  * drift apart.
+ *
+ * Both records go, on every protected game, whichever team is the reason
+ * it is protected. This was briefly cleverer than that: on a game not yet
+ * played only the protected team's record was withheld, on the argument
+ * that protecting Notre Dame is not a request to hide Miami's season. The
+ * argument is wrong twice over. A card reading "MIA 8-0" beside a blank
+ * says plainly which team you are protecting, which is a thing about you
+ * on screen for anyone looking over your shoulder; and a half-filled row
+ * reads as a bug, not as a choice. One record on a protected card is
+ * worth less than none.
  */
-export function stripLiveState(game: Game, spoilers?: SpoilerSettings): Game {
+export function stripLiveState(game: Game): Game {
   const isLive = game.state === 'in' && SHOW_LIVE_BADGE_FOR_PROTECTED_GAMES
 
   return {
@@ -46,34 +56,10 @@ export function stripLiveState(game: Game, spoilers?: SpoilerSettings): Game {
     clock: undefined,
     possession: undefined,
     situation: undefined,
-    home: hidesRecord(game.home, game, spoilers) ? withoutRecord(game.home) : game.home,
-    away: hidesRecord(game.away, game, spoilers) ? withoutRecord(game.away) : game.away,
+    // Both records, always. A protected game shows no records at all.
+    home: withoutRecord(game.home),
+    away: withoutRecord(game.away),
   }
-}
-
-/**
- * Whether this team's record has to be withheld on this game.
- *
- * A record is a running tally of results, so it leaks in two ways.
- *
- * Once *this* game has kicked off, it is counted in both teams' records —
- * "5-0" beside "2-2" names the winner as plainly as the scoreline does.
- * Both sides lose it, whatever the reason for hiding the game.
- *
- * The subtler one, which the first version of this missed: a protected
- * team's record counts the games they have already played, so it leaks
- * *those* results on every later fixture too. Notre Dame protected and
- * 5-0 on next week's card says they won today. So a team on the protected
- * list never shows a record, on any game, including one that has not
- * kicked off.
- *
- * The other side of such a fixture keeps theirs. Protecting Notre Dame is
- * not a request to hide Purdue's season.
- */
-function hidesRecord(team: Game['home'], game: Game, spoilers?: SpoilerSettings): boolean {
-  if (game.state !== 'pre') return true
-  if (!spoilers) return false
-  return hidesTeamSeason(team.id, spoilers)
 }
 
 /**
@@ -104,5 +90,5 @@ function withoutRecord(team: Game['home']): Game['home'] {
  * has no path to leak out.
  */
 export function toSafeView(game: Game, spoilers: SpoilerSettings): Game {
-  return isGameProtected(game, spoilers) ? stripLiveState(game, spoilers) : game
+  return isGameProtected(game, spoilers) ? stripLiveState(game) : game
 }
