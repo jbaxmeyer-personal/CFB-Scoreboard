@@ -57,6 +57,10 @@ const scoreboard = {
     // The reported card: an undefeated opponent, a protected team, and a
     // kickoff still to come.
     ev('mia', 'ND', 'MIA', 0, 0, '11-1', '8-0', `${iso(7)}T23:30Z`, scheduled),
+    // An unprotected upcoming game beside them, with records on both
+    // sides. Without one, a sweep for record-shaped text finds nothing on
+    // this tab and passes whether or not it works.
+    ev('open', 'MSST', 'ALA', 0, 0, '1-4', '5-0', `${iso(7)}T20:00Z`, scheduled),
   ],
 }
 
@@ -145,6 +149,35 @@ check('the reported matchup is on screen', reported !== null, true)
 check('with no record on either side', reported?.records, [])
 check("not the protected team's", /11-1/.test(reported?.text ?? ''), false)
 check("and not their opponent's", /8-0/.test(reported?.text ?? ''), false)
+
+// --- Nothing record-shaped on any protected card, anywhere --------------
+// Checked by pattern rather than by value. Every previous version of this
+// looked for the specific numbers in the specific element the last bug
+// used, and the next bug used a different element with different numbers.
+// This one does not know what the numbers are.
+const sweep = await page.evaluate(() => {
+  const read = (card) => ({
+    // Notre Dame is the protected team, so a card with ND on it is a
+    // protected card. Read from the fixture rather than from lock markup,
+    // which would make this test depend on a class name it is not about.
+    protected: card.textContent.includes('ND'),
+    // Leaf elements, not the card's whole text: a record is rendered in
+    // an element of its own, and the card's concatenated text runs it
+    // into its neighbours ("ALA5-0MSST1-48:00 PM"), where no pattern can
+    // pick it out reliably. Every leaf is checked, so a record rendered
+    // in some element nobody thought of is still caught.
+    records: [...card.querySelectorAll('*')]
+      .filter((el) => el.children.length === 0)
+      .map((el) => el.textContent.trim())
+      .filter((text) => /^\d{1,3}-\d{1,3}(-\d{1,3})?$/.test(text)),
+  })
+  return [...document.querySelectorAll('.game-card')].map(read)
+})
+console.log('   record-shaped text per card:', JSON.stringify(sweep))
+// The sweep has to be able to see a record before its silence means
+// anything: the unprotected game beside them shows both of its own.
+check('the sweep can see records where they are allowed', sweep.filter((c) => !c.protected && c.records.length > 0).length, 1)
+check('and finds none at all on a protected card', sweep.filter((c) => c.protected).flatMap((c) => c.records), [])
 
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/protected.png' })
 if (errs.length) { fails += 1; console.log('PAGE ERRORS:', errs) }
