@@ -1,6 +1,7 @@
+import { useLayoutEffect, useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SettingsProvider } from './context/SettingsContext'
-import { ViewStateProvider, useViewState } from './context/ViewStateContext'
+import { ViewStateProvider, useViewState, type Tab } from './context/ViewStateContext'
 import { ScheduleGrid } from './components/schedule/ScheduleGrid'
 import { ScoreboardWeeks } from './components/scoreboard/ScoreboardWeeks'
 import { SettingsScreen } from './components/settings/SettingsScreen'
@@ -40,8 +41,57 @@ function RotateNotice() {
   )
 }
 
+/**
+ * Each tab's scroll position, kept apart from the others'.
+ *
+ * All four tabs render into one scrolling element, so its scrollTop simply
+ * carried over: scrolling halfway down Standings and switching to
+ * Scoreboard landed you halfway down Scoreboard, at a position you never
+ * chose. The element is shared because the layout wants exactly one
+ * scrolling region under a fixed tab bar; what has to be per-tab is the
+ * position, not the element.
+ *
+ * Positions are recorded as you scroll rather than on the way out: by the
+ * time a tab change has committed, the old screen is unmounted and the
+ * scrollTop has already been clamped by the new, possibly shorter content.
+ *
+ * The restore runs twice. Once in layout, so no frame is ever painted at
+ * the outgoing tab's position; once on the next frame, for a screen whose
+ * content arrives after the first attempt and would otherwise have clamped
+ * the scroll to a shorter page.
+ *
+ * Nothing guards against the scroll event our own restore fires: it writes
+ * back whatever the element ended up at, which is the value just restored,
+ * or the clamped one if the content was short — and the clamped one is
+ * what the position should be in that case anyway. A guard was written
+ * here first and removed when putting it back changed nothing.
+ */
+function useScrollPerTab(tab: Tab) {
+  const ref = useRef<HTMLElement>(null)
+  const positions = useRef<Partial<Record<Tab, number>>>({})
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const wanted = positions.current[tab] ?? 0
+    el.scrollTop = wanted
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = wanted
+    })
+    return () => cancelAnimationFrame(id)
+  }, [tab])
+
+  const onScroll = () => {
+    const el = ref.current
+    if (el) positions.current[tab] = el.scrollTop
+  }
+
+  return { ref, onScroll }
+}
+
 function Shell() {
   const { tab } = useViewState()
+  const { ref: mainRef, onScroll } = useScrollPerTab(tab)
   return (
     <>
       <RotateNotice />
@@ -54,7 +104,7 @@ function Shell() {
           so closing returns you exactly where you were with no restoring
           involved. The tab bar is outside this and stays put. */}
       <div className="app-body">
-        <main className="app-main">
+        <main className="app-main" ref={mainRef} onScroll={onScroll}>
           {tab === 'schedule' && <ScheduleGrid />}
           {tab === 'scoreboard' && <ScoreboardWeeks />}
           {tab === 'standings' && <StandingsScreen />}
