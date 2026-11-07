@@ -23,15 +23,20 @@ const team = (id, abbr) => ({
 const pre = (hhmm) => ({ clock: 0, displayClock: '0:00', period: 0, type: { id: '1', name: 'STATUS_SCHEDULED', state: 'pre', completed: false, description: 'Scheduled', detail: hhmm, shortDetail: hhmm } })
 
 /** Games on the day two back (already played) and on today. */
-function event(id, dayOffset, hour, net, home, away) {
+/** `ids` gives the two teams their real ESPN ids. Without them the teams
+ * belong to no conference and no shield is drawn — which is how the chip's
+ * conference badge went untested long enough to keep a :hover rule that
+ * lit it up on a phone. */
+function event(id, dayOffset, hour, net, home, away, ids) {
   const date = `${iso(dayOffset)}T${String(hour).padStart(2, '0')}:00Z`
   const status = pre('11:00 AM')
+  const [homeId, awayId] = ids ?? [`${id}h`, `${id}a`]
   return {
     id, date, name: 'x', shortName: `${away} @ ${home}`, status,
     competitions: [{ id, date, status, venue: { fullName: 'Stadium' }, broadcasts: [{ names: [net] }],
       competitors: [
-        { id: `${id}h`, homeAway: 'home', team: team(`${id}h`, home) },
-        { id: `${id}a`, homeAway: 'away', team: team(`${id}a`, away) },
+        { id: `${id}h`, homeAway: 'home', team: team(homeId, home) },
+        { id: `${id}a`, homeAway: 'away', team: team(awayId, away) },
       ] }],
   }
 }
@@ -41,7 +46,9 @@ const scoreboard = {
     // Two days ago — the day the grid used to open on.
     event('p1', -2, 17, 'ABC', 'OLD', 'PAST'),
     // Today.
-    event('t1', 0, 17, 'ABC', 'MSST', 'OLEMISS'),
+    // Mississippi State and Ole Miss, with their real ids: both SEC, so
+    // this chip carries a conference shield.
+    event('t1', 0, 17, 'ABC', 'MSST', 'OLEMISS', ['344', '145']),
     event('t2', 0, 17, 'CBS', 'AFA', 'NAVY'),
     event('t3', 0, 18, 'BTN', 'WIS', 'MSU'),
   ],
@@ -103,12 +110,24 @@ const stacking = async (p) => p.evaluate(() => {
   return {
     chipZ: Number(getComputedStyle(chip).zIndex),
     railZ: Number(getComputedStyle(rail).zIndex),
+    // The chip's conference shield brightens on :hover. On a phone that is
+    // not a hover — iOS leaves a tapped element in :hover until something
+    // else is tapped — so the rule is guarded, and the Scoreboard tile had
+    // the identical bug with the identical rule.
+    badgeOpacity: (() => {
+      const badge = chip.querySelector('.conference-badge')
+      return badge ? getComputedStyle(badge).opacity : null
+    })(),
     railOnTop: Boolean(top?.closest('.time-grid__row-label')),
     chipOnTop: Boolean(top?.closest('.game-chip')),
   }
 })
 
 check('a resting chip sits under the rail', (await stacking(page)).chipZ < (await stacking(page)).railZ, true)
+
+// Read BEFORE the hover. An earlier version of this took it afterwards,
+// so both readings were of a hovered chip and the check could not fail.
+const restingBadge = (await stacking(page)).badgeOpacity
 
 await page.locator('.game-chip').first().hover()
 await page.waitForTimeout(400)
@@ -118,6 +137,8 @@ check('on a touch screen the hover rule does not apply at all', touched.chipZ, 1
 check('so the chip stays under the rail', touched.chipZ < touched.railZ, true)
 check('and the rail is what paints where they cross', touched.railOnTop, true)
 check('not the chip', touched.chipOnTop, false)
+check('the chip has a conference shield to check', restingBadge !== null, true)
+check('which does not brighten on a touch screen either', touched.badgeOpacity, restingBadge)
 
 // With a real pointer the chip may rise above its neighbours — chips do
 // overlap when two kickoffs are close — but never above the rail.

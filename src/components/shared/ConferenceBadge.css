@@ -12,7 +12,23 @@
   opacity: 0.75;
 }
 
-.game-chip:hover .conference-badge,
-.game-card:hover .conference-badge {
+/* Tiles carry it at full strength, always. Dimming it made a Scoreboard
+   of tiles each look faintly switched off, and the only thing that ever
+   brightened one was :hover — which on a phone is not a hover at all: iOS
+   leaves a tapped element in :hover until something else is tapped, so
+   pressing a tile and dragging to scroll lit its shield and left it lit.
+   Nothing on a tile reacts to a touch now, because nothing about a tile
+   depends on the pointer. */
+.game-card .conference-badge {
   opacity: 1;
+}
+
+/* Slate's chips keep the quieter shield — a chip is a sliver of a card and
+   the mark is louder in it — but the rule is guarded, so the same sticky
+   :hover cannot light one up on a phone either. Same guard the chip's own
+   hover styling already uses. */
+@media (hover: hover) {
+  .game-chip:hover .conference-badge {
+    opacity: 1;
+  }
 }

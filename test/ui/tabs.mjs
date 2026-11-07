@@ -33,8 +33,11 @@ const events = Array.from({ length: 14 }, (_, i) => {
     competitions: [{
       id, date: `${TODAY}T15:00Z`, status: final, venue: { fullName: 'Stadium' }, broadcasts: [{ names: ['ESPN'] }],
       competitors: [
-        { id: `${id}h`, homeAway: 'home', team: team(`${1000 + i}`, `H${i}`), score: '21', records: [{ type: 'total', summary: '5-1' }] },
-        { id: `${id}a`, homeAway: 'away', team: team(`${2000 + i}`, `A${i}`), score: '17', records: [{ type: 'total', summary: '4-2' }] },
+        // The first game is a real SEC matchup, so a conference shield is
+        // drawn on that tile — the shield is the only thing that was
+        // reacting to a touch, so a fixture without one cannot catch it.
+        { id: `${id}h`, homeAway: 'home', team: i === 0 ? team('61', 'UGA') : team(`${1000 + i}`, `H${i}`), score: '21', records: [{ type: 'total', summary: '5-1' }] },
+        { id: `${id}a`, homeAway: 'away', team: i === 0 ? team('333', 'ALA') : team(`${2000 + i}`, `A${i}`), score: '17', records: [{ type: 'total', summary: '4-2' }] },
       ],
     }],
   }
@@ -138,6 +141,41 @@ await page.evaluate(() => {
 await page.waitForTimeout(200)
 const held = await page.evaluate(() => getComputedStyle(document.querySelector('.game-card')).backgroundColor)
 check('a tile held down looks the same as the rest', held, tiles.expected)
+
+// --- Nothing on a tile reacts to the pointer ----------------------------
+// Asserted over every element in the tile rather than against a named
+// property. The thing that was lighting up was the conference shield's
+// opacity, which no check aimed at the card's own background would have
+// found — and the next one could be anything.
+const styles = () =>
+  page.evaluate(() => {
+    const card = [...document.querySelectorAll('.game-card')].find((c) => c.querySelector('.conference-badge'))
+    const out = {}
+    const walk = (el, path) => {
+      const cs = getComputedStyle(el)
+      out[path] = [cs.opacity, cs.backgroundColor, cs.borderColor, cs.boxShadow, cs.filter, cs.color].join(' | ')
+      ;[...el.children].forEach((c, i) => walk(c, `${path}>${c.className || c.tagName}#${i}`))
+    }
+    walk(card, 'card')
+    return out
+  })
+
+const shield = await page.evaluate(() => {
+  const badge = document.querySelector('.game-card .conference-badge')
+  return badge ? getComputedStyle(badge).opacity : null
+})
+check('the conference shield is drawn on a conference tile', shield !== null, true)
+check('and it is at full strength, not dimmed', shield, '1')
+
+const atRest = await styles()
+// .hover(), not el.click(): a click does not set :hover, which is the
+// state iOS leaves a tapped element in — the whole bug.
+await page.hover('.game-card')
+await page.waitForTimeout(300)
+const hovered = await styles()
+const moved = Object.keys(hovered).filter((k) => atRest[k] !== hovered[k])
+console.log('   changed under the pointer:', JSON.stringify(moved))
+check('nothing in the tile changes under the pointer', moved, [])
 
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/tabs.png' })
 if (errs.length) { fails += 1; console.log('PAGE ERRORS:', errs) }
