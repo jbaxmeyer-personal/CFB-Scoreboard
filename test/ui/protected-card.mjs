@@ -6,7 +6,13 @@
  *
  * And the half of it the first fix missed: a record counts the games
  * already played, so ND 5-0 beside next week's opponent says they won
- * today, on a game that has not kicked off. The opponent keeps theirs.
+ * today, on a game that has not kicked off.
+ *
+ * The opponent's record goes too. A version in between kept it, on the
+ * argument that protecting Notre Dame is not a request to hide Purdue's
+ * season — and shipped a card reading "MIA 8-0" next to a blank Notre
+ * Dame, which announces which team is being protected and looks like a
+ * bug doing it.
  *
  * Run: npm run dev -- --port 5199   then   node test/ui/protected-card.mjs
  */
@@ -18,7 +24,7 @@ const TODAY = new Date().toISOString().slice(0, 10)
 // id per team, the same on every fixture they appear in. An earlier version
 // of this file minted an id per event, which quietly made every card a
 // different team and hid the bug it was supposed to catch.
-const IDS = { ND: '87', UNC: '153', PUR: '2509', MSST: '344', ALA: '333' }
+const IDS = { ND: '87', UNC: '153', PUR: '2509', MSST: '344', ALA: '333', MIA: '2390' }
 const team = (abbr) => ({
   id: IDS[abbr], location: abbr, name: abbr, abbreviation: abbr, displayName: abbr, shortDisplayName: abbr,
   color: '0C2340', alternateColor: 'C99700', logo: `https://a.espncdn.com/i/teamlogos/ncaa/500/${IDS[abbr]}.png`,
@@ -48,6 +54,9 @@ const scoreboard = {
     // Notre Dame's next fixture, a week out and not kicked off. ESPN's
     // record for them already counts today's win.
     ev('next', 'PUR', 'ND', 0, 0, '2-3', '5-0', `${iso(7)}T18:30Z`, scheduled),
+    // The reported card: an undefeated opponent, a protected team, and a
+    // kickoff still to come.
+    ev('mia', 'ND', 'MIA', 0, 0, '11-1', '8-0', `${iso(7)}T23:30Z`, scheduled),
   ],
 }
 
@@ -98,10 +107,11 @@ check('and no scores', card.scores, [])
 check('so neither record appears anywhere on it', /5-0|2-2/.test(card.text), false)
 check('and it is not marked final', /FINAL/i.test(card.text), false)
 
-// The reported miss, reached the way the report found it: next week's tab.
-// An upcoming card is
-// where records are *meant* to show, so this one has to show Purdue's and
-// withhold Notre Dame's.
+// Next week's tab. The card is protected because Notre Dame is on it, and
+// a protected card shows no records at all — not Notre Dame's, which
+// counts games already played, and not their opponent's either. "PUR 2-3"
+// beside a blank Notre Dame would say plainly which team is being
+// protected, and would read as a half-drawn row while it did it.
 await page.click('.week-tabs__tab:has-text("Week 7")')
 await page.waitForTimeout(1200)
 const future = await page.evaluate(() => {
@@ -114,8 +124,27 @@ const future = await page.evaluate(() => {
 })
 console.log('   next week:', JSON.stringify(future))
 check('the next fixture is on screen', future !== null, true)
-check('and shows only the opponent\u2019s record', future?.records, ['2-3'])
+check('and shows no records at all', future?.records, [])
 check('so the protected season is nowhere on it', /5-0/.test(future?.text ?? ''), false)
+check('and neither is the opponent\u2019s', /2-3/.test(future?.text ?? ''), false)
+
+// --- The card exactly as it was reported --------------------------------
+// Miami 8-0 at Notre Dame, 6:30 PM, Notre Dame protected: the card showed
+// "MIA 8-0" and nothing beside ND. Both sides have a record in the feed,
+// the game has not kicked off, and neither record may be on the card.
+const reported = await page.evaluate(() => {
+  const card = [...document.querySelectorAll('.game-card')].find((c) => c.textContent.includes('MIA'))
+  if (!card) return null
+  return {
+    text: card.textContent.replace(/\s+/g, ' ').trim(),
+    records: [...card.querySelectorAll('.game-card__team-record')].map((r) => r.textContent.trim()),
+  }
+})
+console.log('   reported card:', JSON.stringify(reported))
+check('the reported matchup is on screen', reported !== null, true)
+check('with no record on either side', reported?.records, [])
+check("not the protected team's", /11-1/.test(reported?.text ?? ''), false)
+check("and not their opponent's", /8-0/.test(reported?.text ?? ''), false)
 
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/protected.png' })
 if (errs.length) { fails += 1; console.log('PAGE ERRORS:', errs) }

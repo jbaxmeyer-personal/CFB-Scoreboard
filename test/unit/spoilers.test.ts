@@ -11,6 +11,12 @@
  * upcoming, so the guard passed. Protecting the game is what switched the
  * leak on. It is the sanitizer's job now: one place, so no surface has to
  * remember.
+ *
+ * The rule is as blunt as it sounds: a protected game shows no records,
+ * either side, played or not. A cleverer version shipped in between — only
+ * the protected team's record withheld on a game not yet played — and put
+ * "MIA 8-0" next to a blank Notre Dame, which announces which team is
+ * being protected and looks like a bug while it does it.
  */
 import { check, report } from '../helpers/check'
 import { stripLiveState, toSafeView, isGameProtected, type SpoilerSettings } from '../../src/lib/spoilers'
@@ -43,31 +49,37 @@ const hiddenLive = stripLiveState(game('in'))
 check('a protected live game gives away no record either', [hiddenLive.away.record, hiddenLive.home.record], [undefined, undefined])
 check('while still showing that it is being played', hiddenLive.state, 'in')
 
-// An upcoming game, with no idea which team is protected: nothing is
-// counted in it yet, so both records stand.
+// An upcoming game. Both records go, like every other protected game.
 const upcoming = stripLiveState(game('pre'))
-check('an upcoming game keeps both records when no team is named', [upcoming.away.record, upcoming.home.record], ['5-0', '2-2'])
+check('an upcoming protected game gives up both records too', [upcoming.away.record, upcoming.home.record], [undefined, undefined])
 check('and still has no score', [upcoming.awayScore, upcoming.homeScore], [undefined, undefined])
 
-// The one the first version missed. A protected team's record counts the
-// games they have already played, so it leaks those results on every later
-// fixture — Notre Dame 5-0 on next week's card says they won today.
-const nextWeek = stripLiveState(game('pre'), settingsFor(['87']))
+// A protected team's record counts the games they have already played, so
+// it leaks those results on every later fixture — Notre Dame 5-0 on next
+// week's card says they won today.
+const nextWeek = stripLiveState(game('pre'))
 check('a protected team shows no record on a future game', nextWeek.away.record, undefined)
-check('while the other side keeps theirs', nextWeek.home.record, '2-2')
 
-// Protecting one game by id is not a request to hide either team's season.
-const oneGame = stripLiveState(game('pre'), { globalEnabled: false, protectedGameIds: ['g1'], protectedTeamIds: [] })
-check('protecting a single game leaves both seasons alone', [oneGame.away.record, oneGame.home.record], ['5-0', '2-2'])
+// And neither does the other side. This was briefly the other way, on the
+// argument that protecting Notre Dame is not a request to hide Miami's
+// season — which ignored that a card reading "MIA 8-0" beside a blank says
+// plainly which team is being protected, and reads as a bug besides.
+check('nor does whoever they are playing', nextWeek.home.record, undefined)
 
-// Global no-spoilers means every team's season is off limits.
-const everything = stripLiveState(game('pre'), { globalEnabled: true, protectedGameIds: [], protectedTeamIds: [] })
+// Whatever made the game protected. Protecting one game by id hides that
+// game completely, same as protecting a team does.
+const oneGame = toSafeView(game('pre'), { globalEnabled: false, protectedGameIds: ['g1'], protectedTeamIds: [] })
+check('a game protected by id hides both records', [oneGame.away.record, oneGame.home.record], [undefined, undefined])
+
+const everything = toSafeView(game('pre'), { globalEnabled: true, protectedGameIds: [], protectedTeamIds: [] })
 check('global no-spoilers hides every record', [everything.away.record, everything.home.record], [undefined, undefined])
 
-// Both sides still lose it once the game itself is counted, whoever is
-// protected and whatever the reason for hiding it.
-const liveBoth = stripLiveState(game('in'), settingsFor(['87']))
+const liveBoth = stripLiveState(game('in'))
 check('a kicked-off game still hides both', [liveBoth.away.record, liveBoth.home.record], [undefined, undefined])
+
+// The flip side, unchanged: a game nobody protected keeps everything.
+const open = toSafeView(game('pre'), settingsFor(['999']))
+check('an unprotected upcoming game keeps both records', [open.away.record, open.home.record], ['5-0', '2-2'])
 
 // Nothing is invented where a record was never sent.
 const noRecords = stripLiveState(game('post', undefined as unknown as string, undefined as unknown as string))
