@@ -426,8 +426,33 @@ const BOX_SCORE_STAT_DEFS: BoxScoreStatDef[] = [
   { label: '3rd Down %', get: ({ stats }) => statByName(stats, 'thirdDownEff') },
   { label: 'Red Zone %', get: (ctx) => redZoneEfficiency(ctx.response, ctx.teamId, ctx.teamAbbreviation) },
   { label: 'Turnovers', invert: true, get: ({ stats }) => statByName(stats, 'turnovers') },
+  // Both from one key, split — and split rather than passed through
+  // because "7-55" reaching the bar would be read as a *rate*, the way
+  // 3rd Down % and Red Zone % are, and drawn as 13%.
+  { label: 'Penalties', invert: true, get: ({ stats }) => penaltyCount(statByName(stats, 'totalPenaltiesYards')) },
+  { label: 'Penalty Yards', invert: true, get: ({ stats }) => penaltyYards(statByName(stats, 'totalPenaltiesYards')) },
   { label: 'Time of Possession', get: ({ stats }) => statByName(stats, 'possessionTime') },
 ]
+
+/**
+ * ESPN reports penalties as one "7-55" string: seven penalties for
+ * fifty-five yards. The two are separate rows, because a team can be
+ * flagged often for little or rarely for a lot, and the bar can only
+ * compare one number at a time.
+ *
+ * Anything not shaped like that yields nothing rather than a guess — a
+ * row is only drawn when both teams produced a value, so an unreadable
+ * pair simply leaves the rows out.
+ */
+const PENALTIES = /^(\d{1,3})-(\d{1,3})$/
+
+function penaltyCount(value: string | undefined): string | undefined {
+  return PENALTIES.exec(value?.trim() ?? '')?.[1]
+}
+
+function penaltyYards(value: string | undefined): string | undefined {
+  return PENALTIES.exec(value?.trim() ?? '')?.[2]
+}
 
 function statValue(labels: string[], stats: string[], label: string): string | undefined {
   const idx = labels.findIndex((l) => l.toLowerCase() === label.toLowerCase())
