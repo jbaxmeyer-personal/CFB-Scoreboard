@@ -5,6 +5,9 @@
   --bg-base: #0a0d12;
   --bg-panel: #12171f;
   --bg-panel-raised: #1a2029;
+  /* Tab bar, and the backstop under it (see html below). Opaque on purpose:
+     the two must be the same colour to the pixel. */
+  --bg-chrome: #12171d;
   --bg-panel-hover: #1f2630;
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.16);
@@ -37,14 +40,15 @@
   box-sizing: border-box;
 }
 
-/* The page's own backstop. The gradient below is painted by `body` with
-   `background-attachment: fixed`, which iOS does not always paint into the
-   safe-area strips of a standalone web app — anything it misses falls
-   through to the canvas, and an unpainted canvas is black. Giving `html` the
-   base colour means the worst case is a band the same colour as the app
-   instead of a black one. */
+/* The page's own backstop. `body` paints the app (the gradient below) over
+   exactly the column's height. Anything under the column — which is only
+   ever the strip below the tab bar, when iOS hands over a short viewport on
+   a cold relaunch — falls through to this. It used to be the page colour,
+   which read as a dark band under the bar. It is now the tab bar's own
+   colour, so if the column ever does come up short the bar simply looks
+   taller: there is no colour left that can show as a band. */
 html {
-  background: var(--bg-base);
+  background: var(--bg-chrome);
 }
 
 /* The document itself never scrolls. The app is one screen-sized column
