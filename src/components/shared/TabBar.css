@@ -15,9 +15,10 @@
      just wasn't visibly the bar. Panel colour, near-opaque, with a real
      border and a lift above it, so the strip reads as chrome. */
   border-top: 1px solid var(--border-strong);
-  background: rgba(18, 23, 31, 0.94);
+  /* Opaque, and the same token html paints under the column, so a short
+     column shows as a taller bar rather than a band (see html in index.css). */
+  background: var(--bg-chrome);
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(12px);
   /* The bottom inset is the home indicator's strip and stays reserved —
      tap targets sitting under it get swiped away by accident. The padding
      that used to be stacked on top of it does not: with the app now shifted
