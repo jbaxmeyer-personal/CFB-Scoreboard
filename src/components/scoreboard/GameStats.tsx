@@ -9,6 +9,7 @@ import { computeLinescore, periodLabel, type LinescorePeriod } from '../../lib/l
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
 import { useSeasonDefense } from '../../hooks/useSeasonDefense'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import { paletteFor } from '../../data/teamPalette'
 import { TeamLogo } from '../shared/TeamLogo'
 
 const REACTIONS = ['🔥', '😱', '👏', '😂', '💀', '🚀']
@@ -367,6 +368,8 @@ function onDarkPanel(hex: string | undefined): string | undefined {
  * them, far enough apart in lightness to tell at a glance, because a bar
  * drawn in one color twice says nothing at all. */
 const NEUTRAL_LIGHT = '#c6cede'
+/** Below this a colour reads as grey however light it is made. */
+const MIN_BAR_SATURATION = 0.15
 const NEUTRAL_MID = '#5a6478'
 
 /**
@@ -392,18 +395,60 @@ const NEUTRAL_MID = '#5a6478'
  * had in hand — a finished game's box score, or a team's schedule and its
  * played games. The neutrals are the last resort, not the normal case.
  */
+/** Whether a colour has a hue worth showing, once lifted onto the panel.
+ * Black and near-black have none — lifting them yields grey, which is a
+ * colour no team but a genuinely grey one should be drawn in. */
+function hasHue(hex: string | undefined): boolean {
+  const hsl = hex ? hexToHsl(hex) : null
+  return hsl !== null && hsl !== undefined && hsl.s >= MIN_BAR_SATURATION
+}
+
+/**
+ * A team's two colours, vetted table first.
+ *
+ * The table is the answer wherever it has one: ESPN's `alternateColor` is
+ * often a near-duplicate of the primary, or missing, and a team reached
+ * from a schedule carries no colours at all. Whatever the feed had is
+ * still the fallback for a team the table doesn't list.
+ */
+function coloursFor(team: Team, feedPrimary?: string, feedSecondary?: string): string[] {
+  const vetted = paletteFor(team.id)
+  const primary = vetted?.primary ?? team.color ?? feedPrimary
+  const secondary = vetted?.secondary ?? team.alternateColor ?? feedSecondary
+  // A black primary lifts to grey, so a team whose first colour has no hue
+  // leads with its second — Iowa is gold here, not grey, and Purdue is old
+  // gold. A school whose second colour is also hueless (black and white,
+  // or black and silver) keeps the order and comes out grey, which is the
+  // honest answer for it.
+  const ordered = !hasHue(primary) && hasHue(secondary) ? [secondary, primary] : [primary, secondary]
+  return ordered.filter((c): c is string => c !== undefined)
+}
+
 export function statBarColors(
   home: Team,
   away: Team,
   found?: { homeColor?: string; awayColor?: string; awayAlternate?: string },
 ): { homeColor: string; awayColor: string } {
-  const homeColor = onDarkPanel(home.color ?? found?.homeColor) ?? NEUTRAL_MID
-  const awayOwn = onDarkPanel(away.color ?? found?.awayColor)
-  if (awayOwn && !readsAsSameColor(homeColor, awayOwn)) return { homeColor, awayColor: awayOwn }
+  const homeOptions = coloursFor(home, found?.homeColor)
+  const awayOptions = coloursFor(away, found?.awayColor, found?.awayAlternate)
 
-  const awayAlternate = onDarkPanel(away.alternateColor ?? found?.awayAlternate)
-  if (awayAlternate && !readsAsSameColor(homeColor, awayAlternate)) {
-    return { homeColor, awayColor: awayAlternate }
+  const homeColor = onDarkPanel(homeOptions[0]) ?? NEUTRAL_MID
+  // The away team's own colours in order, first one that doesn't read as
+  // the home team's. Florida against Kentucky is two blues, and Florida's
+  // second colour is orange — a colour Florida actually wears, which says
+  // whose bar it is. A neutral says nothing, so it is the last resort and
+  // not the second.
+  for (const option of awayOptions) {
+    const lifted = onDarkPanel(option)
+    if (lifted && !readsAsSameColor(homeColor, lifted)) return { homeColor, awayColor: lifted }
+  }
+  // Nothing of the away team's reads against the home team's primary, so
+  // the home team moves to its own second colour instead of the away team
+  // being painted a neutral.
+  const homeSecond = onDarkPanel(homeOptions[1])
+  const awayFirst = onDarkPanel(awayOptions[0])
+  if (homeSecond && awayFirst && !readsAsSameColor(homeSecond, awayFirst)) {
+    return { homeColor: homeSecond, awayColor: awayFirst }
   }
   return { homeColor, awayColor: readsAsSameColor(homeColor, NEUTRAL_LIGHT) ? NEUTRAL_MID : NEUTRAL_LIGHT }
 }

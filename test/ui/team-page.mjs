@@ -195,6 +195,35 @@ check('the other team in the game opens too', neb.name, 'NEB Full Name')
 // record now, not the record as of a game in October.
 check('with its record as it is now, not as of that game', neb.record, '5-4')
 
+// --- Records under the crests on an upcoming game ------------------------
+// The reported screen: an upcoming matchup opened from a team's schedule
+// had no record under either logo. ESPN attaches a team's record as of
+// that game, and a game not yet played has none — the same gap the
+// schedule rows above had, not carried through to the game they open.
+// Back to Indiana's page: we are on Nebraska's, which has only the one
+// game on it. Nebraska pops to the game it was opened from, and that pops
+// to Indiana's schedule.
+await page.evaluate(() => document.querySelector('.team-page__back').click())
+await page.waitForTimeout(400)
+await page.evaluate(() => document.querySelector('.game-detail-panel__back')?.click())
+await page.waitForSelector('.team-page__game')
+await page.waitForTimeout(600)
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.team-page__game')].find((r) => r.textContent.includes('PUR'))
+  row.click()
+})
+await page.waitForSelector('.expanded-game__matchup')
+await page.waitForTimeout(900)
+const crests = await page.evaluate(() => ({
+  names: [...document.querySelectorAll('.expanded-game__name > span:first-child')].map((n) => n.textContent.trim()),
+  records: [...document.querySelectorAll('.expanded-game__record')].map((r) => r.textContent.trim()),
+}))
+console.log('   upcoming game crests:', JSON.stringify(crests))
+check('both teams are named', crests.names.length, 2)
+check('and both carry a record', crests.records, ['4-5', '8-1'])
+await page.evaluate(() => document.querySelector('.game-detail-panel__back')?.click())
+await page.waitForTimeout(400)
+
 // --- A protected team's own record ---------------------------------------
 // Fetching the header record for the page is a new way to leak one: a
 // record counts the games already played, so printing 8-1 above a list of
@@ -224,6 +253,24 @@ await page.waitForTimeout(400)
 const revealed = await readTeamPage()
 check('revealing shows the record', revealed.record, '8-1')
 check('and the opponents with it', revealed.rows.map((r) => r.record), ['5-4', '4-5'])
+
+// A protected game's crests stay empty. Filling an upcoming game's
+// records from the standings feed is a new way into the gap the sanitizer
+// deliberately leaves — the crests are outside the spoiler gate, so
+// nothing may put a record back there.
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll('.team-page__game')].find((r) => r.textContent.includes('PUR'))
+  row.click()
+})
+await page.waitForSelector('.expanded-game__matchup')
+await page.waitForTimeout(900)
+const guardedCrests = await page.evaluate(() =>
+  [...document.querySelectorAll('.expanded-game__record')].map((r) => r.textContent.trim()),
+)
+console.log('   protected game crests:', JSON.stringify(guardedCrests))
+check('a protected game carries no record under either crest', guardedCrests, [])
+await page.evaluate(() => document.querySelector('.game-detail-panel__back')?.click())
+await page.waitForTimeout(400)
 
 // --- A protected opponent on an unprotected team's page -----------------
 // The row-level guard covers a protected team's *played* games, because
