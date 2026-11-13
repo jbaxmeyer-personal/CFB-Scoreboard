@@ -8,6 +8,7 @@ import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 import { seasonYearFromDate, isStatusAhead, espnGameUrl } from '../../lib/espn'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import { useViewState } from '../../context/ViewStateContext'
+import { useCurrentRecords } from '../../hooks/useCurrentRecords'
 import { useSettings } from '../../context/SettingsContext'
 import { delayBadge } from '../../lib/broadcastDelay'
 
@@ -16,10 +17,15 @@ import { delayBadge } from '../../lib/broadcastDelay'
  * the logo, where it was clipping (e.g. "North Caroli…"). */
 function TeamIdentity({
   team,
+  record,
   showRecord,
   onOpenTeam,
 }: {
   team: Team
+  /** The record to print, already resolved and spoiler-checked by the
+   * caller — the team's own is only part of the answer, since a game not
+   * yet played carries none. */
+  record: string | undefined
   showRecord: boolean
   onOpenTeam?: () => void
 }) {
@@ -34,7 +40,7 @@ function TeamIdentity({
       <TeamLogo team={team} size={40} rank={team.rank} />
       <div className="expanded-game__name">
         <span>{team.shortName}</span>
-        {showRecord && team.record && <span className="expanded-game__record">{team.record}</span>}
+        {showRecord && record && <span className="expanded-game__record">{record}</span>}
       </div>
     </button>
   )
@@ -179,6 +185,22 @@ interface ExpandedGameProps {
 export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: ExpandedGameProps) {
   const hasHideableResult = isProtected && game.state !== 'pre'
   const { pushDetail } = useViewState()
+  const currentRecord = useCurrentRecords(seasonYearFromDate(game.startDate))
+
+  /**
+   * The record under a crest.
+   *
+   * ESPN attaches a team's record *as of that game*, and for a game not
+   * yet played it attaches none — so an upcoming matchup opened from a
+   * team's schedule showed no records at all under either crest. Those
+   * fall back to the team's record now, from the standings feed.
+   *
+   * Never on a protected game, whichever side and whatever its state: a
+   * protected game shows no records, and filling a gap the sanitizer
+   * deliberately left is exactly how one would get back in.
+   */
+  const recordFor = (team: Game['home']): string | undefined =>
+    isProtected ? undefined : (team.record ?? currentRecord(team.id))
 
   // Opening a team stacks its page on top of this one — GameDetailPanel owns
   // that stack, so a game reached from a team's schedule goes through the
@@ -196,7 +218,7 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
                 it, so a protected final would give its result away here
                 while the scoreline next to it stayed hidden. That is the
                 only thing `hasHideableResult` withholds. */}
-            <TeamIdentity team={game.away} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.away)} />
+            <TeamIdentity team={game.away} record={recordFor(game.away)} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.away)} />
             {/* The shield stacks above the "@", between the two crests: on
                 this screen the conference is the one thing about the game
                 that belongs to neither side, and the middle of the matchup
@@ -206,7 +228,7 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
               <ConferenceBadge game={game} size={28} maxWidth={64} />
               <span className="expanded-game__at">@</span>
             </div>
-            <TeamIdentity team={game.home} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.home)} />
+            <TeamIdentity team={game.home} record={recordFor(game.home)} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.home)} />
           </div>
 
           <div className={`expanded-game__live-area${hasHideableResult ? ' expanded-game__live-area--gated' : ''}`}>
