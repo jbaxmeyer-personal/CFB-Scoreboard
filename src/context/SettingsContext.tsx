@@ -13,12 +13,18 @@ export interface Settings {
   /** Seconds to hold live game data back, so the app trails the television
    * broadcast instead of leading it. 0 is off. */
   broadcastDelaySeconds: number
+  /** Hold the screen awake while a live game is open. On by default: a
+   * phone propped up to follow a game going dark every thirty seconds is
+   * the thing people actually complain about, and the cost is paid only
+   * while a live game is on screen. */
+  keepScreenAwake: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
   timezoneId: DEVICE_TIMEZONE_ID,
   favoriteTeamIds: [],
   broadcastDelaySeconds: DEFAULT_BROADCAST_DELAY_SECONDS,
+  keepScreenAwake: true,
   spoilers: {
     globalEnabled: false,
     protectedGameIds: [],
@@ -33,6 +39,7 @@ interface SettingsContextValue {
   isFavoriteTeam: (teamId: string) => boolean
   setGlobalSpoilers: (enabled: boolean) => void
   setBroadcastDelaySeconds: (seconds: number) => void
+  setKeepScreenAwake: (enabled: boolean) => void
   toggleProtectedGame: (gameId: string) => void
   toggleProtectedTeam: (teamId: string) => void
   isTeamSpoilerListed: (teamId: string) => boolean
@@ -47,8 +54,16 @@ function toggleInList(list: string[], id: string): string[] {
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => {
     const stored = readStorage(STORAGE_KEY, DEFAULT_SETTINGS)
-    // Settings persisted before the delay existed come back without it, and
-    // an unrecognized value would leave the app on a delay it can't name.
+    // Settings persisted before a field existed come back without it, and
+    // readStorage merges DEFAULT_SETTINGS underneath for exactly that — so
+    // keepScreenAwake arrives as true for someone who has used the app
+    // since before it existed, rather than as `undefined`, which is falsey
+    // and would have shipped the feature off to every existing user. That
+    // merge is load-bearing here; there is a check on it.
+    //
+    // The delay needs more than a default: a value that is present but not
+    // one of the offered options would leave the app on a delay it cannot
+    // name, which merging cannot fix.
     return { ...stored, broadcastDelaySeconds: normalizeDelaySeconds(stored.broadcastDelaySeconds) }
   })
 
@@ -65,6 +80,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       isFavoriteTeam: (teamId) => settings.favoriteTeamIds.includes(teamId),
       setBroadcastDelaySeconds: (seconds) =>
         setSettings((s) => ({ ...s, broadcastDelaySeconds: normalizeDelaySeconds(seconds) })),
+      setKeepScreenAwake: (enabled) => setSettings((s) => ({ ...s, keepScreenAwake: enabled })),
       setGlobalSpoilers: (enabled) =>
         setSettings((s) => ({ ...s, spoilers: { ...s.spoilers, globalEnabled: enabled } })),
       toggleProtectedGame: (gameId) =>
