@@ -38,7 +38,7 @@ export const TEAM_PALETTE: Record<string, TeamPalette> = {
   '239': { primary: '#154734', secondary: '#FFB81C' }, // Baylor — green / gold
   '68': { primary: '#0033A0', secondary: '#D64309' }, // Boise State
   '103': { primary: '#8C2232', secondary: '#BC9B6A' }, // Boston College
-  '189': { primary: '#4F2C1D', secondary: '#FE5000' }, // Bowling Green
+  '189': { primary: '#FE5000', secondary: '#4F2C1D' }, // Bowling Green — orange / brown
   '2084': { primary: '#005BBB', secondary: '#FFFFFF' }, // Buffalo
   '252': { primary: '#002E5D', secondary: '#FFFFFF' }, // BYU
   '25': { primary: '#003262', secondary: '#FDB515' }, // California
