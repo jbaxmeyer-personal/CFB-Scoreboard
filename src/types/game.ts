@@ -108,6 +108,8 @@ export type GameState = 'pre' | 'in' | 'post'
 
 /** Live down/distance/field-position, when the game is in progress.
  * yardLine is 0-100 from the possessing team's own goal line. */
+/** Timeouts left for each side. Derived from the play-by-play rather than
+ * carried on a Game — see lib/timeouts. */
 export interface TeamTimeouts {
   home: number
   away: number
@@ -149,9 +151,4 @@ export interface Game {
   possession?: 'home' | 'away'
   broadcasts: string[]
   situation?: FieldSituation
-  /** Timeouts left, live games only. Kept off `situation` because that is
-   * only built when down, distance and yard line are all present, and a
-   * game can be between drives — no down and distance — with timeouts
-   * that still matter. */
-  timeouts?: TeamTimeouts
 }

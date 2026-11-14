@@ -116,14 +116,6 @@ export interface EspnSituation {
   yardLine?: number
   possessionText?: string
   isRedZone?: boolean
-  /** Timeouts left, as ESPN spells them on the scoreboard's situation.
-   * Both spellings are declared because the shape could not be checked
-   * from this build environment, and reading only one of them is how the
-   * record, the score and the linescore each came back empty in turn. */
-  homeTimeouts?: number
-  awayTimeouts?: number
-  homeTimeoutsRemaining?: number
-  awayTimeoutsRemaining?: number
 }
 
 export interface EspnCompetition {
