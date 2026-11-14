@@ -248,3 +248,42 @@
   color: var(--text-tertiary);
   vertical-align: middle;
 }
+
+/* Timeouts left, laid out on the same axis as the score above: away on the
+   left, home on the right, the label between them. */
+.expanded-game__timeouts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.expanded-game__timeouts-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.expanded-game__timeout-pips {
+  display: flex;
+  gap: 3px;
+}
+
+/* A spent timeout keeps its place rather than disappearing, so the row
+   holds still as they are used and "two left" is read from the shape
+   instead of by counting. */
+.expanded-game__timeout-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+}
+
+.expanded-game__timeout-pip--left {
+  background: var(--text-secondary);
+  border-color: var(--text-secondary);
+}

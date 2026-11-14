@@ -51,6 +51,36 @@ function TeamIdentity({
  * the *real* game — callers must gate this behind SpoilerGate whenever the
  * game is protected and there's something (a live score or a final) to hide.
  */
+/**
+ * Timeouts left, away on the left and home on the right, laid out the same
+ * way as the score above them.
+ *
+ * Pips rather than a number: three is the whole scale, so how many are
+ * left reads at a glance without being counted, and a spent one still
+ * takes its place so the row doesn't shift as they go. The count is in the
+ * label for a screen reader, which cannot see pips.
+ */
+function Timeouts({ away, home }: { away: number; home: number }) {
+  const pips = (left: number, side: string) => (
+    <span className="expanded-game__timeout-pips" aria-label={`${side} ${left} timeout${left === 1 ? '' : 's'} left`}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={`expanded-game__timeout-pip${i < left ? ' expanded-game__timeout-pip--left' : ''}`}
+          aria-hidden="true"
+        />
+      ))}
+    </span>
+  )
+  return (
+    <div className="expanded-game__timeouts">
+      {pips(away, 'Away')}
+      <span className="expanded-game__timeouts-label">Timeouts</span>
+      {pips(home, 'Home')}
+    </div>
+  )
+}
+
 function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isDelayed: boolean }) {
   // The delay is marked at the clock, not only in the app header: the header
   // scrolls away, and a game running two minutes behind reads as a stuck
@@ -162,6 +192,9 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
             </span>
           )}
         </span>
+      )}
+      {status.state === 'in' && game.timeouts && (
+        <Timeouts away={game.timeouts.away} home={game.timeouts.home} />
       )}
       {status.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
       {/* Gated on the corrected state too, so a finished game stops showing

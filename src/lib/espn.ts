@@ -17,6 +17,7 @@ import type {
   EspnPlay,
   EspnRecord,
   EspnScoreboardResponse,
+  EspnSituation,
   EspnSummaryLeadersEntry,
   EspnSummaryResponse,
   EspnTeamScheduleResponse,
@@ -25,7 +26,7 @@ import type {
   EspnTeamStatisticsResponse,
 } from '../types/espn'
 import { isScheduleMidnight, middayOnScheduleDay } from './timezone'
-import type { Game, GameBoxScore, GamePlay, GameState, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../types/game'
+import type { Game, GameBoxScore, GamePlay, GameState, PlayerStatCategory, StatLeader, Team, TeamStatLine, TeamTimeouts } from '../types/game'
 
 export const FBS_GROUP = 80
 
@@ -269,6 +270,8 @@ export function normalizeEvent(event: EspnEvent): Game | null {
       ? { down: sit.down, distance: sit.distance, yardLine: sit.yardLine, possessionText: sit.possessionText ?? '', isRedZone: sit.isRedZone ?? false }
       : undefined
 
+  const timeouts = timeoutsFrom(sit)
+
   // ESPN's own flag first; the midnight-Eastern placeholder behind it, for
   // a payload that doesn't carry the flag.
   const timeTBD = competition.timeValid === false || isScheduleMidnight(event.date)
@@ -295,7 +298,25 @@ export function normalizeEvent(event: EspnEvent): Game | null {
     possession,
     broadcasts,
     situation,
+    timeouts,
   }
+}
+
+/**
+ * Timeouts left for each side, from the scoreboard's situation.
+ *
+ * Only when BOTH sides are present and sane. One team's count on its own
+ * is not a comparison, and a count outside 0-3 is not a count — college
+ * football gives three a half, so anything else means the field read here
+ * is not the field that was meant.
+ */
+function timeoutsFrom(sit: EspnSituation | undefined): TeamTimeouts | undefined {
+  if (!sit) return undefined
+  const read = (...values: (number | undefined)[]): number | undefined =>
+    values.find((v) => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 3)
+  const home = read(sit.homeTimeouts, sit.homeTimeoutsRemaining)
+  const away = read(sit.awayTimeouts, sit.awayTimeoutsRemaining)
+  return home === undefined || away === undefined ? undefined : { home, away }
 }
 
 export function normalizeScoreboard(response: EspnScoreboardResponse): Game[] {
