@@ -9,6 +9,7 @@ import { seasonYearFromDate, isStatusAhead, espnGameUrl } from '../../lib/espn'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import { useViewState } from '../../context/ViewStateContext'
 import { useCurrentRecords } from '../../hooks/useCurrentRecords'
+import { timeoutsLeft } from '../../lib/timeouts'
 import { useSettings } from '../../context/SettingsContext'
 import { delayBadge } from '../../lib/broadcastDelay'
 
@@ -160,6 +161,11 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
 
   // Only a final score is a real result — a live score can still flip, so
   // only 'post' games ever get a winner highlight.
+  // Counted from the plays rather than read off the live situation: see
+  // timeoutsLeft. The situation's own field could not be shown to mean
+  // "left" rather than "used", and the two are opposite.
+  const timeouts = status.state === 'in' ? timeoutsLeft(plays, game.home, game.away, status.period) : undefined
+
   const isFinal = status.state === 'post'
   const awayWins = isFinal && awayScore > homeScore
   const homeWins = isFinal && homeScore > awayScore
@@ -193,9 +199,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
           )}
         </span>
       )}
-      {status.state === 'in' && game.timeouts && (
-        <Timeouts away={game.timeouts.away} home={game.timeouts.home} />
-      )}
+      {timeouts && <Timeouts away={timeouts.away} home={timeouts.home} />}
       {status.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
       {/* Gated on the corrected state too, so a finished game stops showing
           down, distance and a ball spotted mid-field. */}

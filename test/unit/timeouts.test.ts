@@ -1,57 +1,110 @@
 /**
- * Timeouts left, read off the scoreboard's live situation.
+ * Timeouts left, counted from the play-by-play.
  *
- * Declared under two spellings because the payload could not be checked
- * from this build environment — reading only one key is how the record,
- * the score and the linescore each came back empty in turn, and all three
- * were a key spelled a way the parser did not expect.
+ * This started as a read of ESPN's live situation field, and could not be
+ * settled: on a real game the app showed "A&M 1", which fits both "one
+ * left" and "one used" — opposite readings, and no way to tell them apart
+ * from the number. A field that might be inverted is worse than no field.
+ *
+ * The plays say it outright. The text below is verbatim from a live game:
+ * "Timeout Texas A&M, clock 07:50", Q3. Three a half minus the ones
+ * charged in the half being played cannot be inverted, cannot be mirrored
+ * between home and away, and resets at halftime without anything having
+ * to know halftime happened.
  */
 import { check, report } from '../helpers/check'
-import { normalizeEvent } from '../../src/lib/espn'
-import type { EspnEvent } from '../../src/types/espn'
+import { timeoutsLeft } from '../../src/lib/timeouts'
+import type { GamePlay, Team } from '../../src/types/game'
 
-const live = { clock: 131, displayClock: '2:11', period: 4, type: { id: '2', name: 'STATUS_IN_PROGRESS', state: 'in', completed: false, description: 'In Progress', detail: 'Q4', shortDetail: 'Q4 2:11' } }
+const TENN = { id: '2633', name: 'Tennessee Volunteers', shortName: 'Tennessee', abbreviation: 'TENN' } as Team
+const TAMU = { id: '245', name: 'Texas A&M Aggies', shortName: 'Texas A&M', abbreviation: 'TA&M' } as Team
 
-const event = (situation: unknown): EspnEvent =>
-  ({
-    id: 'g1', date: '2026-11-14T19:00Z', name: 'x', shortName: 'MIA @ ND', status: live,
-    competitions: [{
-      id: 'g1', date: '2026-11-14T19:00Z', status: live, situation,
-      competitors: [
-        { id: 'h', homeAway: 'home', score: '21', team: { id: '87', location: 'ND', abbreviation: 'ND', displayName: 'ND', shortDisplayName: 'ND' } },
-        { id: 'a', homeAway: 'away', score: '17', team: { id: '2390', location: 'MIA', abbreviation: 'MIA', displayName: 'MIA', shortDisplayName: 'MIA' } },
-      ],
-    }],
-  }) as unknown as EspnEvent
+let seq = 0
+const play = (period: number, text: string): GamePlay =>
+  ({ id: `p${seq++}`, text, period, clock: '07:50', homeScore: 7, awayScore: 6, isScoringPlay: false }) as GamePlay
+const run = (period: number) => play(period, '#4 R.Owens II rush middle for 1 yard gain to the TAMU40')
 
-const timeouts = (situation: unknown) => normalizeEvent(event(situation))?.timeouts
+// --- The reported game ---------------------------------------------------
+// Texas A&M (home) called one in the third quarter. Tennessee called none.
+const real = [
+  run(1),
+  play(1, 'Timeout Tennessee, clock 02:00'),
+  play(2, 'Timeout Texas A&M, clock 00:48'),
+  run(3),
+  play(3, 'Timeout Texas A&M, clock 07:50'),
+  run(3),
+]
+check('the half being played is the only one counted', timeoutsLeft(real, TAMU, TENN, 3), { home: 2, away: 3 })
+// The first half is its own count — the same plays, read during it.
+check('and the first half counts its own', timeoutsLeft(real, TAMU, TENN, 2), { home: 2, away: 2 })
 
-check('both counts are read', timeouts({ homeTimeouts: 2, awayTimeouts: 3 }), { home: 2, away: 3 })
-check('and under the longer spelling too', timeouts({ homeTimeoutsRemaining: 1, awayTimeoutsRemaining: 0 }), { home: 1, away: 0 })
+// --- Who was charged -----------------------------------------------------
+// The text names the team. The play's offence does not: a defence can
+// call one, so the crest beside it is the wrong team about half the time.
+check('a timeout is charged by name, not by who had the ball',
+  timeoutsLeft([play(3, 'Timeout Tennessee, clock 05:00')], TAMU, TENN, 3), { home: 3, away: 2 })
 
-// All three left, and none left, are both real answers — zero is the most
-// interesting one in the last two minutes and must not read as missing.
-check('none left is a count, not an absence', timeouts({ homeTimeouts: 0, awayTimeouts: 0 }), { home: 0, away: 0 })
-check('and three left is too', timeouts({ homeTimeouts: 3, awayTimeouts: 3 }), { home: 3, away: 3 })
+// "Texas" is a prefix of "Texas A&M". In a game containing both, the team
+// the text names outright is the one charged — treating the prefix as an
+// equally good answer would make the clearest possible text ambiguous.
+const TEX = { id: '251', name: 'Texas Longhorns', shortName: 'Texas', abbreviation: 'TEX' } as Team
+const collide = [play(3, 'Timeout Texas A&M, clock 07:50')]
+check('the team named outright beats the one it merely prefixes', timeoutsLeft(collide, TAMU, TEX, 3), { home: 2, away: 3 })
 
-// One side alone is not a comparison, so neither is shown.
-check('one side on its own yields nothing', timeouts({ homeTimeouts: 2 }), undefined)
-check('nor does the other', timeouts({ awayTimeouts: 2 }), undefined)
-check('nor a situation with no timeouts in it', timeouts({ down: 2, distance: 7 }), undefined)
-check('nor no situation at all', timeouts(undefined), undefined)
+// The two Miamis are the same story and come out right: ESPN writes each
+// team's own name, so "Miami" is the whole of the Hurricanes' short name
+// and only a prefix of the RedHawks'.
+const UM = { id: '2390', name: 'Miami Hurricanes', shortName: 'Miami', abbreviation: 'MIA' } as Team
+const MOH = { id: '193', name: 'Miami (OH) RedHawks', shortName: 'Miami (OH)', abbreviation: 'M-OH' } as Team
+check('the Miami that is named outright is the one charged',
+  timeoutsLeft([play(3, 'Timeout Miami, clock 05:00')], UM, MOH, 3), { home: 2, away: 3 })
+check('and the other one by its fuller name',
+  timeoutsLeft([play(3, 'Timeout Miami (OH), clock 05:00')], UM, MOH, 3), { home: 3, away: 2 })
 
-// A value outside 0-3 is not a timeout count — college football gives
-// three a half — so it means the field being read is not the field meant.
-check('a count above three is refused', timeouts({ homeTimeouts: 7, awayTimeouts: 2 }), undefined)
-check('as is a negative one', timeouts({ homeTimeouts: -1, awayTimeouts: 2 }), undefined)
-check('and a fractional one', timeouts({ homeTimeouts: 1.5, awayTimeouts: 2 }), undefined)
-check('and a string', timeouts({ homeTimeouts: '2', awayTimeouts: '3' }), undefined)
+// When neither side is named outright and the text fits both only as a
+// prefix, there is nothing to choose between them: charged to neither,
+// rather than to whichever happens to be the home team.
+const FL = { ...UM, shortName: 'Miami FL', abbreviation: 'MIA-FL' } as Team
+const OH = { ...MOH, shortName: 'Miami OH', abbreviation: 'MIA-OH' } as Team
+check('a name that fits both sides equally charges neither',
+  timeoutsLeft([play(3, 'Timeout Miami, clock 05:00')], FL, OH, 3), { home: 3, away: 3 })
 
-// The short spelling wins where both are present and disagree, since it is
-// the one read first.
-check('the first spelling wins a disagreement', timeouts({ homeTimeouts: 1, homeTimeoutsRemaining: 3, awayTimeouts: 2 }), { home: 1, away: 2 })
-// But an unusable value under the first spelling falls through to the
-// second rather than discarding the pair.
-check('an unusable first spelling falls through', timeouts({ homeTimeouts: 9, homeTimeoutsRemaining: 3, awayTimeouts: 2 }), { home: 3, away: 2 })
+// A timeout matching neither side is charged to neither, rather than
+// guessed at — a wrong crest is worse than a missing one.
+check('an unrecognised team charges nobody',
+  timeoutsLeft([play(3, 'Timeout Someone Else, clock 05:00')], TAMU, TENN, 3), { home: 3, away: 3 })
+
+// --- Overtime ------------------------------------------------------------
+// One each per overtime period, and it does not carry over.
+const ot = [play(5, 'Timeout Texas A&M, clock 00:00'), play(6, 'Timeout Tennessee, clock 00:00')]
+check('overtime gives one each', timeoutsLeft(ot, TAMU, TENN, 5), { home: 0, away: 1 })
+check('and the next overtime starts again', timeoutsLeft(ot, TAMU, TENN, 6), { home: 1, away: 0 })
+
+// --- Nothing to count ----------------------------------------------------
+check('a half with no timeouts has all three', timeoutsLeft([run(3)], TAMU, TENN, 3), { home: 3, away: 3 })
+// But an empty list is the feed being missing rather than a quiet half —
+// a live game always has plays — so there is nothing to show.
+check('and no plays at all shows nothing', timeoutsLeft([], TAMU, TENN, 1), undefined)
+check('with no period there is nothing to count', timeoutsLeft(real, TAMU, TENN, undefined), undefined)
+
+// A feed that repeats a play must not drive the count negative.
+const repeated = Array.from({ length: 5 }, () => play(3, 'Timeout Texas A&M, clock 07:50'))
+check('a repeated timeout cannot go below zero', timeoutsLeft(repeated, TAMU, TENN, 3), { home: 0, away: 3 })
+
+// --- Text shapes ---------------------------------------------------------
+check('no comma is fine', timeoutsLeft([play(3, 'Timeout Tennessee clock 05:00')], TAMU, TENN, 3), { home: 3, away: 2 })
+check('and no clock at all', timeoutsLeft([play(3, 'Timeout Tennessee')], TAMU, TENN, 3), { home: 3, away: 2 })
+check('upper case is fine', timeoutsLeft([play(3, 'TIMEOUT TEXAS A&M, clock 07:50')], TAMU, TENN, 3), { home: 2, away: 3 })
+// A play that merely mentions a timeout is not one being charged.
+// A fragment that is not the start of either name is not a match: the
+// rule is a prefix, not "appears somewhere in". "State" sits inside half
+// the names in the sport.
+check('a fragment in the middle of a name is not a match',
+  timeoutsLeft([play(3, 'Timeout State, clock 05:00')],
+    { id: '194', name: 'Ohio State Buckeyes', shortName: 'Ohio State', abbreviation: 'OSU' } as Team,
+    TENN, 3), { home: 3, away: 3 })
+
+check('a play that only mentions one is not counted',
+  timeoutsLeft([play(3, '#10 M.Reed pass incomplete after timeout')], TAMU, TENN, 3), { home: 3, away: 3 })
 
 report()
