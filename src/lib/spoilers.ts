@@ -56,6 +56,7 @@ export function stripLiveState(game: Game): Game {
     clock: undefined,
     possession: undefined,
     situation: undefined,
+    timeouts: undefined,
     // Both records, always. A protected game shows no records at all.
     home: withoutRecord(game.home),
     away: withoutRecord(game.away),

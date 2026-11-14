@@ -41,6 +41,7 @@ const game = (state: GameState): Game =>
     clock: state === 'pre' ? undefined : '4:12',
     possession: state === 'pre' ? undefined : 'home',
     situation: state === 'pre' ? undefined : { downDistanceText: '2nd & 7', possessionText: 'MIA 34' },
+    timeouts: state === 'pre' ? undefined : { home: 2, away: 3 },
     home: team('87', 'ND', '11-1', 11),
     away: team('2390', 'MIA', '8-0', 1),
   }) as Game
@@ -68,7 +69,7 @@ function leaks(safe: Game): string[] {
       if (value === HOME_SCORE || value === AWAY_SCORE) return true
       // The live clock and down-and-distance are state too, not just the
       // score — a protected game must not say it is in the third quarter.
-      return /\.(period|clock|possession|situation)\b/.test(path)
+      return /\.(period|clock|possession|situation|timeouts)\b/.test(path)
     })
     .map(([path, value]) => `${path}=${String(value)}`)
 }
