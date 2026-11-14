@@ -15,6 +15,7 @@ export function SettingsScreen() {
     toggleFavoriteTeam,
     setGlobalSpoilers,
     setBroadcastDelaySeconds,
+    setKeepScreenAwake,
     isTeamSpoilerListed,
     toggleProtectedTeam,
   } = useSettings()
@@ -89,6 +90,25 @@ export function SettingsScreen() {
             </label>
           ))}
         </div>
+      </section>
+
+      <section className="settings-section">
+        <h2 className="settings-section__title">Screen</h2>
+        <label className="settings-toggle">
+          <span>
+            <strong>Keep Screen Awake</strong>
+            <br />
+            <span className="settings-section__hint">
+              Stops the screen dimming while a live game is open, so a propped-up phone keeps showing the score.
+              Only while the game is in progress — finals and upcoming games let it sleep as usual.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={settings.keepScreenAwake}
+            onChange={(e) => setKeepScreenAwake(e.target.checked)}
+          />
+        </label>
       </section>
 
       <section className="settings-section">

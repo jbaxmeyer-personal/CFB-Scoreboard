@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom'
 import './GameDetailPanel.css'
 import { useSpoilerSafeGames, type SafeGameEntry } from '../../hooks/useSpoilerSafeGames'
 import { useViewState } from '../../context/ViewStateContext'
+import { useSettings } from '../../context/SettingsContext'
+import { useKeepAwake } from '../../hooks/useKeepAwake'
 import { ExpandedGame } from '../scoreboard/ExpandedGame'
 import { TeamPage } from '../team/TeamPage'
 import { NetworkBadgeList } from './NetworkBadge'
@@ -38,6 +40,7 @@ interface GameDetailPanelProps {
 export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId }: GameDetailPanelProps) {
   const entry = entries.find((e) => e.game.id === expandedGameId)
   const { detailStack, pushDetail, popDetail } = useViewState()
+  const { settings } = useSettings()
   const top = detailStack.at(-1)
 
   // A game reached from a team's schedule is raw feed data like any other,
@@ -47,11 +50,26 @@ export function GameDetailPanel({ entries, expandedGameId, onClose, zoneId }: Ga
   const stackedGames = useMemo(() => (top?.kind === 'game' ? [top.game] : []), [top])
   const stackedEntry = useSpoilerSafeGames(stackedGames)[0]
 
+  // Whichever game is actually on screen, which is not always the one the
+  // panel was opened on — a game reached from a team's schedule is stacked
+  // on top, and it is the one whose state decides this.
+  const onScreen = top?.kind === 'game' && stackedEntry ? stackedEntry : entry
+  // Live games only. Read off the sanitized view rather than the raw game:
+  // a protected game is already shown as LIVE, so this leaks nothing, and
+  // if that ever changes the lock is simply not taken — the screen dims,
+  // which is a safe way to be wrong.
+  //
+  // Not on a team page, even one stacked over a live game: a schedule is a
+  // thing you scroll, and scrolling keeps the screen alive by itself.
+  const showingLiveGame =
+    entry !== undefined && top?.kind !== 'team' && onScreen?.game.state === 'in'
+  useKeepAwake(settings.keepScreenAwake && showingLiveGame)
+
   if (!entry) return null
 
-  // What the panel is showing: the game it was opened on, or whatever has
-  // been stacked on top of it since.
-  const shown = top?.kind === 'game' && stackedEntry ? stackedEntry : entry
+  // Always `onScreen` in practice: `entry` is known present by here, so
+  // the fallback only says so to the type checker.
+  const shown = onScreen ?? entry
   const body =
     top?.kind === 'team' ? (
       <TeamPage
