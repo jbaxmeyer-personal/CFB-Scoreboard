@@ -80,6 +80,28 @@ const ot = [play(5, 'Timeout Texas A&M, clock 00:00'), play(6, 'Timeout Tennesse
 check('overtime gives one each', timeoutsLeft(ot, TAMU, TENN, 5), { home: 0, away: 1 })
 check('and the next overtime starts again', timeoutsLeft(ot, TAMU, TENN, 6), { home: 1, away: 0 })
 
+// From the third overtime, one each for the rest of the game — a 2025 rule
+// change for pace of play, after a coach called one on every defensive
+// play of an eight-overtime game. So a timeout spent in the third is still
+// spent in the fourth, fifth and sixth.
+const deep = [
+  play(5, 'Timeout Texas A&M, clock 00:00'),
+  play(6, 'Timeout Texas A&M, clock 00:00'),
+  play(7, 'Timeout Texas A&M, clock 00:00'),
+]
+check('the third overtime gives one each', timeoutsLeft(deep, TAMU, TENN, 7), { home: 0, away: 1 })
+check('and the fourth gives no more', timeoutsLeft(deep, TAMU, TENN, 8), { home: 0, away: 1 })
+check('nor does the eighth', timeoutsLeft(deep, TAMU, TENN, 12), { home: 0, away: 1 })
+// The first two are still periods of their own, so what was spent there is
+// not held against the third.
+const earlyOnly = [play(5, 'Timeout Texas A&M, clock 00:00'), play(6, 'Timeout Texas A&M, clock 00:00')]
+check('the first two overtimes are not held against the third',
+  timeoutsLeft(earlyOnly, TAMU, TENN, 7), { home: 1, away: 1 })
+// And regulation never carries in, which the per-block counting gives for
+// free rather than needing a rule of its own.
+check('regulation timeouts do not carry into overtime',
+  timeoutsLeft([run(3), play(3, 'Timeout Texas A&M, clock 07:50')], TAMU, TENN, 5), { home: 1, away: 1 })
+
 // --- Nothing to count ----------------------------------------------------
 check('a half with no timeouts has all three', timeoutsLeft([run(3)], TAMU, TENN, 3), { home: 3, away: 3 })
 // But an empty list is the feed being missing rather than a quiet half —

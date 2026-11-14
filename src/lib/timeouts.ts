@@ -21,17 +21,32 @@ import type { GamePlay, Team, TeamTimeouts } from '../types/game'
  * is a better trade than a number that might be backwards.
  */
 
-/** Three a half. Overtime is its own thing: one per team per overtime
- * period, and it does not carry over between them. */
+/** Three a half. Overtime is its own thing: one each in the first overtime
+ * and one each in the second, neither carried over — and then, from the
+ * third overtime, one each for the whole rest of the game however many
+ * periods it runs to.
+ *
+ * That last part is a 2025 rule change, made for pace of play after a
+ * coach called a timeout on every defensive play of an eight-overtime
+ * game. It is why the third overtime onward is one block rather than one
+ * per period: the allowance is shared across all of them.
+ *
+ * Regulation timeouts never carry into overtime either, which falls out of
+ * counting per block rather than needing its own rule. */
 const PER_HALF = 3
 const PER_OVERTIME = 1
+
+/** The period the third overtime starts at: four quarters, then OT1, OT2. */
+const THIRD_OVERTIME = 7
 
 /** Which block of the game a period belongs to. Timeouts reset between
  * blocks, so only the plays inside the current one are counted. */
 function block(period: number): string {
   if (period <= 2) return 'H1'
   if (period <= 4) return 'H2'
-  // Each overtime period stands alone.
+  // The first two overtimes stand alone. The third and everything after it
+  // share one block, because they share one timeout.
+  if (period >= THIRD_OVERTIME) return 'OT3+'
   return `OT${period - 4}`
 }
 
