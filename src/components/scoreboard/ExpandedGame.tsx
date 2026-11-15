@@ -111,7 +111,11 @@ function liveHeadline(game: Game, liveStatus: LiveStatus | undefined, plays: Gam
     latestPlay,
     followPlays,
     period: followPlays ? latestPlay.period : status.period,
-    clock: followPlays ? tidyClock(latestPlay.clock) : status.clock,
+    // The end of the play, not the snap. A field goal snapped at 14:13 and
+    // was good at 14:10; 14:10 is what the stadium clock reads while
+    // everyone waits for the kickoff, and it is what ESPN's own header
+    // shows. The snap stays on the play row, where it belongs.
+    clock: followPlays ? tidyClock(latestPlay.clockAfter ?? latestPlay.clock) : status.clock,
   }
 }
 
@@ -237,7 +241,20 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
   //
   // Any play in the list is a row that can be read, so none of them is
   // ahead of it.
-  const lastSpotted = followPlays ? plays.findLast((p) => p.after !== undefined) : undefined
+  // The newest play that said anything about the situation — either
+  // leaving a new one, or ending it.
+  //
+  // Those are different things, and collapsing them left a stale down on
+  // screen: a made field goal carries no situation of its own, so walking
+  // further back found the 4th & Goal that preceded it and showed a down
+  // nobody was going to play. A score ends the series; the next snap is a
+  // kickoff and there is nothing to show until it happens.
+  //
+  // A timeout is the other case and still walks back, because it changes
+  // nothing — the down before it is still the down.
+  const lastSpotted = followPlays
+    ? plays.findLast((p) => p.after !== undefined || p.clearsSituation === true)
+    : undefined
   const afterPossession =
     lastSpotted?.afterPossessionTeamId === game.home.id
       ? 'home'
