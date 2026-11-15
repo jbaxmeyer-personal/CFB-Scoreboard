@@ -180,7 +180,16 @@ export function FieldPositionBar({ game, drive }: { game: Game; drive?: CurrentD
   // ESPN sends down/distance as -1 (not just absent) whenever there's no
   // live down to show — between a score and the ensuing kickoff, at
   // halftime, etc. — so a real down is always 1-4, never a value to render.
+  //
+  // But -1 does not always mean there is no down. During a timeout the
+  // numeric fields came back outside 1-4 while ESPN's own app went on
+  // showing "2nd & 3" from its formatted string — so the row vanished at
+  // exactly the moment someone looking at a stopped clock wants to know
+  // what the offence is facing. ESPN's own text is used when it sent one,
+  // and the numbers are formatted only as the fallback.
+  const ownText = sit.downDistanceText
   const hasDown = sit.down >= 1 && sit.down <= 4
+  const downDistance = ownText ?? (hasDown ? `${DOWN_ORDINAL[sit.down]} & ${sit.distance}` : undefined)
 
   // The ball, on the fixed axis.
   //
@@ -247,9 +256,9 @@ export function FieldPositionBar({ game, drive }: { game: Game; drive?: CurrentD
           {game.home.abbreviation}
         </span>
       </div>
-      {hasDown && (
+      {downDistance && (
         <div className="field-bar__downs ticker">
-          {DOWN_ORDINAL[sit.down]} &amp; {sit.distance}
+          {downDistance}
           {sit.possessionText ? ` · ${sit.possessionText}` : ''}
         </div>
       )}

@@ -54,6 +54,17 @@ function allowance(period: number): number {
   return period <= 4 ? PER_HALF : PER_OVERTIME
 }
 
+/**
+ * How many each side is entitled to in the block this period belongs to.
+ *
+ * Exported so the row can draw that many pips rather than always three: in
+ * overtime a team has one, and three pips with one lit would say they had
+ * spent two they never had.
+ */
+export function timeoutAllowance(period: number | undefined): number {
+  return !period || period < 1 ? PER_HALF : allowance(period)
+}
+
 /** ESPN writes the team charged into the play text. */
 const TIMEOUT_TEXT = /^timeout\s+(.+?)(?:,|\s+clock\b|$)/i
 

@@ -121,6 +121,10 @@ export interface FieldSituation {
   yardLine: number
   possessionText: string
   isRedZone: boolean
+  /** ESPN's own "2nd & 3", when it sent one. Shown in preference to
+   * formatting `down` and `distance`, which are not always set while this
+   * is — see the note on the raw type. */
+  downDistanceText?: string
 }
 
 export interface Game {

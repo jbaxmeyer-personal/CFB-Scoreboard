@@ -116,6 +116,13 @@ export interface EspnSituation {
   yardLine?: number
   possessionText?: string
   isRedZone?: boolean
+  /** ESPN's own formatted down and distance — "2nd & 3" and "2nd & 3 at
+   * UK 38". Carried because the numeric `down` beside them is not always
+   * populated when these are: during a timeout it came back outside 1-4
+   * while ESPN's own app went on showing "2nd & 3". Preferred over
+   * formatting the numbers ourselves for that reason. */
+  shortDownDistanceText?: string
+  downDistanceText?: string
 }
 
 export interface EspnCompetition {
