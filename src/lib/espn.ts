@@ -266,7 +266,17 @@ export function normalizeEvent(event: EspnEvent): Game | null {
     possessionId === home.team.id ? 'home' : possessionId === away.team.id ? 'away' : undefined
   const situation =
     sit?.down !== undefined && sit?.distance !== undefined && sit?.yardLine !== undefined
-      ? { down: sit.down, distance: sit.distance, yardLine: sit.yardLine, possessionText: sit.possessionText ?? '', isRedZone: sit.isRedZone ?? false }
+      ? {
+          down: sit.down,
+          distance: sit.distance,
+          yardLine: sit.yardLine,
+          possessionText: sit.possessionText ?? '',
+          isRedZone: sit.isRedZone ?? false,
+          // The short form first: it is the "2nd & 3" the row has space
+          // for, where the long form repeats the yard line already drawn
+          // on the bar beside it.
+          downDistanceText: sit.shortDownDistanceText?.trim() || sit.downDistanceText?.trim() || undefined,
+        }
       : undefined
 
   // ESPN's own flag first; the midnight-Eastern placeholder behind it, for

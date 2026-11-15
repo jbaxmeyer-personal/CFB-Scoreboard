@@ -1,15 +1,16 @@
 import './ExpandedGame.css'
-import type { Game, Team } from '../../types/game'
+import type { Game, GamePlay, Team } from '../../types/game'
 import { TeamLogo } from '../shared/TeamLogo'
 import { SpoilerGate } from '../shared/SpoilerGate'
 import { ConferenceBadge } from '../shared/ConferenceBadge'
 import { SeasonLeaders, SeasonTeamComparison, GameSummarySections, FieldPositionBar } from './GameStats'
 import { formatDayLabel, formatKickoff } from '../../lib/timezone'
 import { seasonYearFromDate, isStatusAhead, espnGameUrl } from '../../lib/espn'
+import type { LiveStatus } from '../../lib/espn'
 import { useGameSummary } from '../../hooks/useGameSummary'
 import { useViewState } from '../../context/ViewStateContext'
 import { useCurrentRecords } from '../../hooks/useCurrentRecords'
-import { timeoutsLeft } from '../../lib/timeouts'
+import { timeoutsLeft, timeoutAllowance } from '../../lib/timeouts'
 import { useSettings } from '../../context/SettingsContext'
 import { delayBadge } from '../../lib/broadcastDelay'
 
@@ -20,6 +21,9 @@ function TeamIdentity({
   team,
   record,
   showRecord,
+  timeoutsLeftForTeam,
+  timeoutAllowanceForTeam,
+  side,
   onOpenTeam,
 }: {
   team: Team
@@ -28,6 +32,12 @@ function TeamIdentity({
    * yet played carries none. */
   record: string | undefined
   showRecord: boolean
+  /** Timeouts this team has left, when the game is live and not protected.
+   * Undefined draws nothing at all, which is the pre-game, finished and
+   * spoiler-protected case. */
+  timeoutsLeftForTeam: number | undefined
+  timeoutAllowanceForTeam: number
+  side: 'Away' | 'Home'
   onOpenTeam?: () => void
 }) {
   return (
@@ -42,6 +52,9 @@ function TeamIdentity({
       <div className="expanded-game__name">
         <span>{team.shortName}</span>
         {showRecord && record && <span className="expanded-game__record">{record}</span>}
+        {timeoutsLeftForTeam !== undefined && (
+          <TimeoutPips left={timeoutsLeftForTeam} of={timeoutAllowanceForTeam} side={side} />
+        )}
       </div>
     </button>
   )
@@ -53,32 +66,84 @@ function TeamIdentity({
  * game is protected and there's something (a live score or a final) to hide.
  */
 /**
- * Timeouts left, away on the left and home on the right, laid out the same
- * way as the score above them.
+ * What the header should say, given the two feeds.
  *
- * Pips rather than a number: three is the whole scale, so how many are
- * left reads at a glance without being counted, and a spent one still
- * takes its place so the row doesn't shift as they go. The count is in the
- * label for a screen reader, which cannot see pips.
+ * Shared because two places need it now — the clock and score inside the
+ * live area, and the timeout pips under the crests, which sit outside it.
+ * Deriving the period twice would mean the pips could count a different
+ * half from the one on screen.
  */
-function Timeouts({ away, home }: { away: number; home: number }) {
-  const pips = (left: number, side: string) => (
-    <span className="expanded-game__timeout-pips" aria-label={`${side} ${left} timeout${left === 1 ? '' : 's'} left`}>
-      {[0, 1, 2].map((i) => (
+/** The play feed writes its clock zero-padded ("01:59") where the
+ * scoreboard writes it plain ("1:59"). The header reads off the plays now,
+ * so without this the time would have silently gained a digit. */
+function tidyClock(clock: string | undefined): string | undefined {
+  return clock?.replace(/^0(\d:\d{2})$/, '$1')
+}
+
+function liveHeadline(game: Game, liveStatus: LiveStatus | undefined, plays: GamePlay[]) {
+  // Which endpoint's clock to believe for the game's *state*. The scoreboard
+  // covers a whole day and the summary covers this one game, and the
+  // per-game feed moves first — watched live, the play-by-play had posted
+  // "End of 4th quarter." while the header still read Q4 1:41 on a finished
+  // game. Take whichever is further along, and only ever forward, so a feed
+  // that stalls or rewinds can't pull the header back into a quarter the
+  // game has left.
+  const status = liveStatus && isStatusAhead(liveStatus, game) ? liveStatus : game
+  const latestPlay = plays.at(-1)
+
+  // While a game is being played, the numbers shown come from the newest
+  // play and from nothing else.
+  //
+  // This is an ordering rule, not an accuracy one. The scoreboard endpoint
+  // is often a beat quicker than the play feed, so taking the higher of the
+  // two meant the score and the clock could jump before the play that
+  // caused them appeared in the list below — you would read the new number
+  // and only then scroll down to find out what happened. That is the ending
+  // of the story printed above the page it happens on. Reading both off the
+  // same play keeps the list in front: the score never moves until the play
+  // explaining it is there to be read.
+  //
+  // It costs a little freshness, which is the point. The scoreboard is
+  // still believed about state: a game that has ended has ended.
+  const followPlays = status.state === 'in' && latestPlay !== undefined
+  return {
+    status,
+    latestPlay,
+    followPlays,
+    period: followPlays ? latestPlay.period : status.period,
+    clock: followPlays ? tidyClock(latestPlay.clock) : status.clock,
+  }
+}
+
+/**
+ * Timeouts left, as pips under the team they belong to.
+ *
+ * Under the crest rather than in a row of their own: that is where you
+ * look for a fact about one team, it reads without a label, and it leaves
+ * the space below the clock for the down and distance, which is the thing
+ * you actually want while the clock is stopped.
+ *
+ * A spent timeout keeps its place rather than disappearing, so the row
+ * holds still and "two left" is read from the shape instead of counted.
+ * The count is spelled out for a screen reader, which cannot see pips.
+ *
+ * `of` is the allowance for the block being played — three in a half, one
+ * in overtime — so this never draws three pips for a team that only ever
+ * had one.
+ */
+function TimeoutPips({ left, of, side }: { left: number; of: number; side: 'Away' | 'Home' }) {
+  return (
+    <span
+      className="expanded-game__timeout-pips"
+      aria-label={`${side} ${left} timeout${left === 1 ? '' : 's'} left`}
+    >
+      {Array.from({ length: of }, (_, i) => (
         <span
           key={i}
           className={`expanded-game__timeout-pip${i < left ? ' expanded-game__timeout-pip--left' : ''}`}
-          aria-hidden="true"
         />
       ))}
     </span>
-  )
-  return (
-    <div className="expanded-game__timeouts">
-      {pips(away, 'Away')}
-      <span className="expanded-game__timeouts-label">Timeouts</span>
-      {pips(home, 'Home')}
-    </div>
   )
 }
 
@@ -96,16 +161,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
   // GameSummarySections further down, so this never costs an extra request.
   const { plays, currentDrive, liveStatus } = useGameSummary(game, game.state === 'in', game.state !== 'pre')
 
-  // Which endpoint's clock to believe. The scoreboard covers a whole day and
-  // the summary covers this one game, and the per-game feed moves first —
-  // watched live, the play-by-play had posted "End of 4th quarter." while
-  // the header still read Q4 1:41 on a finished game. The score never showed
-  // this because it already comes from the newest play; the clock and state
-  // did not, which is the worst possible thing for a scoreboard to be wrong
-  // about. Take whichever is further along, and only ever forward, so a feed
-  // that stalls or rewinds can't pull the header back into a quarter the
-  // game has left.
-  const status = liveStatus && isStatusAhead(liveStatus, game) ? liveStatus : game
+  const { status, latestPlay, followPlays, period: shownPeriod, clock: shownClock } = liveHeadline(game, liveStatus, plays)
 
   if (game.state === 'pre') {
     return (
@@ -149,23 +205,18 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
   // the complete one when the feed is short, without having to know which
   // case this is.
   //
-  // The scoreboard is left out of it while a broadcast delay is running:
-  // that number is live, and holding it back is the whole point of the
-  // delay. Plays are chronological, so the newest one is the last.
-  const latestPlay = plays.at(-1)
-  const holdingBack = settings.broadcastDelaySeconds > 0 && status.state === 'in'
+  // Only a finished game takes the higher of the two, and only because its
+  // feed can stop short: one came back with its last play reading 14-19 on
+  // a game that ended 20-19, which printed the loser as the winner. While
+  // the game is live, `followPlays` keeps the header behind the play list —
+  // see liveHeadline.
   const best = (fromPlay: number | undefined, fromScoreboard: number | undefined): number =>
-    holdingBack ? (fromPlay ?? 0) : Math.max(fromPlay ?? 0, fromScoreboard ?? 0)
+    followPlays ? (fromPlay ?? 0) : Math.max(fromPlay ?? 0, fromScoreboard ?? 0)
   const awayScore = best(latestPlay?.awayScore, game.awayScore)
   const homeScore = best(latestPlay?.homeScore, game.homeScore)
 
   // Only a final score is a real result — a live score can still flip, so
   // only 'post' games ever get a winner highlight.
-  // Counted from the plays rather than read off the live situation: see
-  // timeoutsLeft. The situation's own field could not be shown to mean
-  // "left" rather than "used", and the two are opposite.
-  const timeouts = status.state === 'in' ? timeoutsLeft(plays, game.home, game.away, status.period) : undefined
-
   const isFinal = status.state === 'post'
   const awayWins = isFinal && awayScore > homeScore
   const homeWins = isFinal && homeScore > awayScore
@@ -188,7 +239,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
       {status.state === 'in' && (
         <span className="ticker expanded-game__clock expanded-game__clock--live">
           <span className="live-dot" aria-hidden="true" />
-          {status.period ? `Q${status.period}` : ''} {status.clock ?? ''}
+          {shownPeriod ? `Q${shownPeriod}` : ''} {shownClock ?? ''}
           {delay && (
             <span
               className="expanded-game__clock-delay"
@@ -199,7 +250,6 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
           )}
         </span>
       )}
-      {timeouts && <Timeouts away={timeouts.away} home={timeouts.home} />}
       {status.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
       {/* Gated on the corrected state too, so a finished game stops showing
           down, distance and a ball spotted mid-field. */}
@@ -239,6 +289,28 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
   const recordFor = (team: Game['home']): string | undefined =>
     isProtected ? undefined : (team.record ?? currentRecord(team.id))
 
+  /**
+   * Timeouts left, for the pips under each crest.
+   *
+   * Computed up here because the crests are drawn outside the spoiler gate
+   * below, and so the gate cannot do the withholding for them — a
+   * protected game has to be refused the numbers at the source. Which is
+   * why `isProtected` is checked here and not merely leaned on downstream:
+   * how many timeouts a team has left is a fact about a game in progress,
+   * and that is the whole of what being protected hides.
+   *
+   * The same query key as the live area below, so this costs no extra
+   * request; the shared `liveHeadline` keeps the half counted here the
+   * same as the quarter shown there.
+   */
+  const { plays, liveStatus } = useGameSummary(game, game.state === 'in', game.state !== 'pre')
+  const headline = liveHeadline(game, liveStatus, plays)
+  const timeouts =
+    isProtected || headline.status.state !== 'in'
+      ? undefined
+      : timeoutsLeft(plays, game.home, game.away, headline.period)
+  const pipsOf = timeoutAllowance(headline.period)
+
   // Opening a team stacks its page on top of this one — GameDetailPanel owns
   // that stack, so a game reached from a team's schedule goes through the
   // same spoiler-safe path as one opened from the grid.
@@ -255,7 +327,15 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
                 it, so a protected final would give its result away here
                 while the scoreline next to it stayed hidden. That is the
                 only thing `hasHideableResult` withholds. */}
-            <TeamIdentity team={game.away} record={recordFor(game.away)} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.away)} />
+            <TeamIdentity
+              team={game.away}
+              record={recordFor(game.away)}
+              showRecord={!hasHideableResult}
+              timeoutsLeftForTeam={timeouts?.away}
+              timeoutAllowanceForTeam={pipsOf}
+              side="Away"
+              onOpenTeam={() => openTeam(game.away)}
+            />
             {/* The shield stacks above the "@", between the two crests: on
                 this screen the conference is the one thing about the game
                 that belongs to neither side, and the middle of the matchup
@@ -265,7 +345,15 @@ export function ExpandedGame({ game, zoneId, isProtected, isDelayed = false }: E
               <ConferenceBadge game={game} size={28} maxWidth={64} />
               <span className="expanded-game__at">@</span>
             </div>
-            <TeamIdentity team={game.home} record={recordFor(game.home)} showRecord={!hasHideableResult} onOpenTeam={() => openTeam(game.home)} />
+            <TeamIdentity
+              team={game.home}
+              record={recordFor(game.home)}
+              showRecord={!hasHideableResult}
+              timeoutsLeftForTeam={timeouts?.home}
+              timeoutAllowanceForTeam={pipsOf}
+              side="Home"
+              onOpenTeam={() => openTeam(game.home)}
+            />
           </div>
 
           <div className={`expanded-game__live-area${hasHideableResult ? ' expanded-game__live-area--gated' : ''}`}>

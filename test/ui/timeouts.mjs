@@ -117,16 +117,23 @@ const check = (label, actual, expected) => {
 
 const readTimeouts = () =>
   page.evaluate(() => {
-    const row = document.querySelector('.expanded-game__timeouts')
-    if (!row) return null
+    // Under each crest now, not in a row of their own: away identity first,
+    // home second, matching the order they are drawn in.
+    const pipsFor = [...document.querySelectorAll('.expanded-game__identity')].map((id) =>
+      id.querySelector('.expanded-game__timeout-pips'),
+    )
+    if (pipsFor.length === 0 || pipsFor.every((p) => !p)) return null
     return {
-      label: row.querySelector('.expanded-game__timeouts-label').textContent.trim(),
-      // [away, home], each as [total pips, how many read as left].
-      sides: [...row.querySelectorAll('.expanded-game__timeout-pips')].map((p) => [
-        p.querySelectorAll('.expanded-game__timeout-pip').length,
-        p.querySelectorAll('.expanded-game__timeout-pip--left').length,
-      ]),
-      labels: [...row.querySelectorAll('.expanded-game__timeout-pips')].map((p) => p.getAttribute('aria-label')),
+      // [away, home], each as [pips drawn, how many read as left].
+      sides: pipsFor.map((p) =>
+        p
+          ? [
+              p.querySelectorAll('.expanded-game__timeout-pip').length,
+              p.querySelectorAll('.expanded-game__timeout-pip--left').length,
+            ]
+          : null,
+      ),
+      labels: pipsFor.map((p) => p?.getAttribute('aria-label') ?? null),
     }
   })
 
@@ -153,8 +160,7 @@ await page.waitForTimeout(800)
 await openGame('MIA')
 const liveRow = await readTimeouts()
 console.log('   live:', JSON.stringify(liveRow))
-check('a live game shows the timeouts', liveRow !== null, true)
-check('labelled', liveRow?.label, 'Timeouts')
+check('a live game shows the timeouts under the crests', liveRow !== null, true)
 // Away first, like the score above it. Miami spent two in this half, Notre
 // Dame one — and the two first-half ones are not counted against either.
 check('three pips a side, spent ones kept in place', liveRow?.sides, [[3, 1], [3, 2]])
