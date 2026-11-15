@@ -25,7 +25,7 @@ import type {
   EspnTeamStatisticsResponse,
 } from '../types/espn'
 import { isScheduleMidnight, middayOnScheduleDay } from './timezone'
-import type { Game, GameBoxScore, GamePlay, GameState, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../types/game'
+import type { FieldSituation, Game, GameBoxScore, GamePlay, GameState, PlayerStatCategory, StatLeader, Team, TeamStatLine } from '../types/game'
 
 export const FBS_GROUP = 80
 
@@ -780,6 +780,40 @@ function uncredit(games: GamePlay[], index: number, side: 'homeScore' | 'awaySco
   }
 }
 
+/**
+ * The situation a play left behind, for the header to read instead of the
+ * scoreboard's live one.
+ *
+ * Built only when ESPN sent `possessionText` ("ARIZ 47"), because that is
+ * what the field bar actually positions the ball from. Its numeric
+ * `yardLine` is NOT the same frame as the scoreboard's — the scoreboard
+ * measures from the home team's goal line, while a play measures yards to
+ * the opponent's end zone — so leaving the text out and falling back to
+ * the number would mirror the ball into the wrong half. Without the text
+ * there is no situation, and the bar simply doesn't draw.
+ */
+function playEndSituation(play: EspnPlay): FieldSituation | undefined {
+  const end = play.end
+  const spot = end?.possessionText?.trim()
+  if (!end || !spot) return undefined
+  const text = end.shortDownDistanceText?.trim() || end.downDistanceText?.trim() || undefined
+  // A real down is 1-4; ESPN writes -1 when there isn't one (between a
+  // score and the kickoff, end of quarter).
+  const down = typeof end.down === 'number' ? end.down : -1
+  const distance = typeof end.distance === 'number' ? end.distance : -1
+  if (!text && !(down >= 1 && down <= 4)) return undefined
+  return {
+    down,
+    distance,
+    // Kept in the play's own frame and never read: possessionText above is
+    // what positions the ball, and this exists only to satisfy the shape.
+    yardLine: typeof end.yardsToEndzone === 'number' ? end.yardsToEndzone : 50,
+    possessionText: spot,
+    isRedZone: typeof end.yardsToEndzone === 'number' && end.yardsToEndzone <= 20,
+    downDistanceText: text,
+  }
+}
+
 function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: string }): GamePlay | null {
   if (!play.text || play.homeScore === undefined || play.awayScore === undefined) return null
   // isScoringPlay (and the text cleanup that depends on it) is corrected
@@ -795,6 +829,8 @@ function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: st
     // put the wrong crest beside it.
     offenseTeamId: play.start?.team?.id ?? driveTeam?.id,
     offenseTeamAbbr: play.start?.team?.abbreviation ?? driveTeam?.abbreviation,
+    after: playEndSituation(play),
+    afterPossessionTeamId: play.end?.team?.id,
     period: play.period?.number ?? 0,
     // The snap, not the end of the play — see snapClockFromText. Plays with
     // no parenthetical are the ones that don't move the clock anyway

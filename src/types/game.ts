@@ -96,6 +96,19 @@ export interface GamePlay {
   homeScore: number
   awayScore: number
   isScoringPlay: boolean
+  /** The situation this play left behind: down, distance and spot for the
+   * next snap, and who will have the ball.
+   *
+   * The header reads this rather than the scoreboard's live `situation`
+   * while a game is in progress. The two describe the same thing, but the
+   * scoreboard's is whatever the last poll saw and routinely runs ahead of
+   * the play feed — so the down and distance above the play list could
+   * describe a snap two plays further on than the newest row, which is the
+   * ending printed above the page it happens on. This one belongs to a
+   * play you can read. */
+  after?: FieldSituation
+  /** Who has the ball after this play, as ESPN's team id. */
+  afterPossessionTeamId?: string
   /** Which side's score went up, on a scoring play. Not the same as who had
    * the ball: a pick-six or a kick return is scored by the team that was on
    * defence, and putting the offence's crest beside it names the wrong team.

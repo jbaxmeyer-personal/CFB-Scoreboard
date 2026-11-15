@@ -35,6 +35,8 @@ const team = (id, abbr, short, display) => ({
   displayName: display, shortDisplayName: short, color: '0C2340',
 })
 const ND = team('87', 'ND', 'Notre Dame', 'Notre Dame Fighting Irish')
+const UGA = team('61', 'UGA', 'Georgia', 'Georgia Bulldogs')
+const ALA = team('333', 'ALA', 'Alabama', 'Alabama Crimson Tide')
 const MIA = team('2390', 'MIA', 'Miami', 'Miami Hurricanes')
 const MICH = team('130', 'MICH', 'Michigan', 'Michigan Wolverines')
 const OSU = team('194', 'OSU', 'Ohio State', 'Ohio State Buckeyes')
@@ -46,10 +48,13 @@ const final = { clock: 0, displayClock: '0:00', period: 4, type: { id: '3', name
 
 // down and distance as -1, the way ESPN sends them while the clock is
 // stopped, with the formatted string still populated beside them.
+// The live scoreboard, running ahead of the play feed — reported with the
+// list showing "1st & 10" while the header read "3rd & 2". Its down and
+// distance are also -1, the way ESPN sends them while the clock is stopped.
 const situation = {
   possession: '87', down: -1, distance: -1, yardLine: 38,
-  possessionText: 'UK 38', isRedZone: false, shortDownDistanceText: '2nd & 3',
-  downDistanceText: '2nd & 3 at UK 38',
+  possessionText: 'MIA 47', isRedZone: false, shortDownDistanceText: '3rd & 2',
+  downDistanceText: '3rd & 2 at MIA 47',
 }
 
 const game = (id, home, away, status, homeScore, awayScore, sit) => ({
@@ -71,14 +76,18 @@ const scoreboard = {
     // Finished, and the scoreboard carries the COMPLETE score while the
     // play feed below stops short.
     game('g3', MICH, OSU, final, 20, 19, undefined),
+    // Live, with a scoreboard situation but a play feed that has no spots.
+    game('g4', UGA, ALA, live, 10, 3, situation),
   ],
 }
 
 let seq = 0
-const play = (period, clock, text, homeScore, awayScore) => ({
+const play = (period, clock, text, homeScore, awayScore, end) => ({
   id: `p${seq}`, sequenceNumber: String(seq++), text,
   period: { number: period }, clock: { displayValue: clock },
   homeScore, awayScore,
+  // What the play left behind — the next snap's down, distance and spot.
+  ...(end ? { end: { team: { id: '87' }, ...end } } : {}),
 })
 
 // Newest play: 21-14 at Q3 1:59. The scoreboard says 28-14 at Q4 0:30 —
@@ -86,7 +95,29 @@ const play = (period, clock, text, homeScore, awayScore) => ({
 const livePlays = [
   play(3, '04:12', '#9 B.Leonard rush middle for 3 yards to the MIA 44', 14, 14),
   play(3, '02:03', '#12 A.Philo rush left for 7 yards gain to the UK38', 21, 14),
-  play(3, '01:59', 'Timeout Notre Dame, clock 01:59', 21, 14),
+  // The newest play leaves 1st & 10 at the MIA 40. The scoreboard's own
+  // situation (below) says 3rd & 2 at the MIA 47 — two snaps further on.
+  play(3, '02:01', '#12 A.Philo pass incomplete short right to #7 B.Pegan', 21, 14, {
+    down: 1, distance: 10, yardsToEndzone: 40,
+    shortDownDistanceText: '1st & 10', downDistanceText: '1st & 10 at MIA 40',
+    possessionText: 'MIA 40',
+  }),
+  // The newest row is a timeout, which carries no situation of its own —
+  // the shape the bug was reported in. Measured on real feeds, 13% of
+  // plays are like this, and they are the ones most likely to be newest.
+  // It carries down and distance but NO spot. A play's yard line is
+  // measured to the opponent's end zone where the scoreboard's is measured
+  // from the home goal, so using one without its text would mirror the
+  // ball into the wrong half. Without a spot there is no situation.
+  play(3, '01:59', 'Timeout Notre Dame, clock 01:59', 21, 14, {
+    down: 2, distance: 7, yardsToEndzone: 55, shortDownDistanceText: '2nd & 7',
+  }),
+]
+
+// A live game whose plays carry no situation at all.
+const spotlessPlays = [
+  play(3, '08:00', '#9 B.Leonard rush middle for 3 yards', 7, 7),
+  play(3, '07:30', '#9 B.Leonard rush left for 2 yards', 7, 7),
 ]
 // A short final feed: last play says 14-19 on a game that ended 20-19.
 const shortFinalPlays = [play(4, '00:21', '#3 K.Wilson rush right for 2 yards', 14, 19)]
@@ -98,7 +129,7 @@ page.on('pageerror', (e) => errs.push(e.message))
 await page.route('**/site.api.espn.com/**', (r) => {
   const u = r.request().url()
   if (u.includes('/summary?')) {
-    const plays = u.includes('event=g3') ? shortFinalPlays : livePlays
+    const plays = u.includes('event=g3') ? shortFinalPlays : u.includes('event=g4') ? spotlessPlays : livePlays
     return r.fulfill({ json: {
       header: { competitions: [{ playByPlaySource: 'full' }] },
       boxscore: {},
@@ -167,10 +198,34 @@ check('without picking up the feed\'s zero padding', live1.clock?.includes('01:5
 check('the scoreboard clock is not shown', live1.clock?.includes('0:30'), false)
 // The receipt: the play the header is quoting is on screen below it.
 check('and that play is in the list below', (await newestPlay())?.includes('01:59'), true)
+// The newest row is a timeout with no situation of its own, so the spot
+// comes from the snap before it — still a row in the list, still not ahead.
+check('a newest row with no spot falls back to the last one that had it',
+  (await newestPlay())?.includes('Timeout'), true)
 
-// --- Down and distance survives down = -1 ---------------------------------
-check('down and distance shows from ESPN\'s own text', live1.downs?.startsWith('2nd & 3'), true)
+// --- Down and distance follows the play list too --------------------------
+// The whole reason this suite exists: the scoreboard says 3rd & 2 at the
+// MIA 47, the newest play left 1st & 10 at the MIA 40. The play wins, so
+// nothing above the list describes a snap the list has not reached.
+check('down and distance comes from the newest play', live1.downs?.startsWith('1st & 10'), true)
+check('and not from the scoreboard running ahead', live1.downs?.includes('3rd & 2'), false)
+check('nor does the ball sit where the scoreboard put it', live1.downs?.includes('MIA 47'), false)
+check('it sits where the play left it', live1.downs?.includes('MIA 40'), true)
+// The timeout row's own down and distance came with no spot, so it was
+// skipped entirely rather than used to place the ball.
+check('a situation with no spot is not used at all', live1.downs?.includes('2nd & 7'), false)
 await page.screenshot({ path: '/tmp/claude-0/-home-user-CFB-Scoreboard/c9537513-1e0b-58a9-8bcd-b6e707f00768/scratchpad/live-header.png' })
+await close()
+
+// --- A live game whose plays carry no spot --------------------------------
+// The scoreboard has a situation and the play feed does not. Nothing is
+// drawn: borrowing the scoreboard here is borrowing the very thing that
+// runs ahead of the list. (The panel is already closed above.)
+await openGame('ALA')
+const spotless = await header()
+console.log('   spotless header:', JSON.stringify(spotless))
+check('no spot in the feed means no down and distance', spotless.downs, null)
+check('and the scoreboard\'s is not borrowed', spotless.downs?.includes('3rd & 2') ?? false, false)
 await close()
 
 // --- A finished game still takes the complete score -----------------------
