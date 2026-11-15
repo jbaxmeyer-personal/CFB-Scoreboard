@@ -36,6 +36,10 @@ const team = (id, abbr, short, display) => ({
 })
 const ND = team('87', 'ND', 'Notre Dame', 'Notre Dame Fighting Irish')
 const UGA = team('61', 'UGA', 'Georgia', 'Georgia Bulldogs')
+const UTAH = team('254', 'UTAH', 'Utah', 'Utah Utes')
+const ARIZ = team('12', 'ARIZ', 'Arizona', 'Arizona Wildcats')
+const TENN = team('2633', 'TENN', 'Tennessee', 'Tennessee Volunteers')
+const TAMU = team('245', 'TA&M', 'Texas A&M', 'Texas A&M Aggies')
 const ALA = team('333', 'ALA', 'Alabama', 'Alabama Crimson Tide')
 const MIA = team('2390', 'MIA', 'Miami', 'Miami Hurricanes')
 const MICH = team('130', 'MICH', 'Michigan', 'Michigan Wolverines')
@@ -78,6 +82,9 @@ const scoreboard = {
     game('g3', MICH, OSU, final, 20, 19, undefined),
     // Live, with a scoreboard situation but a play feed that has no spots.
     game('g4', UGA, ALA, live, 10, 3, situation),
+    // Live, just after a made field goal.
+    game('g5', ARIZ, UTAH, live, 28, 27, situation),
+    game('g6', TENN, TAMU, live, 28, 27, situation),
   ],
 }
 
@@ -109,9 +116,39 @@ const livePlays = [
   // measured to the opponent's end zone where the scoreboard's is measured
   // from the home goal, so using one without its text would mirror the
   // ball into the wrong half. Without a spot there is no situation.
+  // A real timeout's shape, verbatim from the feed: down 0, no spot. It
+  // changes nothing, so the down and distance before it still stand.
   play(3, '01:59', 'Timeout Notre Dame, clock 01:59', 21, 14, {
-    down: 2, distance: 7, yardsToEndzone: 55, shortDownDistanceText: '2nd & 7',
+    down: 0, distance: 0, shortDownDistanceText: '2nd & 7',
   }),
+]
+
+/**
+ * Replayed from the real feed: Utah at Arizona, ESPN event 401856864,
+ * watched live in the fourth quarter. Verbatim shapes.
+ *
+ * The field goal is snapped at 14:13 and is good at 14:10. Its `end`
+ * carries down -1 — ESPN's way of saying the series is over and the next
+ * snap is a kickoff — where the 4th & Goal before it carried a real spot.
+ */
+const scorePlays = [
+  play(4, '14:14', '(14:19) Shotgun #4 D.Dampier pass incomplete deep right to #7 B.Pegan', 28, 24, {
+    down: 4, distance: 20, yardsToEndzone: 20,
+    shortDownDistanceText: '4th & Goal', downDistanceText: '4th & Goal at ARIZ 20',
+    possessionText: 'ARIZ 20',
+  }),
+  // Good from 39. No spot, no down — the series is over.
+  play(4, '14:10', '(14:13) #17 D.Curtis field goal attempt from 39 yards GOOD, clock 14:10', 28, 27, {
+    down: -1, distance: -1, yardsToEndzone: 65,
+  }),
+]
+
+// The same sequence with a timeout on top of the score. It changes
+// nothing, so the walk back must stop at the score and stay neutral — not
+// carry on past it to the 4th & Goal, the stale down all over again.
+const scoreThenTimeout = [
+  ...scorePlays,
+  play(4, '14:10', 'Timeout Arizona, clock 14:10', 28, 27, { down: 0, distance: 0 }),
 ]
 
 // A live game whose plays carry no situation at all.
@@ -129,7 +166,15 @@ page.on('pageerror', (e) => errs.push(e.message))
 await page.route('**/site.api.espn.com/**', (r) => {
   const u = r.request().url()
   if (u.includes('/summary?')) {
-    const plays = u.includes('event=g3') ? shortFinalPlays : u.includes('event=g4') ? spotlessPlays : livePlays
+    const plays = u.includes('event=g3')
+      ? shortFinalPlays
+      : u.includes('event=g4')
+        ? spotlessPlays
+        : u.includes('event=g5')
+          ? scorePlays
+          : u.includes('event=g6')
+            ? scoreThenTimeout
+            : livePlays
     return r.fulfill({ json: {
       header: { competitions: [{ playByPlaySource: 'full' }] },
       boxscore: {},
@@ -226,6 +271,31 @@ const spotless = await header()
 console.log('   spotless header:', JSON.stringify(spotless))
 check('no spot in the feed means no down and distance', spotless.downs, null)
 check('and the scoreboard\'s is not borrowed', spotless.downs?.includes('3rd & 2') ?? false, false)
+await close()
+
+// --- Just after a score, everything goes neutral --------------------------
+// The field goal was snapped at 14:13 and good at 14:10. The header shows
+// when the play ENDED, because that is what the clock reads while everyone
+// waits for the kickoff — and ESPN's own header says 14:10 too.
+//
+// And the series is over: the 4th & Goal that preceded it is a down nobody
+// is going to play, so nothing is shown until the kickoff.
+await openGame('UTAH')
+const scored = await header()
+console.log('   after the score:', JSON.stringify(scored))
+check('the clock is when the play ended, not the snap', scored.clock?.includes('14:10'), true)
+check('not the snap clock from the play text', scored.clock?.includes('14:13'), false)
+check('the score is the newest play\'s', scored.score, ['27', '28'])
+check('and the down and distance is gone', scored.downs, null)
+check('specifically, the pre-score down is not left up', scored.downs?.includes('4th & Goal') ?? false, false)
+await close()
+
+// The same thing with a timeout sitting on top of the score: still neutral.
+await openGame('TA&M')
+const afterTimeout = await header()
+console.log('   score then timeout:', JSON.stringify(afterTimeout))
+check('a timeout on top of a score is newest', (await newestPlay())?.includes('Timeout'), true)
+check('and the walk back still stops at the score', afterTimeout.downs, null)
 await close()
 
 // --- A finished game still takes the complete score -----------------------

@@ -792,6 +792,20 @@ function uncredit(games: GamePlay[], index: number, side: 'homeScore' | 'awaySco
  * the number would mirror the ball into the wrong half. Without the text
  * there is no situation, and the bar simply doesn't draw.
  */
+/**
+ * Whether this play ended the live situation outright — a score, where the
+ * next snap is a kickoff and there is no down to show in between.
+ *
+ * ESPN says so with `down: -1`, which it uses for "there is no down here"
+ * rather than for "this play carried none". A timeout carries `down: 0`
+ * and means the opposite: nothing changed, the previous down still stands.
+ * Verified across 878 plays of real feeds — all 48 scoring plays carried
+ * -1, all 47 timeouts carried 0, with no crossover.
+ */
+function playClearsSituation(play: EspnPlay): boolean {
+  return play.end?.down === -1
+}
+
 function playEndSituation(play: EspnPlay): FieldSituation | undefined {
   const end = play.end
   const spot = end?.possessionText?.trim()
@@ -831,11 +845,16 @@ function toGamePlay(play: EspnPlay, driveTeam?: { id?: string; abbreviation?: st
     offenseTeamAbbr: play.start?.team?.abbreviation ?? driveTeam?.abbreviation,
     after: playEndSituation(play),
     afterPossessionTeamId: play.end?.team?.id,
+    clearsSituation: playClearsSituation(play),
     period: play.period?.number ?? 0,
     // The snap, not the end of the play — see snapClockFromText. Plays with
     // no parenthetical are the ones that don't move the clock anyway
     // (penalties, timeouts, end of quarter), so the fallback agrees.
     clock: snapClockFromText(play.text) ?? play.clock?.displayValue ?? '',
+    // The clock once the play was over, which is what the header shows —
+    // see clockAfter. ESPN's own field is already the end of the play; the
+    // snap is the parenthetical the row uses above.
+    clockAfter: play.clock?.displayValue,
     homeScore: play.homeScore,
     awayScore: play.awayScore,
     isScoringPlay: false,

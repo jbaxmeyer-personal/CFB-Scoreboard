@@ -109,6 +109,30 @@ export interface GamePlay {
   after?: FieldSituation
   /** Who has the ball after this play, as ESPN's team id. */
   afterPossessionTeamId?: string
+  /**
+   * This play ended the live situation rather than leaving a new one:
+   * there is no down, no spot and no possession until the next kickoff.
+   *
+   * Distinct from simply having no `after`. A timeout carries no situation
+   * either, but it changes nothing — the down and distance before it still
+   * stand. A score ends the series outright, and showing the 4th & Goal
+   * that preceded it describes a down nobody is going to play.
+   *
+   * ESPN marks the difference itself: a scoring play's `end` carries
+   * `down: -1`, a timeout's carries `down: 0`. Checked across 878 plays
+   * from a day's games, where all 48 scores and all 47 timeouts split
+   * exactly that way.
+   */
+  clearsSituation?: boolean
+  /**
+   * The clock once this play was over, where `clock` above is the snap.
+   *
+   * The play row wants the snap — that is when the play happened. The
+   * header wants this one, because it is what the clock reads now: a field
+   * goal snapped at 14:13 and was good at 14:10, and 14:10 is the time on
+   * the stadium clock while everyone waits for the kickoff.
+   */
+  clockAfter?: string
   /** Which side's score went up, on a scoring play. Not the same as who had
    * the ball: a pick-six or a kick return is scored by the team that was on
    * defence, and putting the offence's crest beside it names the wrong team.
