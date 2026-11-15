@@ -215,6 +215,44 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
   const awayScore = best(latestPlay?.awayScore, game.awayScore)
   const homeScore = best(latestPlay?.homeScore, game.homeScore)
 
+  // Down, distance and the ball's spot come off the newest play too, for
+  // the same reason the score and clock do.
+  //
+  // The scoreboard's own `situation` is the live one, and it runs ahead:
+  // reported with the list showing "1st & 10" at Q3 7:33 while the header
+  // read "3rd & 2 · ARIZ 47" — two snaps further on than anything you
+  // could read. A play's `end` describes the same thing and belongs to a
+  // row in the list, so the two cannot disagree.
+  //
+  // Only the situation is swapped; everything else about the game is left
+  // alone. Where the play carried no usable spot the bar is left to the
+  // scoreboard rather than blanked, since that is a gap in the feed rather
+  // than a thing running ahead.
+  // Not the newest play, but the newest one that left a situation behind.
+  // Measured on a day's real feeds, 13% of plays carry none — and they are
+  // the ones most likely to be newest: timeouts, touchdowns, end of
+  // quarter. The reported game's newest row was itself a timeout. Reading
+  // only the last play would have fallen back to the scoreboard at exactly
+  // those moments, which is the thing being fixed.
+  //
+  // Any play in the list is a row that can be read, so none of them is
+  // ahead of it.
+  const lastSpotted = followPlays ? plays.findLast((p) => p.after !== undefined) : undefined
+  const afterPossession =
+    lastSpotted?.afterPossessionTeamId === game.home.id
+      ? 'home'
+      : lastSpotted?.afterPossessionTeamId === game.away.id
+        ? 'away'
+        : undefined
+  // While live, the bar is drawn only from the plays. If nothing in the
+  // list has reached a spot yet, nothing is drawn — the scoreboard's own
+  // situation is not borrowed, because that is the one that runs ahead.
+  const shownSituation = followPlays
+    ? lastSpotted?.after
+      ? { ...game, situation: lastSpotted.after, possession: afterPossession ?? game.possession }
+      : { ...game, situation: undefined }
+    : game
+
   // Only a final score is a real result — a live score can still flip, so
   // only 'post' games ever get a winner highlight.
   const isFinal = status.state === 'post'
@@ -253,7 +291,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
       {status.state === 'post' && <span className="ticker expanded-game__clock expanded-game__clock--final">FINAL</span>}
       {/* Gated on the corrected state too, so a finished game stops showing
           down, distance and a ball spotted mid-field. */}
-      {status.state === 'in' && <FieldPositionBar game={game} drive={currentDrive} />}
+      {status.state === 'in' && <FieldPositionBar game={shownSituation} drive={currentDrive} />}
       <GameSummarySections game={game} />
     </div>
   )

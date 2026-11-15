@@ -244,6 +244,17 @@ export interface EspnPlay {
   end?: {
     team?: { id?: string; abbreviation?: string }
     possessionText?: string
+    /** Down and distance for the NEXT snap, and where the ball now is.
+     * This is the live situation as of this play — the same thing the
+     * scoreboard's `situation` reports, but tied to a play in the list
+     * rather than to whatever moment the scoreboard was last polled at.
+     * Read so the header can show a situation the play-by-play has
+     * actually reached. */
+    down?: number
+    distance?: number
+    yardsToEndzone?: number
+    shortDownDistanceText?: string
+    downDistanceText?: string
   }
 }
 
