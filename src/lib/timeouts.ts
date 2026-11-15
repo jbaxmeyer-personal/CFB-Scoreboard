@@ -68,6 +68,54 @@ export function timeoutAllowance(period: number | undefined): number {
 /** ESPN writes the team charged into the play text. */
 const TIMEOUT_TEXT = /^timeout\s+(.+?)(?:,|\s+clock\b|$)/i
 
+/**
+ * The two-minute timeout, which is charged to nobody.
+ *
+ * College football stops the clock at two minutes of the second and fourth
+ * quarters. It is an official stoppage, not a team's timeout — but ESPN
+ * logs it as an ordinary timeout play *attributed to whoever has the ball*,
+ * worded exactly like a real one:
+ *
+ *   (02:03) Shotgun #12 A.Philo rush left for 7 yards to the UK38
+ *   Timeout Florida, clock 01:59
+ *
+ * Florida were the offence and were charged nothing for it. Counting it
+ * cost them a timeout they still had, which is how a live game showed one
+ * left where ESPN showed two.
+ *
+ * It is identified by when it happens rather than by its wording, because
+ * its wording is identical to a real one. It is the first stoppage once
+ * the clock reaches two minutes, so it lands at 2:00 or a few seconds
+ * under — whatever the clock read when the play that crossed the mark
+ * ended. Checked against six of them in one day's games: 2:00, 2:00, 2:00,
+ * 1:59, 1:59 and 1:56, while the real timeouts in those same quarters sat
+ * at 1:53, 1:48, 1:16, 1:10 and 0:56. The window is the gap between those
+ * two groups.
+ *
+ * Only the FIRST one in the quarter, because the automatic stoppage
+ * happens once; a team timeout called seconds later is its own.
+ *
+ * Where ESPN does not log the automatic row at all — seen once, in a game
+ * whose feed carried one timeout in total — a real timeout falling inside
+ * this five-second window would be dropped. That costs a pip that should
+ * be lit; it can never invent one that should not be.
+ */
+const TWO_MINUTE_MARK = 120
+const TWO_MINUTE_WINDOW = 5
+const TWO_MINUTE_PERIODS = new Set([2, 4])
+
+/** "01:59" / "2:00" -> seconds left in the period. */
+function clockSeconds(display: string | undefined): number | undefined {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((display ?? '').trim())
+  return m ? Number(m[1]) * 60 + Number(m[2]) : undefined
+}
+
+function atTwoMinuteMark(play: GamePlay): boolean {
+  if (!TWO_MINUTE_PERIODS.has(play.period)) return false
+  const left = clockSeconds(play.clock)
+  return left !== undefined && left <= TWO_MINUTE_MARK && left >= TWO_MINUTE_MARK - TWO_MINUTE_WINDOW
+}
+
 function normalize(value: string | undefined): string {
   return (value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
@@ -124,8 +172,16 @@ export function timeoutsLeft(
   let homeUsed = 0
   let awayUsed = 0
 
+  // The automatic two-minute stoppage, which belongs to neither side. Found
+  // before the count rather than inside it, because "the first one" has to
+  // be decided across the whole quarter, not per team.
+  const automatic = plays.find(
+    (play) => block(play.period) === here && atTwoMinuteMark(play) && TIMEOUT_TEXT.test(play.text.trim()),
+  )
+
   for (const play of plays) {
     if (block(play.period) !== here) continue
+    if (play === automatic) continue
     const called = TIMEOUT_TEXT.exec(play.text.trim())?.[1]
     if (!called) continue
     // The better match is charged. A tie goes to neither side rather than

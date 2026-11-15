@@ -129,4 +129,74 @@ check('a fragment in the middle of a name is not a match',
 check('a play that only mentions one is not counted',
   timeoutsLeft([play(3, '#10 M.Reed pass incomplete after timeout')], TAMU, TENN, 3), { home: 3, away: 3 })
 
+
+// --- The two-minute timeout ----------------------------------------------
+/**
+ * Replayed from the real feed: Florida at Kentucky, 14 November 2026,
+ * ESPN event 401856884. Every row below is verbatim.
+ *
+ * The reported bug. At Q4 1:59 the app showed Florida one timeout left
+ * where ESPN showed two. ESPN was right: the 1:59 row is the automatic
+ * two-minute stoppage, logged against Florida because Florida had the
+ * ball — the play before it ran "(02:03)" to 1:59, carrying the clock
+ * through the two-minute mark.
+ */
+const FLA = { id: '57', name: 'Florida Gators', shortName: 'Florida', abbreviation: 'FLA' } as Team
+const UK = { id: '96', name: 'Kentucky Wildcats', shortName: 'Kentucky', abbreviation: 'UK' } as Team
+
+let realSeq = 0
+const at = (period: number, clock: string, text: string): GamePlay =>
+  ({ id: `r${realSeq++}`, text, period, clock, homeScore: 14, awayScore: 21, isScoringPlay: false }) as GamePlay
+
+// Kentucky at home, Florida away — as the feed has them.
+const real2min = [
+  at(3, '7:20', 'Timeout Florida, clock 07:20'),
+  at(4, '2:46', 'Shotgun #13 J.Baugh rush left for 1 yard gain to the UF43'),
+  at(4, '2:43', 'Timeout Kentucky, clock 02:43'),
+  at(4, '2:37', 'Shotgun #12 A.Philo pass complete short right to #15 L.Harpring'),
+  // The clock crosses two minutes during this play: it starts at 02:03.
+  at(4, '1:59', 'Shotgun #12 A.Philo rush left for 7 yards gain to the UK38'),
+  at(4, '1:59', 'Timeout Florida, clock 01:59'),
+]
+// What was on screen when the bug was reported.
+check('the two-minute stoppage is charged to nobody', timeoutsLeft(real2min, UK, FLA, 4), { home: 2, away: 2 })
+
+// Playing on to the end of the real game: both sides then spend the rest.
+const realRest = [
+  ...real2min,
+  at(4, '1:53', 'Timeout Kentucky, clock 01:53'),
+  at(4, '1:48', 'Shotgun #12 A.Philo rush middle for 0 yards to the UK36'),
+  at(4, '1:48', 'Timeout Kentucky, clock 01:48'),
+  at(4, '1:48', 'Timeout Florida, clock 01:48'),
+]
+// Kentucky spent all three; Florida spent one in the third and one at 1:48,
+// and the 1:59 row was never theirs to spend.
+check('and the real timeouts around it still are', timeoutsLeft(realRest, UK, FLA, 4), { home: 0, away: 1 })
+
+// Only the first one in the window: a team timeout seconds later is its own.
+check('a timeout just below the window is charged',
+  timeoutsLeft([at(4, '2:00', 'Timeout Florida, clock 02:00'), at(4, '1:53', 'Timeout Florida, clock 01:53')], UK, FLA, 4),
+  { home: 3, away: 2 })
+
+// Two inside the window: the automatic stoppage happens once, so the
+// second is a team's own even though it lands seconds later.
+check('a second timeout inside the window is still charged',
+  timeoutsLeft([at(4, '2:00', 'Timeout Florida, clock 02:00'), at(4, '1:57', 'Timeout Florida, clock 01:57')], UK, FLA, 4),
+  { home: 3, away: 2 })
+
+// The mark is in the second quarter too.
+check('the second quarter has one as well',
+  timeoutsLeft([at(2, '2:00', 'Timeout Kentucky, clock 02:00')], UK, FLA, 2), { home: 3, away: 3 })
+
+// And nowhere else: the third quarter has no two-minute stoppage, so a
+// timeout at 1:59 there is an ordinary one.
+check('the third quarter has none, so 1:59 there is charged',
+  timeoutsLeft([at(3, '1:59', 'Timeout Florida, clock 01:59')], UK, FLA, 3), { home: 3, away: 2 })
+
+// Well clear of the mark is an ordinary timeout, not an automatic one.
+check('a timeout well under two minutes is charged',
+  timeoutsLeft([at(4, '1:48', 'Timeout Florida, clock 01:48')], UK, FLA, 4), { home: 3, away: 2 })
+// As is one before the mark.
+check('and one before it', timeoutsLeft([at(4, '2:43', 'Timeout Kentucky, clock 02:43')], UK, FLA, 4), { home: 2, away: 3 })
+
 report()
