@@ -5,7 +5,7 @@ import { useGameSummary } from '../../hooks/useGameSummary'
 import { seasonYearFromDate } from '../../lib/espn'
 import type { CurrentDrive, SummaryDiagnostics } from '../../lib/espn'
 import { useReactions } from '../../hooks/useReactions'
-import { computeLinescore, periodLabel, type LinescorePeriod } from '../../lib/linescore'
+import { computeLinescore, periodLabel, livePeriodLabel, type LinescorePeriod } from '../../lib/linescore'
 import { useSeasonTeamStats } from '../../hooks/useSeasonTeamStats'
 import { useSeasonDefense } from '../../hooks/useSeasonDefense'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -674,7 +674,7 @@ function PlayRow({
         <span className="game-stats__play-meta">
           {showClock && (
             <>
-              Q{play.period}
+              {livePeriodLabel(play.period)}
               <br />
               {play.clock}
             </>
@@ -808,13 +808,17 @@ function LeadTracker({ stats, home, away }: { stats: LeadStats; home: Team; away
         <div className="game-stats__column">
           <div className="game-stats__column-team">{away.abbreviation}</div>
           <div className="game-stats__lead-value">
-            {stats.awayBiggestLead > 0 ? `${stats.awayBiggestLead} at Q${stats.awayBiggestLeadPeriod}` : 'None'}
+            {stats.awayBiggestLead > 0
+              ? `${stats.awayBiggestLead}${stats.awayBiggestLeadPeriod ? ` at ${livePeriodLabel(stats.awayBiggestLeadPeriod)}` : ''}`
+              : 'None'}
           </div>
         </div>
         <div className="game-stats__column">
           <div className="game-stats__column-team">{home.abbreviation}</div>
           <div className="game-stats__lead-value">
-            {stats.homeBiggestLead > 0 ? `${stats.homeBiggestLead} at Q${stats.homeBiggestLeadPeriod}` : 'None'}
+            {stats.homeBiggestLead > 0
+              ? `${stats.homeBiggestLead}${stats.homeBiggestLeadPeriod ? ` at ${livePeriodLabel(stats.homeBiggestLeadPeriod)}` : ''}`
+              : 'None'}
           </div>
         </div>
       </div>

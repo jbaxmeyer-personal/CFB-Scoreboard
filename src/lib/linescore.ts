@@ -14,6 +14,30 @@ export function periodLabel(period: number): string {
 }
 
 /**
+ * The period as a live clock labels it: "Q3" through regulation, and then
+ * "OT", "2OT" and so on.
+ *
+ * Overtime is period 5 upwards, so the quarter form kept counting: a game
+ * in its first overtime read "Q5", a quarter that does not exist. ESPN's
+ * own label for that same game is "OT".
+ */
+export function livePeriodLabel(period: number): string {
+  return period <= 4 ? `Q${period}` : periodLabel(period)
+}
+
+/**
+ * What the live clock reads: "Q3 4:12" in regulation, and just "OT" once
+ * it goes past it.
+ *
+ * No time in overtime, because there is no clock running in one — college
+ * football plays alternating possessions from the 25. ESPN sends the
+ * period's clock as "0:00" throughout, and prints no time of its own.
+ */
+export function liveStatusText(period: number, clock: string): string {
+  return period >= 5 ? livePeriodLabel(period) : `${livePeriodLabel(period)} ${clock}`
+}
+
+/**
  * ESPN's own points per quarter, when the summary carries them.
  *
  * Preferred over deriving quarters from the play-by-play, because ESPN's
