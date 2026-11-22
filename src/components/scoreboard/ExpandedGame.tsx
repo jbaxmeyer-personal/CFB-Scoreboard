@@ -11,6 +11,7 @@ import { useGameSummary } from '../../hooks/useGameSummary'
 import { useViewState } from '../../context/ViewStateContext'
 import { useCurrentRecords } from '../../hooks/useCurrentRecords'
 import { timeoutsLeft, timeoutAllowance } from '../../lib/timeouts'
+import { liveStatusText } from '../../lib/linescore'
 import { useSettings } from '../../context/SettingsContext'
 import { delayBadge } from '../../lib/broadcastDelay'
 
@@ -294,7 +295,7 @@ function LiveArea({ game, zoneId, isDelayed }: { game: Game; zoneId: string; isD
       {status.state === 'in' && (
         <span className="ticker expanded-game__clock expanded-game__clock--live">
           <span className="live-dot" aria-hidden="true" />
-          {shownPeriod ? `Q${shownPeriod}` : ''} {shownClock ?? ''}
+          {shownPeriod ? liveStatusText(shownPeriod, shownClock ?? '') : (shownClock ?? '')}
           {delay && (
             <span
               className="expanded-game__clock-delay"
