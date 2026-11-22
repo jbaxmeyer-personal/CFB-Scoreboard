@@ -463,15 +463,28 @@ export function statBarColors(
 }
 
 function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor: string; homeColor: string }) {
-  const awayNum = parseStatMagnitude(line.awayValue)
-  const homeNum = parseStatMagnitude(line.homeValue)
-  // A negative value (e.g. turnover margin) can't be shown as a share of a
-  // whole — bail out of the bar rather than render a nonsensical width.
-  const bothNonNegative = awayNum !== null && homeNum !== null && awayNum >= 0 && homeNum >= 0
-  const total = bothNonNegative ? awayNum + homeNum : 0
+  const awayRaw = parseStatMagnitude(line.awayValue)
+  const homeRaw = parseStatMagnitude(line.homeValue)
+  const hasBoth = awayRaw !== null && homeRaw !== null
+
+  // A negative value counts as nothing.
+  //
+  // A share of a whole has no room for one — the bar used to disappear
+  // altogether, so a team sitting on -23 total yards against 30 showed no
+  // comparison at all, at exactly the moment the comparison is most
+  // lopsided. Treating it as zero hands the other side the whole bar,
+  // which is what having gone backwards looks like.
+  //
+  // When both are negative there is nothing left to divide, so it falls to
+  // the same even split a genuine 0-0 gets. That loses which of the two is
+  // less bad, but a share-of-total bar cannot show that either way, and
+  // both teams being underwater is a passing state in the first quarter.
+  const awayNum = hasBoth ? Math.max(0, awayRaw) : 0
+  const homeNum = hasBoth ? Math.max(0, homeRaw) : 0
+  const total = awayNum + homeNum
   // A genuine 0-0 tie (e.g. neither team has turned it over) still gets a
   // bar — split exactly down the middle, since neither side is "ahead".
-  const rawAwayPct = bothNonNegative ? (total > 0 ? (awayNum! / total) * 100 : 50) : 0
+  const rawAwayPct = hasBoth ? (total > 0 ? (awayNum / total) * 100 : 50) : 0
   // For an "invert" stat (allowed yards/points, turnovers) a *lower* value
   // is better, so the bigger bar segment should go to whoever has less —
   // i.e. each team's segment shows the *other* team's share of the total.
@@ -484,7 +497,7 @@ function StatRow({ line, awayColor, homeColor }: { line: TeamStatLine; awayColor
         <span className="game-stats__stat-label">{line.label}</span>
         <span className="game-stats__stat-value">{line.homeValue}</span>
       </div>
-      {bothNonNegative && (
+      {hasBoth && (
         <div className="game-stats__stat-bar">
           <span className="game-stats__stat-bar-segment" style={{ width: `${awayPct}%`, background: awayColor }} />
           <span className="game-stats__stat-bar-segment" style={{ width: `${100 - awayPct}%`, background: homeColor }} />
