@@ -171,7 +171,38 @@ export function TeamPage({ team, year, onBack, onSelectGame }: TeamPageProps) {
   // behind it.
   const hidesResults = safeSchedule.some((entry) => entry.isProtected && entry.rawGame.state !== 'pre')
   const showResults = resultsRevealed || !hidesResults
-  const headerRecord = showResults ? (record ?? team.record) : undefined
+  /**
+   * This team's record NOW — never the one carried in on the team object.
+   *
+   * A team opened from a past game arrives with that game's record on it:
+   * tapping Texas A&M from their September loss to LSU gave a page headed
+   * "2-2", their record that day, while the same team on LSU's schedule
+   * two rows up read 4-7. A team page is a page about a team, not about
+   * the game you happened to arrive from, so the record on it is always
+   * today's.
+   *
+   * The standings map first, which is the same source every schedule row
+   * below uses, so the header and the rows cannot disagree. The page's own
+   * schedule response is the backup; both are current. `team.record` is
+   * not a fallback at all — when neither current source has an answer the
+   * header shows nothing, because a stale record that reads as a current
+   * one is worse than no record.
+   *
+   * Spoiler-gated on the team's own protection, not only on `showResults`.
+   * The standings map is the raw current record for every team and knows
+   * nothing about protection — reading it here without this check put a
+   * protected team's 8-0 in the header of a page whose results are hidden,
+   * which is the leak `recordFor` below exists to prevent on the rows. A
+   * record counts the games already played, so it gives them away.
+   *
+   * `resultsRevealed` rather than `showResults` for the protected case:
+   * `showResults` is also true for a protected team whose schedule has no
+   * played games on it to hide, and their record is still a spoiler.
+   */
+  const headerRecord =
+    showResults && (resultsRevealed || !hidesTeamSeason(team.id, settings.spoilers))
+      ? (currentRecords.get(team.id)?.overall ?? record)
+      : undefined
 
   /**
    * The opponent's record now, for every row.
