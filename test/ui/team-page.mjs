@@ -67,8 +67,16 @@ const schedules = {
     ],
   },
   // Nebraska, reached by tapping their side of that game.
+  //
+  // Deliberately WITHOUT a record of its own. ESPN's schedule response does
+  // not always carry one, and that is the case the reported bug needed:
+  // with nothing to read here the header fell back to the record the team
+  // object arrived with, which is its record as of the game you came from.
+  // Texas A&M opened from a September loss was headed "2-2" while the same
+  // team on the other side's schedule read 4-7. Standings still know the
+  // answer, and that is where the header has to get it.
   158: {
-    team: { ...team('NEB'), record: { items: [{ type: 'total', displayValue: '5-4' }] } },
+    team: team('NEB'),
     requestedSeason: { year: 2026, type: 2 },
     events: [game('g1', 'NEB', 'IU', 17, 20, '5-1', '6-0', `${iso(-20)}T19:00Z`)],
   },
@@ -194,6 +202,31 @@ check('the other team in the game opens too', neb.name, 'NEB Full Name')
 // 5-4, not the 5-1 the game carried: a page about the team says the
 // record now, not the record as of a game in October.
 check('with its record as it is now, not as of that game', neb.record, '5-4')
+// And specifically not the one it arrived carrying: this page was reached
+// by tapping Nebraska inside a game whose payload says they were 5-1.
+check('not the record the game handed it', neb.record === '5-1', false)
+
+// The sweep. Rather than naming the one element that was wrong, take every
+// record printed anywhere on a team page and require it to be a record
+// that standings — the only current source — actually reports. An as-of
+// record cannot pass that whatever element it appears in, including ones
+// added later.
+const CURRENT_RECORDS = ['8-1', '5-4', '4-5']
+const sweep = await page.evaluate(() => {
+  const root = document.querySelector('.team-page')
+  if (!root) return null
+  // Leaf elements only, so a container's concatenated text isn't scanned.
+  // A result reads "W 20-17" with a prefix and an en dash, so it cannot be
+  // mistaken for a record by this pattern.
+  return [...root.querySelectorAll('*')]
+    .filter((el) => el.children.length === 0)
+    .map((el) => el.textContent.trim())
+    .filter((t) => /^\d{1,2}-\d{1,2}$/.test(t))
+})
+console.log('   every record on the page:', JSON.stringify(sweep))
+check('the page shows at least one record', (sweep?.length ?? 0) > 0, true)
+check('and every one of them is a current record',
+  sweep?.filter((r) => !CURRENT_RECORDS.includes(r)) ?? ['no page'], [])
 
 // --- Records under the crests on an upcoming game ------------------------
 // The reported screen: an upcoming matchup opened from a team's schedule
